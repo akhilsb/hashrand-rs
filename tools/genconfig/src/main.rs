@@ -1,12 +1,12 @@
 // A tool that builds config files for all the nodes and the clients for the
 // protocol.
 
-use crypto::{ed25519, secp256k1};
+use crypto::{ed25519, secp256k1::{self,SecretKey}};
 use config::{Node, Client};
 use clap::{load_yaml, App};
 use types::Replica;
 use crypto::Algorithm;
-use std::error::Error;
+use std::{error::Error};
 use util::io::*;
 use openssl::{asn1::Asn1Time, bn::{BigNum, MsbOption}, error::ErrorStack, hash::MessageDigest, pkey::{PKey, PKeyRef, Private}, rsa::Rsa, x509::{X509, X509NameBuilder, X509Ref, X509Req, X509ReqBuilder, extension::{AuthorityKeyIdentifier, BasicConstraints, KeyUsage, SubjectAlternativeName, SubjectKeyIdentifier}}};
 use fnv::FnvHashMap as HashMap;
@@ -163,7 +163,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .parse::<u16>()
         .expect("unable to parse client_base_port into an integer");
     let t:Algorithm = m.value_of("algorithm")
-        .unwrap_or("ED25519")
+        .unwrap_or("NOPKI")
         .parse::<Algorithm>()
         .unwrap_or(Algorithm::ED25519);
     let out = m.value_of("out_type")
@@ -186,7 +186,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut ip = HashMap::default();
 
     let (cert, privkey) = new_root_cert()?;
-
+    let mut sec_keys:Vec<Vec<SecretKey>> = Vec::with_capacity(num_nodes);
+    (0..num_nodes).for_each(|i| {
+        sec_keys.push(Vec::with_capacity(num_nodes));
+    });
+    if t == Algorithm::NOPKI{
+        // Generate secret keys above and pass them to the context
+        for i in 0..num_nodes{
+            for j in i..num_nodes{
+                let skey:SecretKey = SecretKey::generate();
+                sec_keys[i].push(skey.clone());
+                if j!= i{
+                    sec_keys[j].push(skey.clone());
+                }
+                //sec_keys.push(SecretKey::generate());
+            }
+        }
+    }
     for i in 0..num_nodes {
         node.push(Node::new());
 
@@ -210,6 +226,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let kp = secp256k1::Keypair::generate();
                 pk.insert(i as Replica, kp.public().encode().to_vec());
                 node[i].secret_key_bytes = kp.secret().to_bytes().to_vec();
+            }
+            Algorithm::NOPKI =>{
+                for j in 0..num_nodes{
+                    node[i].sk_map.insert(j, sec_keys[i][j].to_bytes().to_vec());
+                }
             }
             _ => (),
         };
@@ -294,7 +315,7 @@ fn test_codec() -> Result<(), Box<dyn Error>>{
     let (cert, _key) = new_root_cert()?;
     let data = cert.to_der()?;
     let ok = Certificate(data);
-    let mut config = ClientConfig::new();
-    config.root_store.add(&ok)?;
+    //let mut config = ClientConfig::new();
+    //config.root_store.add(&ok)?;
     Ok(())
 }

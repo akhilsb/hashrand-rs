@@ -6,6 +6,7 @@ pub enum Algorithm {
     RSA,
     ED25519,
     SECP256K1,
+    NOPKI,
 }
 
 impl FromStr for Algorithm {
@@ -16,6 +17,7 @@ impl FromStr for Algorithm {
             "RSA" => Ok(Algorithm::RSA),
             "ED25519" => Ok(Algorithm::ED25519),
             "SECP256K1" => Ok(Algorithm::SECP256K1),
+            "NOPKI" => Ok(Algorithm::NOPKI),
             _ => Err("no match"),
         }
     }
@@ -59,3 +61,5 @@ pub const SECP256K1_PK_SIZE:usize = 33;
 // use self.to_bytes() to serialize
 // use crypto::secp256k1::SecretKey::from_bytes to deserialize
 pub const SECP256K1_PVT_SIZE:usize = 32;
+
+pub const SECRET_KEY_SIZE:usize = 32;

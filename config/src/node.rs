@@ -32,6 +32,8 @@ pub struct Node {
     pub crypto_alg: Algorithm,
     pub pk_map: HashMap<Replica, Vec<u8>>,
     pub secret_key_bytes: Vec<u8>,
+    /// For authenticated channels
+    pub sk_map: HashMap<Replica,Vec<u8>>,
 
     /// OpenSSL Certificate Details
     pub my_cert: Vec<u8>,
@@ -83,6 +85,17 @@ impl Node {
                 // Because unimplemented
                 return Err(ParseError::Unimplemented("RSA"));
             }
+            Algorithm::NOPKI => {
+                // In case of No PKI, use secret keys
+                for repl in &self.sk_map {
+                    if !is_valid_replica(*repl.0, self.num_nodes) {
+                        return Err(ParseError::InvalidMapEntry(*repl.0));
+                    }
+                    if repl.1.len() != crypto::SECRET_KEY_SIZE {
+                        return Err(ParseError::InvalidPkSize(repl.1.len()));
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -99,6 +112,7 @@ impl Node {
             num_nodes: 0,
             pk_map: HashMap::default(),
             secret_key_bytes: Vec::new(),
+            sk_map: HashMap::default(),
             payload: 0,
             my_cert: Vec::new(),
             root_cert:Vec::new(),

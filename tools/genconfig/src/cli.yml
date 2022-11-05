@@ -41,6 +41,7 @@ args:
         possible_values:
           - ED25519
           - SECP256K1
+          - NOPKI
         takes_value: true
     - num_faults:
         short: f

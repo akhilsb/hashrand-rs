@@ -67,6 +67,10 @@ impl Client {
                 // Because unimplemented
                 return Err(ParseError::Unimplemented("RSA"));
             }
+
+            Algorithm::NOPKI => {
+                // In case of No PKI, use secret keys
+            }
         }
         Ok(())
     }

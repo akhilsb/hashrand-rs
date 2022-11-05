@@ -38,4 +38,6 @@ members = [
     "examples/artemis/client",
     # Dummy consensus module
     "consensus/dummy",
+    # RBC module
+    "consensus/rbc",
 ]

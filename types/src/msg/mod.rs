@@ -29,3 +29,4 @@ pub mod artemis;
 pub mod apollo;
 pub mod dummy;
 pub mod sinkexp;
+pub mod rbc;
