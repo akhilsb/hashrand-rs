@@ -9,7 +9,7 @@ use serde::{
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct Msg{
     // Represent the data as a generic vector of Integers
-    pub value: Vec<u8>,
+    pub value: String,
     pub node:Replica,
     pub msg_type:usize,
 }
@@ -25,6 +25,7 @@ impl WrapperMsg {
         let new_msg = msg.clone();
         let bytes = bincode::serialize(&new_msg).expect("Failed to serialize protocol message");
         let mac = do_mac(&bytes.as_slice(), sk);
+        //log::info!("secret key of: {} {:?}",msg.clone().node,sk);
         Self{
             msg: new_msg,
             mac: mac,

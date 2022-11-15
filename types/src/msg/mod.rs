@@ -30,3 +30,4 @@ pub mod apollo;
 pub mod dummy;
 pub mod sinkexp;
 pub mod rbc;
+pub mod appxcon;

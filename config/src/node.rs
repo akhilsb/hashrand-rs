@@ -28,6 +28,7 @@ pub struct Node {
     pub client_port: u16,
     pub payload: usize,
     
+    pub prot_payload: String,
     /// Crypto primitives
     pub crypto_alg: Algorithm,
     pub pk_map: HashMap<Replica, Vec<u8>>,
@@ -114,6 +115,7 @@ impl Node {
             secret_key_bytes: Vec::new(),
             sk_map: HashMap::default(),
             payload: 0,
+            prot_payload: String::new(),
             my_cert: Vec::new(),
             root_cert:Vec::new(),
             my_cert_key: Vec::new(),

@@ -1,5 +1,4 @@
-use tokio::sync::mpsc::UnboundedSender;
-use types::rbc::{ProtocolMsg, Replica};
+use futures::channel::mpsc::UnboundedSender;use types::rbc::{ProtocolMsg, Replica};
 use config::Node;
 use fnv::FnvHashMap as HashMap;
 use std::{sync::Arc, collections::HashSet};

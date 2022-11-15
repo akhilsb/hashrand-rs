@@ -40,4 +40,7 @@ members = [
     "consensus/dummy",
     # RBC module
     "consensus/rbc",
+    "consensus/appxcon",
+    "examples/rbc_ex",
+    "examples/appxcox_new",
 ]
