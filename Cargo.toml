@@ -43,4 +43,6 @@ members = [
     "consensus/appxcon",
     "examples/rbc_ex",
     "examples/appxcox_new",
+    "consensus/ct_rbc",
+    "consensus/hash_cc",
 ]

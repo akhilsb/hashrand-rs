@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     1 => log::set_max_level(log::LevelFilter::Debug),
     //     2 | _ => log::set_max_level(log::LevelFilter::Trace),
     // }
-    log::set_max_level(log::LevelFilter::Info);
+    log::set_max_level(log::LevelFilter::Debug);
 
 
     if let Some(v) = m.value_of("sleep") {
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     // Start the Reliable Broadcast protocol
     core_rt.block_on(
-        appxcon::node::reactor(
+        ct_rbc::node::reactor(
             &config,
             net_send,
             net_recv,

@@ -1,5 +1,6 @@
 use crypto::hash::{Hash};
 use crypto::hash::{do_mac};
+use merkle_light::proof::Proof;
 use serde::{Serialize, Deserialize};
 use crate::{WireReady};
 
@@ -13,6 +14,20 @@ pub struct Msg {
 }
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
+pub struct CTRBCMsg{
+    pub shard:Vec<u8>,
+    pub mp:MerkleProof,
+    pub round:u32,
+    pub origin:Replica
+}
+
+impl CTRBCMsg {
+    pub fn new(shard:Vec<u8>,mp:MerkleProof,round:u32,origin:Replica)->Self{
+        CTRBCMsg { shard: shard, mp: mp, round: round, origin: origin }
+    }
+}
+
+#[derive(Debug,Serialize,Deserialize,Clone)]
 pub enum ProtMsg{
     // Value as a string, Originating node
     RBCInit(Msg,Replica),
@@ -23,6 +38,36 @@ pub enum ProtMsg{
     // Witness message
     // List of n-f RBCs we accepted, the sender of the message, and the round number
     WITNESS(Vec<Replica>,Replica,u32),
+
+    // Erasure-coded shard, corresponding Merkle proof
+    CTRBCInit(CTRBCMsg),
+    // Echo message with Origin node, and Sender Node
+    CTECHO(CTRBCMsg,Replica),
+    // Ready message with RBC origin and Sender Node
+    CTREADY(CTRBCMsg,Replica),
+    // Reconstruction message with Sender
+    CTReconstruct(CTRBCMsg,Replica)
+}
+
+#[derive(Debug,Serialize,Deserialize,Clone)]
+pub struct MerkleProof{
+    lemma: Vec<Hash>,
+    path: Vec<bool>,
+}
+
+impl MerkleProof {
+    pub fn from_proof(proof:Proof<Hash>)->MerkleProof{
+        MerkleProof{
+            lemma:(*proof.lemma()).to_vec(),
+            path:(*proof.path()).to_vec()
+        }
+    }
+    pub fn to_proof(&self)->Proof<Hash>{
+        Proof::new(self.lemma.clone(), self.path.clone())
+    }
+    pub fn root(&self)->Hash {
+        self.lemma.last().clone().unwrap().clone()
+    }
 }
 
 #[derive(Debug,Serialize,Deserialize,Clone)]

@@ -76,6 +76,7 @@ pub(crate) async fn process_msg(cx: &mut Context, wrapper_msg: WrapperMsg){
                     handle_witness(cx, vec_rbc_indices, round, witness_sender).await;
                 }
             }
+            _=>{}
         }
     }
     else {

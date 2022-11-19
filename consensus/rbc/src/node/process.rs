@@ -91,7 +91,7 @@ async fn process_echo(context:&mut Context,wrapper_msg:Arc<WrapperMsg>)->bool {
     if context.echo_set.contains(&wrapper_msg.msg.node){
         // Already received echo from this node, do not document
         log::warn!("Already received echo from node {}",wrapper_msg.msg.node);
-        //return false;
+        return false;
     }
     context.echo_set.insert(wrapper_msg.msg.node);
     let high_threshold = context.num_nodes - context.num_faults;
@@ -141,7 +141,7 @@ async fn process_ready(context:&mut Context,wrapper_msg:Arc<WrapperMsg>)->bool {
     let high_threshold = context.num_nodes - context.num_faults;
     if context.ready_set.len() == min_threshold{
         // Send out readys again
-        log::debug!("Sending READYs because of t+1 threshold {}",wrapper_msg.msg.node);
+        log::debug!("Sending READYs because of f+1 threshold {}",wrapper_msg.msg.node);
         let ready_msg = Msg{
             msg_type:2,
             node: context.myid,
@@ -172,7 +172,7 @@ async fn process_ready(context:&mut Context,wrapper_msg:Arc<WrapperMsg>)->bool {
     }
     else if context.ready_set.len() == high_threshold {
         // Terminate
-        log::debug!("Received n-t readys, terminate {}",wrapper_msg.msg.node);
+        log::debug!("Received n-f readys, terminate {}",wrapper_msg.msg.node);
         println!("Terminated!, {}",wrapper_msg.msg.node);
     }
     true

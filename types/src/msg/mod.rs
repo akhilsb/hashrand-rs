@@ -31,3 +31,4 @@ pub mod dummy;
 pub mod sinkexp;
 pub mod rbc;
 pub mod appxcon;
+pub mod hash_cc;
