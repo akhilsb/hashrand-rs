@@ -1,7 +1,7 @@
 use crypto::hash::{Hash};
 use crypto::hash::{do_mac};
-use merkle_light::proof::Proof;
 use serde::{Serialize, Deserialize};
+use crate::appxcon::MerkleProof;
 use crate::{WireReady};
 
 use super::Replica;
@@ -67,11 +67,13 @@ pub enum ProtMsg{
     WSSInit(WSSMsg),
     WSSEcho(Hash,Replica,Replica),
     WSSReady(Hash,Replica,Replica),
-    BatchWSSInit(BatchWSSMsg),
+    WSSReconstruct(WSSMsg,Replica),
+    BatchWSSInit(BatchWSSMsg,CTRBCMsg),
     // Batch WSS needs agreement on the commitment vector, hence need to use Cachin-Tessaro Reliable broadcast
-    BatchWSSEcho(CTRBCMsg,Replica),
-    BatchWSSReady(CTRBCMsg,Replica),
-    BatchWSSReconstruct(CTRBCMsg,Replica),
+    BatchWSSEcho(CTRBCMsg,Hash,Replica),
+    BatchWSSReady(CTRBCMsg,Hash,Replica),
+    BatchWSSReconstruct(CTRBCMsg,Hash,Replica),
+    BatchSecretReconstruct(WSSMsg,Replica,usize),
     // Gather related messages
     GatherEcho(Vec<Replica>,Replica),
     GatherEcho2(Vec<Replica>,Replica),
@@ -84,31 +86,12 @@ pub enum ProtMsg{
     // Reconstruction message with Sender
     AppxConCTReconstruct(CTRBCMsg,Replica),
     // Witness for Approximate Agreement 
-    AppxConWitness(Vec<u8>,Replica,Replica),
+    // List of first n-f accepted rbcs, Sender node, round number
+    AppxConWitness(Vec<Replica>,Replica,u32),
     // Echos related to Binary Approximate Agreement
-    BinaryAAEcho(Vec<(Replica,u8)>,Replica),
-    BinaryAAEcho2(Vec<(Replica,u8)>,Replica),
-}
-
-#[derive(Debug,Serialize,Deserialize,Clone)]
-pub struct MerkleProof{
-    lemma: Vec<Hash>,
-    path: Vec<bool>,
-}
-
-impl MerkleProof {
-    pub fn from_proof(proof:Proof<Hash>)->MerkleProof{
-        MerkleProof{
-            lemma:(*proof.lemma()).to_vec(),
-            path:(*proof.path()).to_vec()
-        }
-    }
-    pub fn to_proof(&self)->Proof<Hash>{
-        Proof::new(self.lemma.clone(), self.path.clone())
-    }
-    pub fn root(&self)->Hash {
-        self.lemma.last().clone().unwrap().clone()
-    }
+    // (Msg for AA inst, message), sender node, round number
+    BinaryAAEcho(Vec<(Replica,Vec<u8>)>,Replica,u32),
+    BinaryAAEcho2(Vec<(Replica,Vec<u8>)>,Replica,u32),
 }
 
 #[derive(Debug,Serialize,Deserialize,Clone)]

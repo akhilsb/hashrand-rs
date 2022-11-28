@@ -3,7 +3,7 @@ use std::{sync::Arc};
 use crypto::hash::{verf_mac};
 use types::{hash_cc::{WrapperMsg, ProtMsg}};
 
-use crate::node::{process_wss_init, process_wssecho, process_wssready, process_gatherecho, process_echo, process_ready, process_reconstruct_message, handle_witness, process_rbc_init, process_reconstruct};
+use crate::node::{process_wss_init, process_wssecho, process_wssready, process_gatherecho, process_baa_echo, process_baa_echo2, process_reconstruct, process_batchwss_init, process_batch_wssecho, process_batchwssready, process_batchreconstruct_message, process_batchreconstruct};
 
 use super::Context;
 //use async_recursion::async_recursion;
@@ -56,42 +56,37 @@ pub(crate) async fn process_msg(cx: &mut Context, wrapper_msg: WrapperMsg){
                 log::debug!("Received Gather ECHO2 from node {}",echo_sender);
                 process_gatherecho(cx,term_secrets, echo_sender, 2u32).await;
             },
-            ProtMsg::AppxConCTRBCInit(ctr)=> {
-                // RBC initialized
-                log::debug!("Received RBC init {:?} from node {} for round {}",ctr.clone(),ctr.clone().origin,ctr.clone().round);
-                // Reject all messages from older rounds
-                if cx.curr_round <= ctr.round{
-                    process_rbc_init(cx,ctr).await;
-                }
+            ProtMsg::BinaryAAEcho(msgs, echo_sender, round) =>{
+                log::debug!("Received Binary AA Echo1 from node {}",echo_sender);
+                process_baa_echo(cx, msgs, echo_sender, round).await;
             },
-            ProtMsg::AppxConCTECHO(ctr,echo_sender) =>{
-                // ECHO for main_msg: RBC originated by orig, echo sent by sender
-                // Reject all messages from older rounds and accepted RBCs
-                if cx.curr_round <= ctr.round{
-                    process_echo(cx, ctr, echo_sender).await;
-                }
-            },
-            ProtMsg::AppxConCTREADY(ctr,ready_sender) =>{
-                // READY for main_msg: RBC originated by orig, echo sent by sender
-                if cx.curr_round <= ctr.round{
-                    process_ready(cx, ctr,ready_sender).await;
-                }
-            },
-            ProtMsg::AppxConCTReconstruct(ctr,recon_sender) => {
-                // Reconstruct message for RBC
-                if cx.curr_round <= ctr.round{
-                    process_reconstruct_message(cx,ctr,recon_sender).await;
-                }
-            },
-            ProtMsg::AppxConWitness(term_rbcs, witness_sender, round) => {
-                // WITNESS for main_msg: RBC originated by orig, echo sent by sender
-                if cx.curr_round <= round{
-                    handle_witness(cx,term_rbcs,witness_sender,round).await;
-                }
+            ProtMsg::BinaryAAEcho2(msgs, echo2_sender, round) =>{
+                log::debug!("Received Binary AA Echo2 from node {}",echo2_sender);
+                process_baa_echo2(cx, msgs, echo2_sender, round).await;
             },
             ProtMsg::WSSReconstruct(wss_msg, share_sender)=>{
                 log::debug!("Received secret reconstruct message from node {}",share_sender);
                 process_reconstruct(cx, wss_msg, share_sender).await;
+            },
+            ProtMsg::BatchWSSInit(wss_msg, ctr)=>{
+                log::debug!("Received Batch Secret Sharing init message from node {}",wss_msg.origin.clone());
+                process_batchwss_init(cx,wss_msg, ctr).await;
+            },
+            ProtMsg::BatchWSSEcho(ctr, mr_root, echo_sender)=>{
+                log::debug!("Received Batch Secret Sharing ECHO message from node {} for secret from {}",echo_sender,ctr.origin);
+                process_batch_wssecho(cx,ctr, mr_root,echo_sender).await;
+            },
+            ProtMsg::BatchWSSReady(ctr, mr_root, ready_sender)=>{
+                log::debug!("Received Batch Secret Sharing READY message from node {} for secret from {}",ready_sender,ctr.origin);
+                process_batchwssready(cx,ctr, mr_root,ready_sender).await;
+            },
+            ProtMsg::BatchWSSReconstruct(ctr, mr_root, recon_sender)=>{
+                log::debug!("Received Batch Secret Sharing Recon message from node {} for secret from {}",recon_sender,ctr.origin);
+                process_batchreconstruct_message(cx,ctr, mr_root,recon_sender).await;
+            },
+            ProtMsg::BatchSecretReconstruct(wssmsg, share_sender, sec_num)=>{
+                log::debug!("Received Batch Secret Sharing secret share from node {} for secret from {} with sec_num {}",share_sender,wssmsg.origin,sec_num);
+                process_batchreconstruct(cx,wssmsg, share_sender,sec_num).await;
             },
             _ => {}
         }

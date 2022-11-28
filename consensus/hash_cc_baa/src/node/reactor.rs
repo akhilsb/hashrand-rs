@@ -14,7 +14,7 @@ use types::hash_cc::Replica;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::node::process_msg;
+use crate::node::{process_msg, start_batchwss};
 
 use super::context::Context;
 use super::start_wss;
@@ -31,7 +31,7 @@ pub async fn reactor(
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_millis());
-    start_wss(&mut cx).await;
+    start_batchwss(&mut cx).await;
     loop {
         tokio::select! {
             pmsg_opt = net_recv.next() => {

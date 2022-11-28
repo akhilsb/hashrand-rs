@@ -11,7 +11,7 @@
   "num_faults": 1,
   "block_size": 300,
   "client_port": 7001,
-  "prot_payload":"a,This is a very very very very big message being broadcasted using RBC of node 2 using erasure codes and Cachin-Tessaro Broadcasts,10",
+  "prot_payload":"cc,This is a very very very very big message being broadcasted using RBC of node 1 using erasure codes and Cachin-Tessaro Broadcasts,10",
   "payload": 0,
   "crypto_alg": "NOPKI",
   "pk_map": {},

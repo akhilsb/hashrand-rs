@@ -1,0 +1,3 @@
+[submodule "vsss-rs"]
+	path = vsss-rs
+	url = git@github.com:akhilsb/vsss-rs.git

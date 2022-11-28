@@ -15,6 +15,13 @@ pub fn do_hash(bytes: &[u8]) -> Hash {
     return hash.into();
 } 
 
+pub fn do_hash_merkle(bytes: &[u8])-> Hash{
+    let mut sha256 = Sha256::new();
+    sha256.update(&[0x00]);
+    sha256.update(bytes);
+    sha256.clone().finalize().into()
+}
+
 pub fn ser_and_hash(obj: &impl Serialize) -> Hash {
     let serialized_bytes = bincode::serialize(obj).unwrap();
     return do_hash(&serialized_bytes);

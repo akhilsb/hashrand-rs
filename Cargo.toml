@@ -45,4 +45,5 @@ members = [
     "examples/appxcox_new",
     "consensus/ct_rbc",
     "consensus/hash_cc",
+    "consensus/hash_cc_baa"
 ]

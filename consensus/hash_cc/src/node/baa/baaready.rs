@@ -1,11 +1,9 @@
-use std::{sync::Arc, collections::{ HashMap}};
+use std::{collections::HashMap, sync::Arc};
 
 use async_recursion::async_recursion;
-use types::appxcon::{ Replica, ProtMsg, WrapperMsg,  CTRBCMsg};
+use types::{hash_cc::{CTRBCMsg, ProtMsg, WrapperMsg}, Replica, appxcon::{verify_merkle_proof, reconstruct_and_verify, reconstruct_and_return}};
 
-use crate::node::{check_for_ht_witnesses, handle_witness, verify_merkle_proof, reconstruct_and_verify, RoundState, reconstruct_and_return};
-
-use super::{Context};
+use crate::node::{Context, RoundState, baa::check_for_ht_witnesses, handle_witness};
 
 #[async_recursion]
 pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica){
@@ -16,7 +14,10 @@ pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica)
     let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
     // Highly unlikely that the node will get an echo before rbc_init message
     log::info!("Received READY message from {} for RBC of node {}",ready_sender,rbc_origin);
-    let round = 0;
+    let round = ctr.round;
+    if cx.curr_round > ctr.round{
+        return;
+    }
     if !verify_merkle_proof(&mp, &shard){
         log::error!("Failed to evaluate merkle proof for READY received from node {} for RBC {}",ready_sender,rbc_origin);
         return;
@@ -25,6 +26,12 @@ pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica)
         // 1. Add readys to the round state object
         let rnd_state = round_state_map.get_mut(&round).unwrap();
         if rnd_state.terminated_rbcs.contains(&rbc_origin){
+            return;
+        }
+        if !rnd_state.node_msgs.contains_key(&rbc_origin){
+            let mut readyset = HashMap::default();
+            readyset.insert(ready_sender,(shard.clone(),mp.clone()));
+            rnd_state.readys.insert(rbc_origin, readyset);
             return;
         }
         let merkle_root = rnd_state.node_msgs.get(&rbc_origin).unwrap().2.clone();
@@ -45,7 +52,7 @@ pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica)
         let readys = rnd_state.readys.get_mut(&rbc_origin).unwrap();
         // 2. Check if readys reached the threshold, init already received, and round number is matching
         log::debug!("READY check: Round equals: {}, echos.len {}, contains key: {}"
-        ,cx.round == round,readys.len(),rnd_state.node_msgs.contains_key(&rbc_origin));
+        ,cx.curr_round == round,readys.len(),rnd_state.node_msgs.contains_key(&rbc_origin));
         if  readys.len() == cx.num_faults+1 &&
             rnd_state.node_msgs.contains_key(&rbc_origin) && !readys.contains_key(&cx.myid){
             // Broadcast readys, otherwise, just wait longer
@@ -56,7 +63,7 @@ pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica)
                 Err(error)=> log::error!("Shard reconstruction failed because of the following reason {:?}",error),
                 Ok(vec_x)=> {
                     let ctrbc = CTRBCMsg::new(vec_x.0, vec_x.1, round, rbc_origin);
-                    msgs_to_be_sent.push(ProtMsg::CTREADY(ctrbc, cx.myid));
+                    msgs_to_be_sent.push(ProtMsg::AppxConCTREADY(ctrbc, cx.myid));
                 }
             };
         }
@@ -73,26 +80,9 @@ pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica)
                 },
                 Ok(vec_x)=> {
                     let ctrbc = CTRBCMsg::new(vec_x.0, vec_x.1, round, rbc_origin);
-                    msgs_to_be_sent.push(ProtMsg::CTReconstruct(ctrbc, cx.myid));
+                    msgs_to_be_sent.push(ProtMsg::AppxConCTReconstruct(ctrbc, cx.myid));
                 }
             };
-            log::info!("Terminated RBC of node {} with value",rbc_origin);
-            // if rnd_state.terminated_rbcs.len() >= cx.num_nodes - cx.num_faults{
-            //     // Has a witness message been sent already? If not, send it. 
-            //     if !rnd_state.witness_sent{
-            //         log::info!("Terminated n-f RBCs, sending list of first n-f RBCs to other nodes");
-            //         log::info!("Round state: {:?}",rnd_state.terminated_rbcs);
-            //         let vec_rbcs = Vec::from_iter(rnd_state.terminated_rbcs.clone().into_iter());
-            //         let witness_msg = ProtMsg::WITNESS(
-            //             vec_rbcs.clone(), 
-            //             cx.myid,
-            //             cx.round
-            //         );
-            //         msgs_to_be_sent.push(witness_msg);
-            //         rnd_state.witness_sent = true;
-            //     }
-            //     check_for_ht_witnesses(cx, main_msg.round).await;
-            // }
         }
     }
     else{
@@ -115,10 +105,10 @@ pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica)
             }
             else {
                 match prot_msg.clone() {
-                    ProtMsg::CTREADY(ctr, sender)=>{
+                    ProtMsg::AppxConCTREADY(ctr, sender)=>{
                         process_ready(cx, ctr.clone(),sender).await;
                     },
-                    ProtMsg::CTReconstruct(ctr, sender) => {
+                    ProtMsg::AppxConCTReconstruct(ctr, sender) => {
                         process_reconstruct_message(cx,ctr.clone(),sender).await;
                     }
                     _=>{}
@@ -138,7 +128,7 @@ pub async fn process_reconstruct_message(cx: &mut Context,ctr:CTRBCMsg,recon_sen
     let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
     // Highly unlikely that the node will get an echo before rbc_init message
     log::info!("Received Reconstruct message from {} for RBC of node {}",recon_sender,rbc_origin);
-    let round = 0;
+    let round = ctr.round;
     if !verify_merkle_proof(&mp, &shard){
         log::error!("Failed to evaluate merkle proof for RECON received from node {} for RBC {}",recon_sender,rbc_origin);
         return;
@@ -146,6 +136,12 @@ pub async fn process_reconstruct_message(cx: &mut Context,ctr:CTRBCMsg,recon_sen
     if round_state_map.contains_key(&round){
         let rnd_state = round_state_map.get_mut(&round).unwrap();
         if rnd_state.terminated_rbcs.contains(&rbc_origin){
+            return;
+        }
+        if !rnd_state.node_msgs.contains_key(&rbc_origin){
+            let mut reconset = HashMap::default();
+            reconset.insert(recon_sender,shard.clone());
+            rnd_state.recon_msgs.insert(rbc_origin, reconset);
             return;
         }
         // Check merkle root validity
@@ -187,15 +183,15 @@ pub async fn process_reconstruct_message(cx: &mut Context,ctr:CTRBCMsg,recon_sen
                             log::info!("Terminated n-f RBCs, sending list of first n-f RBCs to other nodes");
                             log::info!("Round state: {:?}",rnd_state.terminated_rbcs);
                             let vec_rbcs = Vec::from_iter(rnd_state.terminated_rbcs.clone().into_iter());
-                            let witness_msg = ProtMsg::WITNESS(
+                            let witness_msg = ProtMsg::AppxConWitness(
                                 vec_rbcs.clone(), 
                                 cx.myid,
-                                cx.round
+                                cx.curr_round
                             );
                             msgs_to_be_sent.push(witness_msg);
                             rnd_state.witness_sent = true;
                         }
-                        check_for_ht_witnesses(cx, 0).await;
+                        check_for_ht_witnesses(cx, cx.curr_round).await;
                     }
                 }
             }
@@ -218,8 +214,8 @@ pub async fn process_reconstruct_message(cx: &mut Context,ctr:CTRBCMsg,recon_sen
             }
             else {
                 match prot_msg {
-                    ProtMsg::WITNESS(vec, _origin, round) => {
-                        handle_witness(cx,vec.clone(),round.clone(),cx.myid).await;
+                    ProtMsg::AppxConWitness(vec, _origin, round) => {
+                        handle_witness(cx,vec.clone(),cx.myid,round.clone()).await;
                     },
                     _ => {}
                 }

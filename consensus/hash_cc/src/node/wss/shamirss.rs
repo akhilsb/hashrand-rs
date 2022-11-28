@@ -1,3 +1,8 @@
+/**
+ * Cloned from https://github.com/bitrocks/verifiable-secret-sharing
+ * Author: bitrocks: https://github.com/bitrocks
+ */
+
 pub use num_bigint;
 use num_bigint::{BigInt, RandBigInt};
 use num_traits::{One, Zero};
@@ -138,83 +143,4 @@ impl ShamirSecretSharing {
         // );
         (r, s, t)
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_wikipedia_example() {
-        let sss = ShamirSecretSharing {
-            threshold: 3,
-            share_amount: 6,
-            prime: BigInt::from(1613),
-        };
-        let shares = sss.evaluate_polynomial(vec![
-            BigInt::from(1234),
-            BigInt::from(166),
-            BigInt::from(94),
-        ]);
-        assert_eq!(
-            shares,
-            [
-                (1, BigInt::from(1494)),
-                (2, BigInt::from(329)),
-                (3, BigInt::from(965)),
-                (4, BigInt::from(176)),
-                (5, BigInt::from(1188)),
-                (6, BigInt::from(775))
-            ]
-        );
-        assert_eq!(
-            sss.recover(&[
-                (1, BigInt::from(1494)),
-                (2, BigInt::from(329)),
-                (3, BigInt::from(965))
-            ]),
-            BigInt::from(1234)
-        );
-    }
-    #[test]
-    fn test_large_prime() {
-        let sss = ShamirSecretSharing {
-            threshold: 3,
-            share_amount: 5,
-            // prime: BigInt::from(6999213259363483493573619703 as i128),
-            prime: BigInt::parse_bytes(
-                b"fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
-                16,
-            )
-            .unwrap(),
-        };
-        let secret = BigInt::parse_bytes(b"ffffffffffffffffffffffffffffffffffffff", 16).unwrap();
-        let shares = sss.split(secret.clone());
-        assert_eq!(secret, sss.recover(&shares[0..sss.threshold as usize]));
-    }
-
-    #[test]
-    fn test_secp256k1() {
-        use secp256k1::{Message, Secp256k1};
-        let secp = Secp256k1::new();
-        let mut rng = rand::thread_rng();
-        let (secret, public) = secp.generate_keypair(&mut rng);
-        let message = Message::from_slice(&[0xab; 32]).expect("32 bytes");
-        let sig = secp.sign(&message, &secret);
-        assert!(secp.verify(&message, &sig, &public).is_ok());
-    }
-}
-
-fn main() {
-    let sss = ShamirSecretSharing {
-        threshold: 3,
-        share_amount: 5,
-        prime: BigInt::parse_bytes(b"fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",16).unwrap()
-        };
-    
-    let secret = BigInt::parse_bytes(b"ffffffffffffffffffffffffffffffffffffff", 16).unwrap();
-    
-    let shares = sss.split(secret.clone());
-    
-    println!("shares: {:?}", shares);
-    assert_eq!(secret, sss.recover(&shares[0..sss.threshold as usize]));
 }

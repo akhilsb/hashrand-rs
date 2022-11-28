@@ -2,7 +2,7 @@ use clap::{
     load_yaml, 
     App
 };
-use types::appxcon::WrapperMsg;
+use types::{hash_cc::WrapperMsg};
 use config::Node;
 use std::error::Error;
 
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     1 => log::set_max_level(log::LevelFilter::Debug),
     //     2 | _ => log::set_max_level(log::LevelFilter::Trace),
     // }
-    log::set_max_level(log::LevelFilter::Debug);
+    log::set_max_level(log::LevelFilter::Error);
 
 
     if let Some(v) = m.value_of("sleep") {
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     // Start the Reliable Broadcast protocol
     core_rt.block_on(
-        ct_rbc::node::reactor(
+        hash_cc_baa::node::reactor(
             &config,
             net_send,
             net_recv,

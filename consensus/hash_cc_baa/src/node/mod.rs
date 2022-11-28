@@ -4,6 +4,9 @@ pub use wss::*;
 pub mod baa;
 pub use baa::*;
 
+pub mod batch_wss;
+pub use batch_wss::*;
+
 pub mod reactor;
 pub use reactor::*;
 
