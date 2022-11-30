@@ -11,6 +11,11 @@ use types::rbc::{Msg, ProtocolMsg, WrapperMsg};
 
 use std::sync::Arc;
 
+use bls12_381_plus::{G1Projective, Scalar};
+use ff::Field;
+use rand::rngs::OsRng;
+use vsss_rs::Feldman;
+
 pub async fn reactor(
     config: &Node,
     net_send: UnboundedSender<(Replica, Arc<ProtocolMsg>)>,
@@ -36,10 +41,8 @@ pub async fn reactor(
     //     }
     //     log::debug!("Send RBCInit messages from node {:?}",cx.myid);
     // }
-    if cx.myid == 1 {
-        log::info!("First node, starting RBC now!");
-        start_rbc(&mut cx).await;
-    }
+    log::info!("First node, starting RBC now!");
+    start_rbc(&mut cx).await;
     // Start event loop
     loop {
         tokio::select! {
@@ -61,20 +64,45 @@ pub async fn reactor(
 }
 
 pub async fn start_rbc(cx: &mut Context) {
-    if cx.myid == 1 {
-        let echo_msg = Msg {
-            msg_type: 1,
-            node: cx.myid,
-            value: bincode::serialize("string").expect("Couldn't serialize message"),
-        };
-        for (replica, sec_key) in &cx.sec_key_map.clone() {
-            let wrapper_msg = WrapperMsg::new(echo_msg.clone(), &sec_key.as_slice());
-            let prot_msg = ProtocolMsg::RBCInit(wrapper_msg);
+    let mut rng = OsRng::default();
+    let secret = Scalar::random(&mut rng);
+    let res =
+        Feldman::<2, 4>::split_secret::<Scalar, G1Projective, OsRng, 33>(secret, None, &mut rng);
+    assert!(res.is_ok());
+    let (shares, verifier) = res.unwrap();
+    for s in &shares {
+        assert!(verifier.verify(s));
+    }
+    let verifier_data: (usize, _) = (cx.myid, verifier);
+    let coded = bincode::serialize(&verifier_data).expect("Failed to serialize verifier");
+    let echo_msg = Msg {
+        msg_type: 1,
+        node: cx.myid,
+        value: coded,
+    };
+    for (replica, sec_key) in &cx.sec_key_map.clone() {
+        if *replica != cx.myid {
+            let share_msg = Msg {
+                msg_type: 4,
+                node: cx.myid,
+                value: bincode::serialize(&shares[*replica])
+                    .expect("Couldn't serialize secret share"),
+            };
+            let wrapper_msg = WrapperMsg::new(share_msg.clone(), &sec_key.as_slice());
+            let prot_msg = ProtocolMsg::SHARE(cx.myid, wrapper_msg);
             log::info!("{} {:?}", replica, prot_msg.clone());
             let sent_msg = Arc::new(prot_msg);
             cx.c_send(*replica, sent_msg).await;
+        } else {
+            log::info!("Inserting share into self {} {}", cx.myid, *replica);
+            cx.secret_shares.insert(*replica, shares[*replica]);
         }
-        log::debug!("Send RBCInit messages from node {:?}", cx.myid);
-    }
-}
 
+        let wrapper_msg = WrapperMsg::new(echo_msg.clone(), &sec_key.as_slice());
+        let prot_msg = ProtocolMsg::RBCInit(wrapper_msg);
+        log::info!("{} {:?}", replica, prot_msg.clone());
+        let sent_msg = Arc::new(prot_msg);
+        cx.c_send(*replica, sent_msg).await;
+    }
+    log::debug!("Send RBCInit messages from node {:?}", cx.myid);
+}

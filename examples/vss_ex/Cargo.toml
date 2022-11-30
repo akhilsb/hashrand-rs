@@ -1,5 +1,5 @@
 [package]
-name = "rbc"
+name = "vss_ex"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,18 +7,13 @@ edition = "2021"
 
 [dependencies]
 config = { package = "config", path="../../config"}
-consensus = { package = "consensus", path="../"}
-types = { package = "types", path="../../types"}
-crypto = { package = "crypto", path="../../crypto"}
-net = { package = "net", path="../../net"}
+vss = { package = "vss", path="../../consensus/vss"}
+consensus = { package = "consensus", path="../../consensus"}
 util = { package = "util", path="../../util"}
+types = { package = "types", path="../../types"}
+net = { package = "net", path="../../net"}
+clap = {version = "2", features = ["yaml"]}
 tokio = { version = "1.0", features = ["full"] }
-futures = "^0.3"
-bincode = "1"
-bytes = "1.0"
-tokio-util = "0.6"
-tokio-stream = "0.1"
-serde = "1.0.70"
+futures = "0.3.8"
 log="*"
-priority-queue="1"
-fnv = "1"
+simple_logger="*"

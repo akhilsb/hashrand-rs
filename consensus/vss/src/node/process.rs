@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use crate::node::context::Context;
+use bls12_381_plus::{G1Projective, Scalar};
 use crypto::hash::verf_mac;
 use types::rbc::{Msg, ProtocolMsg, WrapperMsg};
+
+use vsss_rs::{FeldmanVerifier, Share};
 
 pub fn check_proposal(wrapper_msg: Arc<WrapperMsg>, cx: &Context) -> bool {
     // validate MAC
@@ -24,7 +27,11 @@ pub(crate) async fn process_msg(cx: &mut Context, protmsg: ProtocolMsg) {
     log::debug!("Received protocol message: {:?}", protmsg);
     match protmsg {
         ProtocolMsg::RBCInit(wrapper_msg) => {
-            log::debug!("Received RBC initialization : {:?}", wrapper_msg);
+            log::debug!(
+                "Received RBC initialization : {:?} from node {}",
+                wrapper_msg,
+                wrapper_msg.msg.node
+            );
             // Verify MAC first
             let rbc_init = Arc::new(wrapper_msg.clone());
             if check_proposal(rbc_init, cx) {
@@ -47,8 +54,12 @@ pub(crate) async fn process_msg(cx: &mut Context, protmsg: ProtocolMsg) {
                 process_ready(cx, Arc::new(wrapper_msg)).await;
             }
         }
-        _ => {
-            unimplemented!();
+        ProtocolMsg::SHARE(node, wrapper_msg) => {
+            log::debug!("Received secret share: {:?}", wrapper_msg);
+            // Verify MAC first
+            let share = bincode::deserialize::<Share<33>>(wrapper_msg.msg.value.as_slice())
+                .expect("Couldn't deserialize secret share");
+            cx.secret_shares.insert(node, share);
         }
     }
 }
@@ -178,7 +189,14 @@ async fn process_ready(context: &mut Context, wrapper_msg: Arc<WrapperMsg>) -> b
     } else if context.ready_set.len() == high_threshold {
         // Terminate
         log::debug!("Received n-f readys, terminate {}", wrapper_msg.msg.node);
-        println!("Terminated!, {}", wrapper_msg.msg.node);
+        let verifier = bincode::deserialize::<(usize, FeldmanVerifier<Scalar, G1Projective, 2>)>(
+            wrapper_msg.msg.value.as_slice(),
+        )
+        .expect("Couldn't deserialize verifier");
+        let verified = context.secret_shares.contains_key(&verifier.0)
+            && verifier.1.verify(&context.secret_shares[&verifier.0]);
+
+        println!("Terminated!, {}, Verified: {}", verifier.0, verified);
     }
     true
 }
