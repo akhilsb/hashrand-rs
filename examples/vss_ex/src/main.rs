@@ -1,6 +1,7 @@
 use clap::{load_yaml, App};
 use config::Node;
 use std::error::Error;
+use types::appxcon::WrapperMsg;
 use types::rbc::ProtocolMsg;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -59,7 +60,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap();
 
     // Setup networking
-    let protocol_network = net::futures_manager::Protocol::<ProtocolMsg, ProtocolMsg>::new(
+    let protocol_network = net::futures_manager::Protocol::<WrapperMsg, WrapperMsg>::new(
         config.id,
         config.num_nodes,
         config.root_cert.clone(),

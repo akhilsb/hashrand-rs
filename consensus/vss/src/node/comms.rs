@@ -1,9 +1,10 @@
-use tokio::task::JoinHandle;
-use types::rbc::{ProtocolMsg, Replica};
+use tokio::task::{JoinHandle};
+use types::appxcon::{WrapperMsg, Replica};
 
 use super::context::Context;
 use futures::SinkExt;
 use std::sync::Arc;
+
 
 /// Communication logic
 /// Contains three functions
@@ -17,7 +18,7 @@ impl Context {
     // }
 
     /// Send a message concurrently (by launching a new task) to a specific peer
-    pub(crate) async fn c_send(&mut self, to:Replica, msg: Arc<ProtocolMsg>) -> JoinHandle<()> {
+    pub(crate) async fn c_send(&self, to:Replica, msg: Arc<WrapperMsg>) -> JoinHandle<()> {
         let mut send_copy = self.net_send.clone();
         let myid = self.myid;
         tokio::spawn(async move {

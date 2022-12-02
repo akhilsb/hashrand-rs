@@ -2,7 +2,7 @@
 
 killall {vss} &> /dev/null
 
-TESTDIR=${TESTDIR:="testdata/new_rbc_test"}
+TESTDIR=${TESTDIR:="testdata/ct_rbc_test"}
 TYPE=${TYPE:="debug"}
 EXP=${EXP:-"vss_ex"}
 W=${W:="10000"}

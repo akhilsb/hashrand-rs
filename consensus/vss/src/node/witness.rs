@@ -1,8 +1,12 @@
 use std::sync::Arc;
 
+use bls12_381_plus::{G1Projective, Scalar};
 use crypto::hash::{do_hash, Hash};
+use ff::Field;
 use merkle_light::merkle::MerkleTree;
-use types::appxcon::{CTRBCMsg, MerkleProof, ProtMsg, Replica, WrapperMsg};
+use rand::rngs::OsRng;
+use types::appxcon::{CTRBCMsg, MerkleProof, Msg, ProtMsg, Replica, WrapperMsg};
+use vsss_rs::Feldman;
 
 use crate::node::{get_shards, process_rbc_init, HashingAlg, RoundState};
 
@@ -87,6 +91,20 @@ pub async fn start_rbc(cx: &mut Context) {
     //     let rnd_state = create_roundstate(cx.myid, &msg, cx.myid);
     //     cx.round_state.insert(cx.round, rnd_state);
     // }
+    //
+
+    let mut rng = OsRng::default();
+    let secret = Scalar::random(&mut rng);
+    let res =
+        Feldman::<2, 4>::split_secret::<Scalar, G1Projective, OsRng, 33>(secret, None, &mut rng);
+    assert!(res.is_ok());
+    let (shares, verifier) = res.unwrap();
+    for s in &shares {
+        assert!(verifier.verify(s));
+    }
+
+    let coded = bincode::serialize(&verifier).expect("Failed to serialize verifier");
+
     let shards = get_shards(cx.value.clone(), cx.num_faults);
     let own_shard = shards[cx.myid].clone();
     // Construct Merkle tree
@@ -99,9 +117,15 @@ pub async fn start_rbc(cx: &mut Context) {
     let merkle_tree: MerkleTree<[u8; 32], HashingAlg> = MerkleTree::from_iter(hashes.into_iter());
     for (replica, sec_key) in cx.sec_key_map.clone().into_iter() {
         if replica != cx.myid {
+            let share_serial =
+                bincode::serialize(&shares[replica]).expect("Couldn't serialize secret share");
+            let share_msg = ProtMsg::SHARE(share_serial);
+            let wrapper_msg = WrapperMsg::new(share_msg, cx.myid, &sec_key);
+            cx.c_send(replica, Arc::new(wrapper_msg)).await;
+
             let mrp = MerkleProof::from_proof(merkle_tree.gen_proof(replica));
             let ctrbc = CTRBCMsg {
-                verifier: Vec::default(),
+                verifier: coded.clone(),
                 shard: shards[replica].clone(),
                 mp: mrp,
                 origin: cx.myid,
@@ -110,6 +134,8 @@ pub async fn start_rbc(cx: &mut Context) {
             let prot_msg = ProtMsg::CTRBCInit(ctrbc);
             let wrapper_msg = WrapperMsg::new(prot_msg, cx.myid, &sec_key);
             cx.c_send(replica, Arc::new(wrapper_msg)).await;
+        } else {
+            cx.sec_share_map.insert(cx.myid, shares[replica]);
         }
     }
     let mrp = MerkleProof::from_proof(merkle_tree.gen_proof(cx.myid));
@@ -122,21 +148,10 @@ pub async fn start_rbc(cx: &mut Context) {
     };
     process_rbc_init(cx, ctrbc).await;
 
-    // let mut rng = OsRng::default();
-    // let secret = Scalar::random(&mut rng);
-    // let res =
-    //     Feldman::<2, 4>::split_secret::<Scalar, G1Projective, OsRng, 33>(secret, None, &mut rng);
-    // assert!(res.is_ok());
-    // let (shares, verifier) = res.unwrap();
-    // for s in &shares {
-    //     assert!(verifier.verify(s));
-    // }
-    // let verifier_data: (usize, _) = (cx.myid, verifier);
-    // let coded = bincode::serialize(&verifier_data).expect("Failed to serialize verifier");
     // let echo_msg = Msg {
-    //     msg_type: 1,
-    //     node: cx.myid,
     //     value: coded,
+    //     origin: cx.myid,
+    //     round: 0,
     // };
     // for (replica, sec_key) in &cx.sec_key_map.clone() {
     //     if *replica != cx.myid {
