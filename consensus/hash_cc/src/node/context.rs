@@ -29,6 +29,7 @@ pub struct Context {
     pub rounds_aa: u32,
     pub epsilon: u32,
     pub curr_round:u32,
+    pub num_messages:u32,
 
     /// State context
     /// Verifiable Secret Sharing context
@@ -62,6 +63,7 @@ impl Context {
                 rounds_aa:rounds,
                 epsilon:epsilon,
                 curr_round:0,
+                num_messages:0,
 
                 vss_state: VSSState::new(),
                 round_state: HashMap::default(),

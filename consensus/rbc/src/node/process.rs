@@ -47,6 +47,7 @@ pub(crate) async fn process_msg(cx: &mut Context,protmsg:ProtocolMsg){
                 process_ready(cx, Arc::new(wrapper_msg)).await;
             }
         }
+        ProtocolMsg::SECRETSHARE(_) => todo!(),
     }
 }
 

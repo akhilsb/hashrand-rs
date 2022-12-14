@@ -1,13 +1,13 @@
 use std::{sync::Arc, collections::HashSet};
 
-use types::{Replica, hash_cc::{ProtMsg, WrapperMsg}};
+use types::{Replica, hash_cc::{CoinMsg, WrapperMsg}};
 
 use crate::node::{Context, process_wssready};
 use crypto::hash::{Hash};
 
 pub async fn process_wssecho(cx: &mut Context,mr:Hash,sec_origin:Replica, echo_sender:Replica){
     let vss_state = &mut cx.vss_state;
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
+    let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
     // Highly unlikely that the node will get an echo before rbc_init message
     log::info!("Received ECHO message {:?} for secret from {}",mr.clone(),echo_sender);
     // If RBC already terminated, do not consider this RBC
@@ -46,7 +46,7 @@ pub async fn process_wssecho(cx: &mut Context,mr:Hash,sec_origin:Replica, echo_s
     if echos.len() == cx.num_nodes-cx.num_faults && 
         vss_state.node_secrets.contains_key(&sec_origin){
         // Broadcast readys, otherwise, just wait longer
-        msgs_to_be_sent.push(ProtMsg::WSSReady(mr.clone(), sec_origin, cx.myid));
+        msgs_to_be_sent.push(CoinMsg::WSSReady(mr.clone(), sec_origin, cx.myid));
     }
     // Inserting send message block here to not borrow cx as mutable again
     for prot_msg in msgs_to_be_sent.iter(){

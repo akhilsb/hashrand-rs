@@ -16,8 +16,5 @@ pub use context::*;
 mod roundvals;
 pub use roundvals::*;
 
-mod comms;
-pub use comms::*;
-
 mod process;
 pub use process::*;

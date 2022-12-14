@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use types::{hash_cc::{CTRBCMsg, ProtMsg, WrapperMsg}, Replica, appxcon::{verify_merkle_proof, reconstruct_and_verify}};
+use types::{hash_cc::{CTRBCMsg, CoinMsg, WrapperMsg}, Replica, appxcon::{verify_merkle_proof, reconstruct_and_verify}};
 
 use crate::node::{Context, RoundState, baa::process_ready};
 
@@ -9,7 +9,7 @@ pub async fn process_echo(cx: &mut Context, ctr:CTRBCMsg, echo_sender:Replica){
     let mp = ctr.mp.clone();
     let rbc_origin = ctr.origin.clone();
     let round_state_map = &mut cx.round_state;
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
+    let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
     // Highly unlikely that the node will get an echo before rbc_init message
     log::info!("Received ECHO message from {} for RBC of node {}",echo_sender,rbc_origin);
     let round = ctr.round;
@@ -53,7 +53,7 @@ pub async fn process_echo(cx: &mut Context, ctr:CTRBCMsg, echo_sender:Replica){
                 Err(error)=> log::error!("Shard reconstruction failed because of the following reason {:?}",error),
                 Ok(vec_x)=> {
                     let ctrbc = CTRBCMsg::new(vec_x.0, vec_x.1, round, rbc_origin);
-                    msgs_to_be_sent.push(ProtMsg::AppxConCTREADY(ctrbc, cx.myid))
+                    msgs_to_be_sent.push(CoinMsg::AppxConCTREADY(ctrbc, cx.myid))
                 }
             }
         }
@@ -80,7 +80,7 @@ pub async fn process_echo(cx: &mut Context, ctr:CTRBCMsg, echo_sender:Replica){
             }
             else {
                 match prot_msg.clone() {
-                    ProtMsg::AppxConCTREADY(ctr, sender)
+                    CoinMsg::AppxConCTREADY(ctr, sender)
                     => {process_ready(cx,ctr.clone(),sender).await;}
                     _ =>{}
                 }

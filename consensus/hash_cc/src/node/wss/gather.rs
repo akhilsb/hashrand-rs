@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_recursion::async_recursion;
 use num_bigint::BigInt;
 use num_traits::pow;
-use types::{hash_cc::{ProtMsg, WrapperMsg}, Replica};
+use types::{hash_cc::{CoinMsg, WrapperMsg}, Replica};
 
 use crate::node::{Context, start_baa};
 
@@ -38,7 +38,7 @@ pub async fn witness_check(cx: &mut Context){
     if vss_state.accepted_secrets.len() <= cx.num_faults+1{
         return;
     }
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
+    let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
     if !vss_state.send_w2{
         for (_replica,ss_inst) in vss_state.witness1.clone().into_iter(){
             let check = ss_inst.iter().all(|item| vss_state.terminated_secrets.contains(item));
@@ -51,7 +51,7 @@ pub async fn witness_check(cx: &mut Context){
             // Send out ECHO2 messages
             log::info!("Accepted n-f witnesses, sending ECHO2 messages for Gather from node {}",cx.myid);
             vss_state.send_w2 = true;
-            msgs_to_be_sent.push(ProtMsg::GatherEcho2(vss_state.terminated_secrets.clone().into_iter().collect() , cx.myid));
+            msgs_to_be_sent.push(CoinMsg::GatherEcho2(vss_state.terminated_secrets.clone().into_iter().collect() , cx.myid));
         }
     }
     else{
@@ -91,7 +91,7 @@ pub async fn witness_check(cx: &mut Context){
             }
             else {
                 match prot_msg {
-                    ProtMsg::GatherEcho2(vec_term_secs, echo_sender) =>{
+                    CoinMsg::GatherEcho2(vec_term_secs, echo_sender) =>{
                         process_gatherecho(cx, vec_term_secs.clone(), *echo_sender, 2).await;
                     },
                     _ => {}

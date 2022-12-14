@@ -20,6 +20,8 @@ pub struct VSSState{
     pub send_w2:bool,
     pub accepted_witnesses1: HashSet<Replica>,
     pub accepted_witnesses2: HashSet<Replica>,
+    pub nz_appxcon_rs: HashMap<Replica,(BigInt,bool,BigInt)>,
+
 }
 
 impl VSSState{
@@ -38,6 +40,7 @@ impl VSSState{
             terminated_secrets:HashSet::default(),
             accepted_witnesses1:HashSet::default(),
             accepted_witnesses2:HashSet::default(),
+            nz_appxcon_rs: HashMap::default(),
         }
     }
 }

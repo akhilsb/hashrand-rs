@@ -3,13 +3,13 @@ use std::{sync::Arc, collections::HashMap, time::{SystemTime, UNIX_EPOCH}};
 use crypto::hash::{do_hash, do_hash_merkle};
 use num_bigint::{BigInt, Sign};
 use num_traits::ToPrimitive;
-use types::{hash_cc::{WSSMsg, ProtMsg, WrapperMsg}, appxcon::{HashingAlg}, Replica};
+use types::{hash_cc::{WSSMsg, CoinMsg, WrapperMsg}, appxcon::{HashingAlg}, Replica};
 
 use crate::node::{Context, ShamirSecretSharing};
 
 pub async fn send_reconstruct(cx: &mut Context){
     let vss_state = &mut cx.vss_state;
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
+    let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
     for (rep,(secret,nonce,_merkle_root,merkle_proof)) in vss_state.accepted_secrets.clone().into_iter(){
         let mod_prime = cx.secret_domain.clone();
         let sec_num = BigInt::from_bytes_be(Sign::Plus, secret.clone().as_slice());
@@ -26,7 +26,7 @@ pub async fn send_reconstruct(cx: &mut Context){
             secret_map.insert(cx.myid, wss_msg.clone());
             vss_state.secret_shares.insert(rep, secret_map);
         }
-        let prot_msg = ProtMsg::WSSReconstruct(wss_msg, cx.myid);
+        let prot_msg = CoinMsg::WSSReconstruct(wss_msg, cx.myid);
         msgs_to_be_sent.push(prot_msg);
     }
     for prot_msg in msgs_to_be_sent.iter(){
@@ -104,6 +104,7 @@ pub async fn process_reconstruct(cx: &mut Context,wss_msg:WSSMsg,recon_sender:Re
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_millis());
+                log::error!("Number of messages sent by nodes: {}",cx.num_messages);
             }
         }
     }

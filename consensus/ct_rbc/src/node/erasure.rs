@@ -35,7 +35,7 @@ pub fn get_shards(data:Vec<u8>,faults:Replica)->Vec<Vec<u8>>{
 }
 
 // The shards are reconstructed inline with the variable data
-fn reconstruct_shards(num_faults:usize, data:&mut Vec<Option<Vec<u8>>>) -> Result<(),Error>{
+pub fn reconstruct_shards(num_faults:usize, data:&mut Vec<Option<Vec<u8>>>) -> Result<(),Error>{
     let reed_solomon:ReedSolomon<> = ReedSolomon::new(num_faults+1,2*num_faults).unwrap();
     if let Err(error) = reed_solomon.reconstruct(data) {
         return Err(error)

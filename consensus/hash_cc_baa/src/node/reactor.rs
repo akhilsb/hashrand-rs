@@ -17,7 +17,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::node::{process_msg, start_batchwss};
 
 use super::context::Context;
-use super::start_wss;
 
 pub async fn reactor(
     config:&Node,

@@ -11,10 +11,10 @@ pub struct Context {
     pub num_nodes: usize,
     pub myid: usize,
     pub num_faults: usize,
-    pub payload:usize,
 
     /// PKI
     /// Replica map
+    pub secret_share: Vec<u8>,
     pub sec_key_map:HashMap<Replica, Vec<u8>>,
 
     /// State context
@@ -33,8 +33,8 @@ impl Context {
             sec_key_map: HashMap::default(),
             myid: config.id,
             num_faults: config.num_faults,
-            payload: config.payload,
 
+            secret_share: Vec::new(),
             echo_set: HashSet::default(),
             ready_set: HashSet::default(),
         };

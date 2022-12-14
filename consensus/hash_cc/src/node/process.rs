@@ -1,7 +1,7 @@
 use std::{sync::Arc};
 
 use crypto::hash::{verf_mac};
-use types::{hash_cc::{WrapperMsg, ProtMsg}};
+use types::{hash_cc::{WrapperMsg, CoinMsg}};
 
 use crate::node::{process_wss_init, process_wssecho, process_wssready, process_gatherecho, process_echo, process_ready, process_reconstruct_message, handle_witness, process_rbc_init, process_reconstruct};
 
@@ -35,28 +35,29 @@ pub(crate) async fn process_msg(cx: &mut Context, wrapper_msg: WrapperMsg){
     log::debug!("Received protocol msg: {:?}",wrapper_msg);
     let msg = Arc::new(wrapper_msg.clone());
     if check_proposal(msg, cx){
+        cx.num_messages +=1;
         match wrapper_msg.clone().protmsg {
-            ProtMsg::WSSInit(wss_msg)=>{
+            CoinMsg::WSSInit(wss_msg)=>{
                 log::debug!("Received WSS init {:?} from node {}",wss_msg.clone(),wss_msg.clone().origin);
                 process_wss_init(cx, wss_msg).await;
             },
-            ProtMsg::WSSEcho(mr,sec_origin , echo_sender)=>{
+            CoinMsg::WSSEcho(mr,sec_origin , echo_sender)=>{
                 log::debug!("Received WSS ECHO from node {} for secret from {}",echo_sender,sec_origin);
                 process_wssecho(cx, mr,sec_origin,echo_sender).await;
             },
-            ProtMsg::WSSReady(mr, sec_origin, ready_sender)=>{
+            CoinMsg::WSSReady(mr, sec_origin, ready_sender)=>{
                 log::debug!("Received WSS READY from node {} for secret from {}",ready_sender,sec_origin);
                 process_wssready(cx, mr,sec_origin,ready_sender).await;
             },
-            ProtMsg::GatherEcho(term_secrets, echo_sender)=>{
+            CoinMsg::GatherEcho(term_secrets, echo_sender)=>{
                 log::debug!("Received Gather ECHO from node {}",echo_sender);
                 process_gatherecho(cx,term_secrets, echo_sender, 1u32).await;
             },
-            ProtMsg::GatherEcho2(term_secrets, echo_sender)=>{
+            CoinMsg::GatherEcho2(term_secrets, echo_sender)=>{
                 log::debug!("Received Gather ECHO2 from node {}",echo_sender);
                 process_gatherecho(cx,term_secrets, echo_sender, 2u32).await;
             },
-            ProtMsg::AppxConCTRBCInit(ctr)=> {
+            CoinMsg::AppxConCTRBCInit(ctr)=> {
                 // RBC initialized
                 log::debug!("Received RBC init {:?} from node {} for round {}",ctr.clone(),ctr.clone().origin,ctr.clone().round);
                 // Reject all messages from older rounds
@@ -64,32 +65,32 @@ pub(crate) async fn process_msg(cx: &mut Context, wrapper_msg: WrapperMsg){
                     process_rbc_init(cx,ctr).await;
                 }
             },
-            ProtMsg::AppxConCTECHO(ctr,echo_sender) =>{
+            CoinMsg::AppxConCTECHO(ctr,echo_sender) =>{
                 // ECHO for main_msg: RBC originated by orig, echo sent by sender
                 // Reject all messages from older rounds and accepted RBCs
                 if cx.curr_round <= ctr.round{
                     process_echo(cx, ctr, echo_sender).await;
                 }
             },
-            ProtMsg::AppxConCTREADY(ctr,ready_sender) =>{
+            CoinMsg::AppxConCTREADY(ctr,ready_sender) =>{
                 // READY for main_msg: RBC originated by orig, echo sent by sender
                 if cx.curr_round <= ctr.round{
                     process_ready(cx, ctr,ready_sender).await;
                 }
             },
-            ProtMsg::AppxConCTReconstruct(ctr,recon_sender) => {
+            CoinMsg::AppxConCTReconstruct(ctr,recon_sender) => {
                 // Reconstruct message for RBC
                 if cx.curr_round <= ctr.round{
                     process_reconstruct_message(cx,ctr,recon_sender).await;
                 }
             },
-            ProtMsg::AppxConWitness(term_rbcs, witness_sender, round) => {
+            CoinMsg::AppxConWitness(term_rbcs, witness_sender, round) => {
                 // WITNESS for main_msg: RBC originated by orig, echo sent by sender
                 if cx.curr_round <= round{
                     handle_witness(cx,term_rbcs,witness_sender,round).await;
                 }
             },
-            ProtMsg::WSSReconstruct(wss_msg, share_sender)=>{
+            CoinMsg::WSSReconstruct(wss_msg, share_sender)=>{
                 log::debug!("Received secret reconstruct message from node {}",share_sender);
                 process_reconstruct(cx, wss_msg, share_sender).await;
             },

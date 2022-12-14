@@ -1,7 +1,7 @@
 use std::{sync::Arc};
 
 use crypto::hash::{verf_mac};
-use types::{hash_cc::{WrapperMsg, ProtMsg}};
+use types::{hash_cc::{WrapperMsg, CoinMsg}};
 
 use crate::node::{process_wss_init, process_wssecho, process_wssready, process_gatherecho, process_baa_echo, process_baa_echo2, process_reconstruct, process_batchwss_init, process_batch_wssecho, process_batchwssready, process_batchreconstruct_message, process_batchreconstruct};
 
@@ -35,57 +35,58 @@ pub(crate) async fn process_msg(cx: &mut Context, wrapper_msg: WrapperMsg){
     log::debug!("Received protocol msg: {:?}",wrapper_msg);
     let msg = Arc::new(wrapper_msg.clone());
     if check_proposal(msg, cx){
+        cx.num_messages += 1;
         match wrapper_msg.clone().protmsg {
-            ProtMsg::WSSInit(wss_msg)=>{
+            CoinMsg::WSSInit(wss_msg)=>{
                 log::debug!("Received WSS init {:?} from node {}",wss_msg.clone(),wss_msg.clone().origin);
                 process_wss_init(cx, wss_msg).await;
             },
-            ProtMsg::WSSEcho(mr,sec_origin , echo_sender)=>{
+            CoinMsg::WSSEcho(mr,sec_origin , echo_sender)=>{
                 log::debug!("Received WSS ECHO from node {} for secret from {}",echo_sender,sec_origin);
                 process_wssecho(cx, mr,sec_origin,echo_sender).await;
             },
-            ProtMsg::WSSReady(mr, sec_origin, ready_sender)=>{
+            CoinMsg::WSSReady(mr, sec_origin, ready_sender)=>{
                 log::debug!("Received WSS READY from node {} for secret from {}",ready_sender,sec_origin);
                 process_wssready(cx, mr,sec_origin,ready_sender).await;
             },
-            ProtMsg::GatherEcho(term_secrets, echo_sender)=>{
+            CoinMsg::GatherEcho(term_secrets, echo_sender)=>{
                 log::debug!("Received Gather ECHO from node {}",echo_sender);
                 process_gatherecho(cx,term_secrets, echo_sender, 1u32).await;
             },
-            ProtMsg::GatherEcho2(term_secrets, echo_sender)=>{
+            CoinMsg::GatherEcho2(term_secrets, echo_sender)=>{
                 log::debug!("Received Gather ECHO2 from node {}",echo_sender);
                 process_gatherecho(cx,term_secrets, echo_sender, 2u32).await;
             },
-            ProtMsg::BinaryAAEcho(msgs, echo_sender, round) =>{
+            CoinMsg::BinaryAAEcho(msgs, echo_sender, round) =>{
                 log::debug!("Received Binary AA Echo1 from node {}",echo_sender);
                 process_baa_echo(cx, msgs, echo_sender, round).await;
             },
-            ProtMsg::BinaryAAEcho2(msgs, echo2_sender, round) =>{
+            CoinMsg::BinaryAAEcho2(msgs, echo2_sender, round) =>{
                 log::debug!("Received Binary AA Echo2 from node {}",echo2_sender);
                 process_baa_echo2(cx, msgs, echo2_sender, round).await;
             },
-            ProtMsg::WSSReconstruct(wss_msg, share_sender)=>{
+            CoinMsg::WSSReconstruct(wss_msg, share_sender)=>{
                 log::debug!("Received secret reconstruct message from node {}",share_sender);
                 process_reconstruct(cx, wss_msg, share_sender).await;
             },
-            ProtMsg::BatchWSSInit(wss_msg, ctr)=>{
+            CoinMsg::BatchWSSInit(wss_msg, ctr)=>{
                 log::debug!("Received Batch Secret Sharing init message from node {}",wss_msg.origin.clone());
                 process_batchwss_init(cx,wss_msg, ctr).await;
             },
-            ProtMsg::BatchWSSEcho(ctr, mr_root, echo_sender)=>{
+            CoinMsg::BatchWSSEcho(ctr, mr_root, echo_sender)=>{
                 log::debug!("Received Batch Secret Sharing ECHO message from node {} for secret from {}",echo_sender,ctr.origin);
                 process_batch_wssecho(cx,ctr, mr_root,echo_sender).await;
             },
-            ProtMsg::BatchWSSReady(ctr, mr_root, ready_sender)=>{
+            CoinMsg::BatchWSSReady(ctr, mr_root, ready_sender)=>{
                 log::debug!("Received Batch Secret Sharing READY message from node {} for secret from {}",ready_sender,ctr.origin);
                 process_batchwssready(cx,ctr, mr_root,ready_sender).await;
             },
-            ProtMsg::BatchWSSReconstruct(ctr, mr_root, recon_sender)=>{
+            CoinMsg::BatchWSSReconstruct(ctr, mr_root, recon_sender)=>{
                 log::debug!("Received Batch Secret Sharing Recon message from node {} for secret from {}",recon_sender,ctr.origin);
                 process_batchreconstruct_message(cx,ctr, mr_root,recon_sender).await;
             },
-            ProtMsg::BatchSecretReconstruct(wssmsg, share_sender, sec_num)=>{
-                log::debug!("Received Batch Secret Sharing secret share from node {} for secret from {} with sec_num {}",share_sender,wssmsg.origin,sec_num);
+            CoinMsg::BatchSecretReconstruct(wssmsg, share_sender, sec_num)=>{
+                log::debug!("Received Batch Secret Sharing secret share from node {} with sec_num {}",share_sender,sec_num);
                 process_batchreconstruct(cx,wssmsg, share_sender,sec_num).await;
             },
             _ => {}

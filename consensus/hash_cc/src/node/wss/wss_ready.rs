@@ -1,14 +1,14 @@
 use std::{collections::HashSet, sync::Arc};
 
 use async_recursion::async_recursion;
-use types::{Replica, hash_cc::{ProtMsg, WrapperMsg}};
+use types::{Replica, hash_cc::{CoinMsg, WrapperMsg}};
 
 use crate::node::{Context, witness_check, process_gatherecho};
 use crypto::hash::{Hash};
 
 pub async fn process_wssready(cx: &mut Context, mr:Hash, sec_origin:Replica, ready_sender:Replica){
     let vss_state = &mut cx.vss_state;
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
+    let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
     // Highly unlikely that the node will get an echo before rbc_init message
     log::info!("Received READY message {:?} for secret from {}",mr.clone(),sec_origin);
     // If RBC already terminated, do not consider this RBC
@@ -45,7 +45,7 @@ pub async fn process_wssready(cx: &mut Context, mr:Hash, sec_origin:Replica, rea
     if readys.len() == cx.num_faults+1 && 
         vss_state.node_secrets.contains_key(&sec_origin){ 
         // Broadcast readys, otherwise, just wait longer
-        msgs_to_be_sent.push(ProtMsg::WSSReady(mr.clone(), sec_origin, cx.myid));
+        msgs_to_be_sent.push(CoinMsg::WSSReady(mr.clone(), sec_origin, cx.myid));
     }
     else if readys.len() >= cx.num_nodes-cx.num_faults && 
         vss_state.node_secrets.contains_key(&sec_origin){
@@ -57,7 +57,7 @@ pub async fn process_wssready(cx: &mut Context, mr:Hash, sec_origin:Replica, rea
         if vss_state.terminated_secrets.len() >= cx.num_nodes-cx.num_faults{
             if !vss_state.send_w1{
                 log::info!("Terminated n-f wss instances. Sending echo2 message to everyone");
-                msgs_to_be_sent.push(ProtMsg::GatherEcho(vss_state.terminated_secrets.clone().into_iter().collect(), cx.myid));
+                msgs_to_be_sent.push(CoinMsg::GatherEcho(vss_state.terminated_secrets.clone().into_iter().collect(), cx.myid));
                 vss_state.send_w1 = true;
             }
             witness_check(cx).await;
@@ -74,7 +74,7 @@ pub async fn process_wssready(cx: &mut Context, mr:Hash, sec_origin:Replica, rea
             }
             else {
                 match prot_msg {
-                    ProtMsg::GatherEcho(vec_term_secs, echo_sender) =>{
+                    CoinMsg::GatherEcho(vec_term_secs, echo_sender) =>{
                         process_gatherecho(cx, vec_term_secs.clone(), *echo_sender, 1).await;
                     },
                     _ => {}

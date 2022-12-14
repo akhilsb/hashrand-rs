@@ -1,15 +1,17 @@
-use std::{sync::Arc, collections::{HashSet}};
+use std::{sync::Arc, collections::{HashSet}, time::SystemTime};
 
 use crypto::hash::{do_hash, Hash, do_hash_merkle};
 use merkle_light::merkle::MerkleTree;
 use num_bigint::{BigInt, RandBigInt, Sign};
-use types::{appxcon::{HashingAlg, MerkleProof}, hash_cc::{WSSMsg, ProtMsg, WrapperMsg}};
+use types::{appxcon::{HashingAlg, MerkleProof}, hash_cc::{WSSMsg, CoinMsg, WrapperMsg}};
 
 use crate::node::{Context, process_wssecho};
 
 use super::ShamirSecretSharing;
 
 pub async fn start_wss(cx: &mut Context){
+    let now = SystemTime::now();
+    let func_name = String::from("start_wss");
     let faults = cx.num_faults;
     let low_r = BigInt::from(0);
     let prime = BigInt::parse_bytes(b"685373784908497",10).unwrap(); 
@@ -43,7 +45,7 @@ pub async fn start_wss(cx: &mut Context){
         let mrp = MerkleProof::from_proof(merkle_tree.gen_proof(replica));
         let wssmsg = WSSMsg::new(sec, cx.myid, (nonce,hash), mrp);
         if replica != cx.myid{
-            let wss_init = ProtMsg::WSSInit(wssmsg);
+            let wss_init = CoinMsg::WSSInit(wssmsg);
             let wrapper_msg = WrapperMsg::new(wss_init, cx.myid, &sec_key);
             cx.c_send(replica,  Arc::new(wrapper_msg)).await;
         }
@@ -51,10 +53,15 @@ pub async fn start_wss(cx: &mut Context){
             process_wss_init(cx,wssmsg).await;
         }
     }
-
+    let passed = now.elapsed().unwrap().as_nanos();
+    if cx.bench.contains_key(&func_name) && *cx.bench.get(&func_name).unwrap() < passed{
+        cx.bench.insert(func_name, passed);
+    }
 }
 
 pub async fn process_wss_init(cx: &mut Context, wss_init: WSSMsg) {
+    let now = SystemTime::now();
+    let func_name = String::from("process_wss_init");
     let sec_origin = wss_init.origin;
     // Verify Merkle proof first
     //let mod_prime = cx.secret_domain.clone();
@@ -64,7 +71,7 @@ pub async fn process_wss_init(cx: &mut Context, wss_init: WSSMsg) {
     log::info!("Added_secret {:?}",comm.clone());
     let commitment = do_hash(comm.to_bytes_be().1.as_slice());
     let merkle_proof = wss_init.mp.to_proof();
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
+    let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
     if commitment != wss_init.commitment.1.clone() || 
             do_hash_merkle(commitment.as_slice()) != merkle_proof.item().clone() || 
             !merkle_proof.validate::<HashingAlg>(){
@@ -75,7 +82,7 @@ pub async fn process_wss_init(cx: &mut Context, wss_init: WSSMsg) {
     wss_state.node_secrets.insert(sec_origin, 
         (wss_init.secret.clone(),wss_init.commitment.0.clone(),wss_init.commitment.1.clone(),wss_init.mp.clone()));
     // 3. Send echos to every other node
-    msgs_to_be_sent.push(ProtMsg::WSSEcho(merkle_proof.root(), sec_origin, cx.myid));
+    msgs_to_be_sent.push(CoinMsg::WSSEcho(merkle_proof.root(), sec_origin, cx.myid));
     // 3. Add your own vote to the map
     match wss_state.echos.get_mut(&sec_origin)  {
         None => {
@@ -112,5 +119,9 @@ pub async fn process_wss_init(cx: &mut Context, wss_init: WSSMsg) {
             }
         }
         log::info!("Broadcasted message {:?}",prot_msg.clone());
+    }
+    let passed = now.elapsed().unwrap().as_nanos();
+    if cx.bench.contains_key(&func_name) && *cx.bench.get(&func_name).unwrap() < passed{
+        cx.bench.insert(func_name, passed);
     }
 }

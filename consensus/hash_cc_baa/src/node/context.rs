@@ -1,6 +1,7 @@
-use futures::{channel::mpsc::UnboundedSender};
+use futures::{channel::mpsc::UnboundedSender, SinkExt};
 use num_bigint::BigInt;
-use types::hash_cc::{WrapperMsg, Replica};
+use tokio::task::JoinHandle;
+use types::{hash_cc::{WrapperMsg, Replica, CoinMsg}};
 use config::Node;
 use fnv::FnvHashMap as HashMap;
 use vss_state::VSSState;
@@ -29,14 +30,16 @@ pub struct Context {
     pub rounds_aa: u32,
     pub epsilon: u32,
     pub curr_round:u32,
+    pub num_messages:u32,
 
     /// State context
     /// Verifiable Secret Sharing context
     pub vss_state: VSSState,
     pub batchvss_state: BatchVSSState,
+    pub batch_size: usize,
     /// Approximate agreement context
     pub round_state: HashMap<u32,RoundState>,
-    pub nz_appxcon_rs: HashMap<Replica,(BigInt,bool,BigInt)>,
+    pub bench: HashMap<String,u128>,
 }
 
 impl Context {
@@ -59,15 +62,17 @@ impl Context {
                 num_faults: config.num_faults,
                 payload: config.payload,
                 
-                secret_domain:prime,
+                secret_domain:prime.clone(),
                 rounds_aa:rounds,
                 epsilon:epsilon,
                 curr_round:0,
+                num_messages:0,
 
                 vss_state: VSSState::new(),
-                batchvss_state: BatchVSSState::new(),
+                batchvss_state: BatchVSSState::new(prime),
+                batch_size:7,
                 round_state: HashMap::default(),
-                nz_appxcon_rs: HashMap::default(),
+                bench: HashMap::default(),
                 //echos_ss: HashMap::default(),
             };
             for (id, sk_data) in config.sk_map.clone() {
@@ -80,5 +85,37 @@ impl Context {
         else {
             panic!("Invalid configuration for protocol");
         }
+    }
+    pub fn add_benchmark(&mut self,func: String, elapsed_time:u128)->(){
+        if self.bench.contains_key(&func){
+            if *self.bench.get(&func).unwrap() < elapsed_time{
+                self.bench.insert(func,elapsed_time);
+            }
+        }
+        else {
+            self.bench.insert(func, elapsed_time);
+        }
+    }
+
+    pub async fn broadcast(&mut self, protmsg:CoinMsg){
+        let sec_key_map = self.sec_key_map.clone();
+        for (replica,sec_key) in sec_key_map.into_iter() {
+            if replica != self.myid{
+                let wrapper_msg = WrapperMsg::new(protmsg.clone(), self.myid, &sec_key.as_slice());
+                let sent_msg = Arc::new(wrapper_msg);
+                self.c_send(replica, sent_msg).await;
+            }
+        }
+    }
+
+    pub(crate) async fn c_send(&self, to:Replica, msg: Arc<WrapperMsg>) -> JoinHandle<()> {
+        let mut send_copy = self.net_send.clone();
+        let myid = self.myid;
+        tokio::spawn(async move {
+            if to == myid {
+                return;
+            }
+            send_copy.send((to, msg)).await.unwrap()
+        })
     }
 }

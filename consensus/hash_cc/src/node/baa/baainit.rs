@@ -3,7 +3,7 @@ use std::{sync::Arc, collections::HashMap};
 use crypto::hash::{Hash,do_hash};
 use merkle_light::merkle::MerkleTree;
 use num_bigint::BigInt;
-use types::{appxcon::{get_shards, HashingAlg, MerkleProof, verify_merkle_proof}, hash_cc::{CTRBCMsg, ProtMsg, WrapperMsg}, Replica};
+use types::{appxcon::{get_shards, HashingAlg, MerkleProof, verify_merkle_proof}, hash_cc::{CTRBCMsg, CoinMsg, WrapperMsg}, Replica};
 
 use crate::node::{Context, RoundState, process_echo, send_reconstruct};
 
@@ -16,7 +16,7 @@ pub async fn process_rbc_init(cx: &mut Context, ctr: CTRBCMsg){
         return;
     }
     // 1. Check if the protocol reached the round for this node
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
+    let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
     log::info!("Received RBC Init from node {} for round {}",sender,ctr.round);
     if !verify_merkle_proof(&mp, &shard){
         log::error!("Failed to evaluate merkle proof for RBC Init received from node {}",sender);
@@ -27,7 +27,7 @@ pub async fn process_rbc_init(cx: &mut Context, ctr: CTRBCMsg){
         let rnd_state = round_state_map.get_mut(&round).unwrap();
         rnd_state.node_msgs.insert(sender, (shard.clone(),mp.clone(),mp.root().clone()));
         // 2. Send echos to every other node
-        msgs_to_be_sent.push(ProtMsg::AppxConCTECHO(ctr.clone() ,cx.myid));
+        msgs_to_be_sent.push(CoinMsg::AppxConCTECHO(ctr.clone() ,cx.myid));
         // 3. Add your own vote to the map
         match rnd_state.echos.get_mut(&sender)  {
             None => {
@@ -56,7 +56,7 @@ pub async fn process_rbc_init(cx: &mut Context, ctr: CTRBCMsg){
         rnd_state.node_msgs.insert(sender, (shard.clone(),mp.clone(),mp.root()));
         round_state_map.insert(round, rnd_state);
         // 7. Send messages
-        msgs_to_be_sent.push(ProtMsg::AppxConCTECHO(ctr.clone(),cx.myid));
+        msgs_to_be_sent.push(CoinMsg::AppxConCTECHO(ctr.clone(),cx.myid));
     }
     // Inserting send message block here to not borrow cx as mutable again
     log::debug!("Sending echos for RBC from origin {}",sender);
@@ -110,7 +110,7 @@ pub async fn start_baa(cx: &mut Context, round_vecs: Vec<(Replica,BigInt)>){
                 origin:cx.myid,
                 round:cx.curr_round,
             };
-            let prot_msg = ProtMsg::AppxConCTRBCInit(ctrbc);
+            let prot_msg = CoinMsg::AppxConCTRBCInit(ctrbc);
             let wrapper_msg = WrapperMsg::new(prot_msg, cx.myid, &sec_key);
             cx.c_send(replica,Arc::new(wrapper_msg)).await;
         }

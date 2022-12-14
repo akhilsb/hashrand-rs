@@ -1,18 +1,18 @@
-use std::{sync::Arc, collections::{HashMap}};
+use std::{sync::Arc, time::SystemTime};
 
-use crypto::hash::{do_hash, Hash, do_hash_merkle};
+use crypto::hash::{do_hash, Hash};
 use merkle_light::merkle::MerkleTree;
-use num_bigint::{BigInt, RandBigInt, Sign};
-use types::{appxcon::{HashingAlg, MerkleProof, get_shards, verify_merkle_proof}, hash_cc::{ProtMsg, WrapperMsg, BatchWSSMsg, CTRBCMsg}, Replica};
+use num_bigint::{BigInt, RandBigInt};
+use types::{appxcon::{HashingAlg, MerkleProof, get_shards}, hash_cc::{CoinMsg, WrapperMsg, CTRBCMsg}, hash_cc::BatchWSSMsg, Replica};
 
-use crate::node::{Context, ShamirSecretSharing, process_batch_wssecho};
-
+use crate::node::{Context, ShamirSecretSharing};
 
 pub async fn start_batchwss(cx: &mut Context){
+    let now = SystemTime::now();
     let faults = cx.num_faults;
     // Secret number can be increased to any number possible, but there exists a performance tradeoff with the size of RBC increasing\
     // TODO: Does it affect security in any manner?
-    let secret_num = cx.num_nodes;
+    let secret_num = cx.batch_size;
     let low_r = BigInt::from(0);
     let prime = BigInt::parse_bytes(b"685373784908497",10).unwrap(); 
     let mut rng = rand::thread_rng();
@@ -86,7 +86,7 @@ pub async fn start_batchwss(cx: &mut Context){
         if replica != cx.myid{
             batch_wss.master_root = master_root.clone();
             
-            let wss_init = ProtMsg::BatchWSSInit(batch_wss.clone(),ctrbc_msg);
+            let wss_init = CoinMsg::BatchWSSInit(batch_wss.clone(),ctrbc_msg);
             let wrapper_msg = WrapperMsg::new(wss_init, cx.myid, &sec_key);
             cx.c_send(replica,  Arc::new(wrapper_msg)).await;
         }
@@ -95,86 +95,25 @@ pub async fn start_batchwss(cx: &mut Context){
             process_batchwss_init(cx,batch_wss.clone(),ctrbc_msg).await;
         }
     }
-
+    cx.add_benchmark(String::from("start_batchwss"), now.elapsed().unwrap().as_nanos());
 }
 
 pub async fn process_batchwss_init(cx: &mut Context, wss_init: BatchWSSMsg, ctr: CTRBCMsg) {
+    let now = SystemTime::now();
     let sec_origin = wss_init.origin;
     // 1. Verify Merkle proof for all secrets first
-    let secrets = wss_init.secrets.clone();
-    let commitments = wss_init.commitments.clone();
-    let merkle_proofs = wss_init.mps.clone();
-    log::info!("Received WSSInit message {:?} for secret from {}",wss_init.clone(),sec_origin);
-    let mut root_ind:Vec<Hash> = Vec::new();
-    for i in 0..cx.num_nodes{
-        let secret = BigInt::from_bytes_be(Sign::Plus, secrets[i].as_slice());
-        let nonce = BigInt::from_bytes_be(Sign::Plus, commitments[i].0.as_slice());
-        let added_secret = secret + nonce; 
-        let hash = do_hash(added_secret.to_bytes_be().1.as_slice());
-        let m_proof = merkle_proofs[i].to_proof();
-        if hash != commitments[i].1 || !m_proof.validate::<HashingAlg>() || m_proof.item() != do_hash_merkle(hash.as_slice()){
-            log::error!("Merkle proof validation failed for secret {} in inst {}",i,sec_origin);
-            return;
-        }
-        else{
-            root_ind.push(m_proof.root());
-        }
-    }
-    let master_merkle_tree:MerkleTree<Hash, HashingAlg> = MerkleTree::from_iter(root_ind.into_iter());
-    if master_merkle_tree.root() != wss_init.master_root {
-        log::error!("Master root does not match computed master, terminating ss instance {}",sec_origin);
+    if !wss_init.verify_proofs() || !ctr.verify_mr_proof(){
         return;
     }
-    // 2. Participate in Reliable Broadcast of commitment vector
-    let shard = ctr.shard.clone();
-    let mp = ctr.mp.clone();
-    let sender = ctr.origin.clone();
     // 1. Check if the protocol reached the round for this node
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
-    log::info!("Received RBC Init from node {}",sender);
-    if !verify_merkle_proof(&mp, &shard){
-        log::error!("Failed to evaluate merkle proof for RBC Init received from node {}",sender);
-        return;
-    }
+    log::info!("Received RBC Init from node {}",ctr.origin);
     let wss_state = &mut cx.batchvss_state;
-    wss_state.node_secrets.insert(sec_origin, wss_init);
-    // 3. Send echos to every other node
-    match wss_state.echos.get_mut(&sec_origin)  {
-        None => {
-            let mut hash_map = HashMap::default();
-            hash_map.insert(cx.myid,(shard.clone(),mp.clone()));
-            wss_state.echos.insert(sec_origin, hash_map);
-        },
-        Some(x) => {
-            x.insert(cx.myid,(shard.clone(),mp.clone()));
-        },
-    }
-    match wss_state.readys.get_mut(&sender)  {
-        None => {
-            let mut hash_map = HashMap::default();
-            hash_map.insert(cx.myid,(shard.clone(),mp.clone()));
-            wss_state.readys.insert(sender, hash_map);
-        },
-        Some(x) => {
-            x.insert(cx.myid,(shard.clone(),mp.clone()));
-        },
-    }
-    // 4. Send Echos
-    msgs_to_be_sent.push(ProtMsg::BatchWSSEcho(ctr.clone(), master_merkle_tree.root(),cx.myid));
-    // 5. Inserting send message block here to not borrow cx as mutable again
-    log::debug!("Sending echos for RBC from origin {}",sec_origin);
-    for prot_msg in msgs_to_be_sent.iter(){
-        let sec_key_map = cx.sec_key_map.clone();
-        for (replica,sec_key) in sec_key_map.into_iter() {
-            if replica != cx.myid{
-                let wrapper_msg = WrapperMsg::new(prot_msg.clone(), cx.myid, &sec_key.as_slice());
-                let sent_msg = Arc::new(wrapper_msg);
-                cx.c_send(replica, sent_msg).await;
-            }
-            else {
-                process_batch_wssecho(cx, ctr.clone(), master_merkle_tree.root(),cx.myid).await;
-            }
-        }
-        log::info!("Broadcasted message {:?}",prot_msg.clone());
-    }
+    let master_merkle_root = wss_init.master_root.clone();
+    wss_state.add_batch_secrets(wss_init);
+    // 3. Add your own echo and ready to the channel
+    wss_state.add_echo(sec_origin, cx.myid, &ctr);
+    wss_state.add_ready(sec_origin, cx.myid, &ctr);
+    // 4. Broadcast echos and benchmark results
+    cx.broadcast(CoinMsg::BatchWSSEcho(ctr.clone(), master_merkle_root,cx.myid)).await;
+    cx.add_benchmark(String::from("process_batchwss_init"), now.elapsed().unwrap().as_nanos());
 }

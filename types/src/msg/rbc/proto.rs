@@ -10,7 +10,8 @@ pub enum ProtocolMsg{
     // Initiating reliable broadcast with this message
     RBCInit(WrapperMsg),
     ECHO(WrapperMsg),
-    READY(WrapperMsg)
+    READY(WrapperMsg),
+    SECRETSHARE(Vec<u8>),
 }
 
 impl ProtocolMsg {
@@ -37,6 +38,9 @@ impl WireReady for ProtocolMsg{
                 return self;
             },
             ProtocolMsg::READY(ref _msg) =>{
+                return self;
+            },
+            ProtocolMsg::SECRETSHARE(ref _msg) =>{
                 return self;
             }
         }

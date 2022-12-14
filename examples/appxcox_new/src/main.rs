@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let core_rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .worker_threads(2)
+        .worker_threads(4)
         .build()
         .unwrap();
     

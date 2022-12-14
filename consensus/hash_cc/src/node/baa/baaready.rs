@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_recursion::async_recursion;
-use types::{hash_cc::{CTRBCMsg, ProtMsg, WrapperMsg}, Replica, appxcon::{verify_merkle_proof, reconstruct_and_verify, reconstruct_and_return}};
+use types::{hash_cc::{CTRBCMsg, CoinMsg, WrapperMsg}, Replica, appxcon::{verify_merkle_proof, reconstruct_and_verify, reconstruct_and_return}};
 
 use crate::node::{Context, RoundState, baa::check_for_ht_witnesses, handle_witness};
 
@@ -11,7 +11,7 @@ pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica)
     let mp = ctr.mp.clone();
     let rbc_origin = ctr.origin.clone();
     let round_state_map = &mut cx.round_state;
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
+    let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
     // Highly unlikely that the node will get an echo before rbc_init message
     log::info!("Received READY message from {} for RBC of node {}",ready_sender,rbc_origin);
     let round = ctr.round;
@@ -63,7 +63,7 @@ pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica)
                 Err(error)=> log::error!("Shard reconstruction failed because of the following reason {:?}",error),
                 Ok(vec_x)=> {
                     let ctrbc = CTRBCMsg::new(vec_x.0, vec_x.1, round, rbc_origin);
-                    msgs_to_be_sent.push(ProtMsg::AppxConCTREADY(ctrbc, cx.myid));
+                    msgs_to_be_sent.push(CoinMsg::AppxConCTREADY(ctrbc, cx.myid));
                 }
             };
         }
@@ -80,7 +80,7 @@ pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica)
                 },
                 Ok(vec_x)=> {
                     let ctrbc = CTRBCMsg::new(vec_x.0, vec_x.1, round, rbc_origin);
-                    msgs_to_be_sent.push(ProtMsg::AppxConCTReconstruct(ctrbc, cx.myid));
+                    msgs_to_be_sent.push(CoinMsg::AppxConCTReconstruct(ctrbc, cx.myid));
                 }
             };
         }
@@ -105,10 +105,10 @@ pub async fn process_ready(cx: &mut Context, ctr:CTRBCMsg, ready_sender:Replica)
             }
             else {
                 match prot_msg.clone() {
-                    ProtMsg::AppxConCTREADY(ctr, sender)=>{
+                    CoinMsg::AppxConCTREADY(ctr, sender)=>{
                         process_ready(cx, ctr.clone(),sender).await;
                     },
-                    ProtMsg::AppxConCTReconstruct(ctr, sender) => {
+                    CoinMsg::AppxConCTReconstruct(ctr, sender) => {
                         process_reconstruct_message(cx,ctr.clone(),sender).await;
                     }
                     _=>{}
@@ -125,7 +125,7 @@ pub async fn process_reconstruct_message(cx: &mut Context,ctr:CTRBCMsg,recon_sen
     let mp = ctr.mp.clone();
     let rbc_origin = ctr.origin.clone();
     let round_state_map = &mut cx.round_state;
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
+    let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
     // Highly unlikely that the node will get an echo before rbc_init message
     log::info!("Received Reconstruct message from {} for RBC of node {}",recon_sender,rbc_origin);
     let round = ctr.round;
@@ -183,7 +183,7 @@ pub async fn process_reconstruct_message(cx: &mut Context,ctr:CTRBCMsg,recon_sen
                             log::info!("Terminated n-f RBCs, sending list of first n-f RBCs to other nodes");
                             log::info!("Round state: {:?}",rnd_state.terminated_rbcs);
                             let vec_rbcs = Vec::from_iter(rnd_state.terminated_rbcs.clone().into_iter());
-                            let witness_msg = ProtMsg::AppxConWitness(
+                            let witness_msg = CoinMsg::AppxConWitness(
                                 vec_rbcs.clone(), 
                                 cx.myid,
                                 cx.curr_round
@@ -214,7 +214,7 @@ pub async fn process_reconstruct_message(cx: &mut Context,ctr:CTRBCMsg,recon_sen
             }
             else {
                 match prot_msg {
-                    ProtMsg::AppxConWitness(vec, _origin, round) => {
+                    CoinMsg::AppxConWitness(vec, _origin, round) => {
                         handle_witness(cx,vec.clone(),cx.myid,round.clone()).await;
                     },
                     _ => {}

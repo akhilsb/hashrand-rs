@@ -144,7 +144,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let num_faults:usize = match m.value_of("num_faults") {
         Some(x) => x.parse::<usize>()
             .expect("unable to convert number of faults into a number"),
-        None => (num_nodes-1)/2,
+        None => (num_nodes-1)/3,
     };
     let delay:u64 = m.value_of("delay")
         .expect("delay value not specified")
@@ -213,7 +213,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         node[i].block_size = blocksize;
         node[i].payload = payload;
         node[i].client_port = client_base_port+(i as u16);
-
+        node[i].prot_payload = String::from("cc,protocol_for_common_coin");
         node[i].crypto_alg = t.clone();
         match t {
             Algorithm::ED25519 => {
