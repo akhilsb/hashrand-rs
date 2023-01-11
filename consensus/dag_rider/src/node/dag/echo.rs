@@ -6,9 +6,9 @@ pub async fn process_echo(cx: &mut Context, ctr:CTRBCMsg, echo_sender:Replica)->
     let mut ret_vec = Vec::new();
     let rbc_origin = ctr.origin.clone();
     let round_state_map = &mut cx.round_state;
-    log::info!("Received ECHO message from {} for RBC of node {}",echo_sender,rbc_origin);
+    log::info!("Received ECHO message from {} for RBC of node {} of round {}",echo_sender,rbc_origin,ctr.round);
     let round = ctr.round;
-    if !ctr.verify_mr_proof() || cx.curr_round > round{
+    if !ctr.verify_mr_proof(){
         return ret_vec;
     }
     if round_state_map.contains_key(&round){
@@ -17,6 +17,10 @@ pub async fn process_echo(cx: &mut Context, ctr:CTRBCMsg, echo_sender:Replica)->
         // If RBC already terminated, do not consider this RBC
         if rnd_state.terminated_rbcs.contains(&rbc_origin){
             return ret_vec;
+        }
+        if !rnd_state.node_msgs.contains_key(&rbc_origin){
+            rnd_state.add_echo(rbc_origin, echo_sender, &ctr);
+            return ret_vec;    
         }
         if !rnd_state.check_merkle_root(&ctr){
             return ret_vec;

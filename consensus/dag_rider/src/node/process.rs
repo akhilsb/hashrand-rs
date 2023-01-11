@@ -32,6 +32,7 @@ pub(crate) async fn process_msg(cx: &mut Context, wrapper_msg: WrapperSMRMsg){
     let msg = Arc::new(wrapper_msg.clone());
     if check_proposal(msg, cx){
         cx.num_messages += 1;
+        log::info!("Num messages: {}",cx.num_messages);
         let mut ret_vec = Vec::new();
         let coin_msg = wrapper_msg.protmsg.coin_msg.clone();
         match wrapper_msg.protmsg.dag_msg {
@@ -59,7 +60,6 @@ pub(crate) async fn process_msg(cx: &mut Context, wrapper_msg: WrapperSMRMsg){
         for dag_msg in ret_vec.into_iter(){
             let mut smr_msg = SMRMsg::new(dag_msg, coin_msg.clone(), wrapper_msg.protmsg.origin);
             match smr_msg.clone().coin_msg {
-
                 // CoinMsg::GatherEcho(term_secrets, echo_sender)=>{
                 //     log::debug!("Received Gather ECHO from node {}",echo_sender);
                 //     process_gatherecho(cx,term_secrets, echo_sender, 1u32,smr_msg).await;
@@ -96,7 +96,18 @@ pub(crate) async fn process_msg(cx: &mut Context, wrapper_msg: WrapperSMRMsg){
                     log::debug!("Received Batch Secret Sharing secret share from node {} with sec_num {}",share_sender,sec_num);
                     process_batchreconstruct(cx,wssmsg, share_sender,sec_num,&mut smr_msg).await;
                 },
-                _ => {}
+                CoinMsg::NoMessage() =>{
+                    match smr_msg.dag_msg {
+                        DAGMsg::NoMessage()=>{
+                            return;
+                        },
+                        _=>{
+                            log::debug!("Received no coin message, broadcasting message!");
+                            cx.broadcast(&mut smr_msg).await;
+                        }
+                    }
+                },
+                _=>{}
             }
         }
     }

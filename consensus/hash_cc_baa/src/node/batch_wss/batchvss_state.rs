@@ -10,24 +10,24 @@ use crate::node::ShamirSecretSharing;
 
 pub struct BatchVSSState{
     /// The structure of the tuple: (Secret, Random nonce, Commitment, Merkle Proof for commitment)
-    pub node_secrets: HashMap<Replica,BatchWSSMsg>,
-    pub echos: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>>,
-    pub readys: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>>,
-    pub recon_msgs:HashMap<Replica,HashMap<Replica,Vec<u8>>>,
-    pub comm_vectors:HashMap<Replica,Vec<Hash>>,
-    pub terminated_secrets: HashSet<Replica>,
-    pub secret_shares: HashMap<Replica,HashMap<Replica,(usize,WSSMsg)>>,
-    pub reconstructed_secrets:HashMap<Replica,BigInt>,
+    pub node_secrets: HashMap<Replica,BatchWSSMsg,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub echos: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub readys: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub recon_msgs:HashMap<Replica,HashMap<Replica,Vec<u8>>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub comm_vectors:HashMap<Replica,Vec<Hash>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub terminated_secrets: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub secret_shares: HashMap<Replica,HashMap<Replica,(usize,WSSMsg)>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub reconstructed_secrets:HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>>,
     // Gather protocol related state context
-    pub witness1: HashMap<Replica,Vec<Replica>>,
-    pub witness2: HashMap<Replica,Vec<Replica>>,
+    pub witness1: HashMap<Replica,Vec<Replica>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub witness2: HashMap<Replica,Vec<Replica>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub send_w1: bool,
     pub send_w2:bool,
-    pub accepted_witnesses1: HashSet<Replica>,
-    pub accepted_witnesses2: HashSet<Replica>,
+    pub accepted_witnesses1: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub accepted_witnesses2: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub recon_secret:usize,
     pub secret_domain: BigInt,
-    pub nz_appxcon_rs: HashMap<Replica,(BigInt,bool,BigInt)>,
+    pub nz_appxcon_rs: HashMap<Replica,(BigInt,bool,BigInt),nohash_hasher::BuildNoHashHasher<Replica>>,
 }
 
 impl BatchVSSState{
@@ -297,7 +297,7 @@ impl BatchVSSState{
             for (_rep,(_appx_con, processed, _num)) in self.nz_appxcon_rs.iter_mut(){
                 *processed = false;
             }
-            log::error!("Random leader election terminated random number: sec_origin {} rand_fin{} leader_elected {}, elected leader is node",sum_vars.clone(),rand_fin.clone(),leader_elected.clone());
+            //log::error!("Random leader election terminated random number: sec_origin {} rand_fin{} leader_elected {}, elected leader is node",sum_vars.clone(),rand_fin.clone(),leader_elected.clone());
             return Some(leader_elected.to_u32().unwrap().try_into().unwrap());
         }
         return None;

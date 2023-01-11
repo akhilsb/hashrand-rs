@@ -6,8 +6,8 @@ use types::appxcon::{Replica};
 #[derive(Debug,Clone)]
 pub struct CoinRoundState{
     // Map of Replica, and binary state of two values, their echos list and echo2 list, list of values for which echo1s were sent and echo2s list
-    pub state: HashMap<Replica,(Vec<(BigInt,HashSet<Replica>,HashSet<Replica>,bool,bool)>,HashSet<BigInt>,Vec<BigInt>)>,
-    pub term_vals:HashMap<Replica,BigInt>,
+    pub state: HashMap<Replica,(Vec<(BigInt,HashSet<Replica>,HashSet<Replica>,bool,bool)>,HashSet<BigInt>,Vec<BigInt>),nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub term_vals:HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub completed:bool
 }
 

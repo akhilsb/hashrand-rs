@@ -1,12 +1,14 @@
+use anyhow::{Result,anyhow};
 use clap::{
     load_yaml, 
     App
 };
-use types::{hash_cc::WrapperMsg};
 use config::Node;
-use std::error::Error;
+use signal_hook::{iterator::Signals, consts::{SIGINT, SIGTERM}};
+use std::{net::{SocketAddr, SocketAddrV4}};
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let yaml = load_yaml!("cli.yml");
     let m = App::from_yaml(yaml).get_matches();
 
@@ -34,17 +36,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     2 | _ => log::set_max_level(log::LevelFilter::Trace),
     // }
     log::set_max_level(log::LevelFilter::Error);
-
-
-    if let Some(v) = m.value_of("sleep") {
-        unsafe {
-            config::SLEEP_TIME = v.parse().expect("unexpected sleep time");
-        }
-    } else {
-        unsafe {
-            config::SLEEP_TIME = (5 + config.num_nodes) as u64;
-        }
-    }
     config
         .validate()
         .expect("The decoded config is not valid");
@@ -52,40 +43,23 @@ fn main() -> Result<(), Box<dyn Error>> {
         config.update_config(util::io::file_to_ips(f.to_string()));
     }
     let config = config;
-    
-    // No clients needed
-
-    let prot_net_rt = tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .build()
-    .unwrap();
-
-    // Setup networking
-    let protocol_network = net::futures_manager::Protocol::<WrapperMsg, WrapperMsg>::new(config.id, config.num_nodes, config.root_cert.clone(), config.my_cert.clone(), config.my_cert_key.clone());
-
-    // Setup the protocol network
-    let (net_send, net_recv) = 
-    prot_net_rt.block_on(
-        protocol_network.server_setup(
-            config.net_map.clone(), 
-            util::codec::EnCodec::new(), 
-            util::codec::Decodec::new()
-        )
-    );
-
-    let core_rt = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .worker_threads(4)
-        .build()
-        .unwrap();
-    
     // Start the Reliable Broadcast protocol
-    core_rt.block_on(
-        hash_cc_baa::node::reactor(
-            &config,
-            net_send,
-            net_recv,
-        )
-    );
+    let exit_tx = hash_cc_baa::node::Context::spawn(config).unwrap();
+    // Implement a waiting strategy
+    let mut signals = Signals::new(&[SIGINT, SIGTERM])?;
+    signals.forever().next();
+    log::error!("Received termination signal");
+    exit_tx
+        .send(())
+        .map_err(|_| anyhow!("Server already shut down"))?;
+    log::error!("Shutting down server");
     Ok(())
+}
+
+pub fn to_socket_address(
+    ip_str: &str,
+    port: u16,
+) -> SocketAddr {
+    let addr = SocketAddrV4::new(ip_str.parse().unwrap(), port);
+    addr.into()
 }

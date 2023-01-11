@@ -7,7 +7,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::{appxcon::{MerkleProof, HashingAlg, verify_merkle_proof}, WireReady};
 
-use super::{Replica};
+use super::{Replica, Round};
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub enum CoinMsg{
@@ -112,7 +112,7 @@ impl BatchWSSMsg {
         let secrets = self.secrets.clone();
         let commitments = self.commitments.clone();
         let merkle_proofs = self.mps.clone();
-        log::info!("Received WSSInit message {:?} for secret from {}",self.clone(),sec_origin);
+        log::info!("Received WSSInit message for secret from {}",sec_origin);
         let mut root_ind:Vec<Hash> = Vec::new();
         for i in 0..secrets.len(){
             let secret = BigInt::from_bytes_be(Sign::Plus, secrets[i].as_slice());
@@ -140,13 +140,14 @@ impl BatchWSSMsg {
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct DAGData{
     pub data: Vec<u8>,
-    pub vertices: Vec<Hash>,
+    // Store both replica and the original digest of the block as part of the edges
+    pub vertices: Vec<(Replica,Round,Hash)>,
     pub round:u32,
     pub origin: Replica
 }
 
 impl DAGData {
-    pub fn new(data:Vec<u8>, vertices:Vec<Hash>, round:u32, origin:Replica)-> DAGData{
+    pub fn new(data:Vec<u8>, vertices:Vec<(Replica,Round,Hash)>, round:u32, origin:Replica)-> DAGData{
         DAGData { 
             data: data, 
             vertices: vertices, 
@@ -163,6 +164,11 @@ impl DAGData {
     pub fn from_bytes(bytes: Vec<u8>) -> DAGData {
         let dag_data:DAGData = bincode::deserialize(&bytes[..]).unwrap();
         dag_data
+    }
+
+    pub fn digest(&self) -> Hash {
+        let bytes = self.to_bytes();
+        do_hash(bytes.as_slice())
     }
 }
 

@@ -5,15 +5,18 @@ use types::{appxcon::{Replica, MerkleProof,reconstruct_and_verify, reconstruct_a
 #[derive(Debug,Clone)]
 pub struct RBCRoundState{
     // Map of Replica, and its corresponding (Shard, MerkleProof of Shard, Merkle Root)
-    pub node_msgs: HashMap<Replica,(Vec<u8>,MerkleProof)>,
-    pub echos: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>>,
-    pub readys: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>>,
-    pub recon_msgs:HashMap<Replica,HashMap<Replica,Vec<u8>>>,
-    pub accepted_msgs: HashMap<Replica,Vec<u8>>,
+    pub node_msgs: HashMap<Replica,(Vec<u8>,MerkleProof),nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub echos: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub readys: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub echo_sent: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub ready_sent:HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub recon_sent:HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub recon_msgs:HashMap<Replica,HashMap<Replica,Vec<u8>>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub accepted_msgs: HashMap<Replica,Vec<u8>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub accepted_vals: Vec<i64>,
-    pub witnesses: HashMap<Replica,Vec<Replica>>,
-    pub terminated_rbcs: HashSet<Replica>,
-    pub accepted_witnesses: HashSet<Replica>,
+    pub witnesses: HashMap<Replica,Vec<Replica>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub terminated_rbcs: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub accepted_witnesses: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub witness_sent:bool,
     pub completed:bool,
 }
@@ -24,6 +27,9 @@ impl RBCRoundState{
             node_msgs: HashMap::default(),
             echos: HashMap::default(),
             readys:HashMap::default(),
+            echo_sent: HashSet::default(),
+            ready_sent: HashSet::default(),
+            recon_sent: HashSet::default(),
             recon_msgs:HashMap::default(),
             witnesses:HashMap::default(),
             accepted_msgs: HashMap::default(),
@@ -97,7 +103,7 @@ impl RBCRoundState{
         log::debug!("WSS ECHO check: echos.len {}, contains key: {}"
         ,echos.len(),self.node_msgs.contains_key(&rbc_origin));
         
-        if echos.len() == num_nodes-num_faults && 
+        if !self.echo_sent.contains(&rbc_origin) && echos.len() >= num_nodes-num_faults && 
             self.node_msgs.contains_key(&rbc_origin){
             // Broadcast readys, otherwise, just wait longer
             // Cachin-Tessaro RBC implies verification needed
@@ -110,6 +116,7 @@ impl RBCRoundState{
                     return None;
                 },
                 Ok(vec_x)=> {
+                    self.echo_sent.insert(rbc_origin);
                     return Some(vec_x);
                 }
             }   
@@ -123,7 +130,7 @@ impl RBCRoundState{
         log::debug!("READY check: echos.len {}, contains key: {}"
         ,readys.len(),self.node_msgs.contains_key(&rbc_origin));
         
-        if  readys.len() == num_faults+1 &&
+        if !self.ready_sent.contains(&rbc_origin) && readys.len() >= num_faults+1 &&
             self.node_msgs.contains_key(&rbc_origin) && !readys.contains_key(&myid){
             // Broadcast readys, otherwise, just wait longer
             // Cachin-Tessaro RBC implies verification needed
@@ -136,11 +143,12 @@ impl RBCRoundState{
                     return None;
                 },
                 Ok(vec_x)=> {
+                    self.ready_sent.insert(rbc_origin);
                     return Some((vec_x.0,vec_x.1,num_faults+1));
                 }
             };
         }
-        else if readys.len() >= num_nodes-num_faults &&
+        else if !self.recon_sent.contains(&rbc_origin) && readys.len() >= num_nodes-num_faults &&
             self.node_msgs.contains_key(&rbc_origin){
             // Terminate RBC, RAccept the value
             // Add value to value list, add rbc to rbc list
@@ -153,6 +161,7 @@ impl RBCRoundState{
                     return None;
                 },
                 Ok(vec_x)=> {
+                    self.recon_sent.insert(rbc_origin);
                     return Some((vec_x.0,vec_x.1,num_nodes-num_faults));
                     //let ctrbc = CTRBCMsg::new(vec_x.0, vec_x.1, round, rbc_origin);
                 }
@@ -163,6 +172,9 @@ impl RBCRoundState{
 
     pub fn reconstruct_message(&mut self, rbc_origin: Replica, num_nodes: usize,num_faults:usize)->Option<Vec<u8>>{
         let ready_check = self.readys.get(&rbc_origin).unwrap().len() >= (num_nodes-num_faults);
+        if !self.recon_msgs.contains_key(&rbc_origin){
+            return None;
+        }
         let vec_fmap = self.recon_msgs.get(&rbc_origin).unwrap();
         if vec_fmap.len()>=num_nodes-num_faults && ready_check{
             // Reconstruct here
@@ -174,7 +186,6 @@ impl RBCRoundState{
                 }
                 Ok(vec)=>{
                     log::info!("Successfully reconstructed message for RBC, terminating RBC of node {}",rbc_origin);
-                    log::info!("Terminated with message: {:?}",String::from_utf8(vec.clone()).expect("Invalid utf8"));
                     self.accepted_msgs.insert(rbc_origin, vec.clone());
                     self.terminated_rbcs.insert(rbc_origin);
                     return Some(vec);

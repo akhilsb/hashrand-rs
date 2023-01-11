@@ -101,7 +101,7 @@ pub async fn process_batchwss_init(cx: &mut Context, wss_init: BatchWSSMsg, ctr:
     }
     // 1. Check if the protocol reached the round for this node
     log::info!("Received RBC Init from node {}",ctr.origin);
-    let wss_state = &mut cx.batchvss_state;
+    let wss_state = &mut cx.cur_batchvss_state;
     let master_merkle_root = wss_init.master_root.clone();
     wss_state.add_batch_secrets(wss_init);
     // 3. Add your own echo and ready to the channel

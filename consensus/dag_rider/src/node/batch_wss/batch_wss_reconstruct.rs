@@ -7,10 +7,14 @@ use crypto::hash::{Hash};
 
 pub async fn process_batchreconstruct_message(cx: &mut Context,ctr:CTRBCMsg,master_root:Hash,recon_sender:Replica, _smr_msg:&mut SMRMsg){
     let now = SystemTime::now();
-    let vss_state = &mut cx.batchvss_state;
+    let vss_state = &mut cx.cur_batchvss_state;
     let sec_origin = ctr.origin.clone();
     if vss_state.terminated_secrets.contains(&sec_origin){
         log::info!("Batch secret instance from node {} already terminated",sec_origin);
+        return;
+    }
+    if !vss_state.node_secrets.contains_key(&sec_origin){
+        vss_state.add_recon(sec_origin, recon_sender, &ctr);
         return;
     }
     let mp = vss_state.node_secrets.get(&sec_origin).unwrap().master_root;
@@ -30,9 +34,18 @@ pub async fn process_batchreconstruct_message(cx: &mut Context,ctr:CTRBCMsg,mast
             if vss_state.terminated_secrets.len() >= cx.num_nodes - cx.num_faults{
                 log::info!("Terminated n-f Reliable Broadcasts, sending list of first n-f reliable broadcasts to other nodes");
                 log::info!("Terminated : {:?}",vss_state.terminated_secrets);
-                start_rbc(cx).await;
-                //cx.add_benchmark(String::from("process_batchreconstruct_message"), now.elapsed().unwrap().as_nanos());
-                //witness_check(cx).await;
+                let rounds_for_coin = 4+ (cx.rounds_aa*4)/3;
+                let is_current_round_wss = cx.curr_round % rounds_for_coin;
+                // Next RBC must start here if the current round is doing weak secret sharing
+                if is_current_round_wss == 0{
+                    if cx.dag_state.new_round(cx.num_nodes, cx.num_faults,cx.curr_round){
+                        // propose next block, but send secret share along
+                        // Change round only here
+                        // Maintain only one round number throughout, use that round number to derive round numbers for other apps
+                        cx.curr_round+=1;
+                        start_rbc(cx).await;
+                    }
+                }
             }
         }
     }

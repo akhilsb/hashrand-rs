@@ -1,13 +1,14 @@
 # A script to test quickly
 
 killall {appxcox_new} &> /dev/null
+rm -rf /tmp/*.db &> /dev/null
 
-TESTDIR=${TESTDIR:="testdata/baa_test_10"}
+TESTDIR=${TESTDIR:="testdata/new_rbc_test"}
 TYPE=${TYPE:="release"}
 EXP=${EXP:-"appxcox_new"}
 W=${W:="10000"}
 
-for((i=0;i<10;i++)); do
+for((i=0;i<4;i++)); do
 ./target/$TYPE/appxcox_new \
     --config $TESTDIR/nodes-$i.json \
     --ip ip_file \
@@ -17,4 +18,4 @@ done
 sleep 20
 
 # Client has finished; Kill the nodes
-killall ./target/$TYPE/{node,client}-{synchs,apollo} &> /dev/null
+killall ./target/$TYPE/appxcox_new &> /dev/null

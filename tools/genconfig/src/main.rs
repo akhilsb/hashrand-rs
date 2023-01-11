@@ -213,7 +213,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         node[i].block_size = blocksize;
         node[i].payload = payload;
         node[i].client_port = client_base_port+(i as u16);
-        node[i].prot_payload = String::from("cc,protocol_for_common_coin");
+        node[i].prot_payload = String::from("cc,/home/akhil/research/EEBA/libchatter/");
         node[i].crypto_alg = t.clone();
         match t {
             Algorithm::ED25519 => {

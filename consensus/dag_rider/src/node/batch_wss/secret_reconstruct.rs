@@ -5,7 +5,8 @@ use crate::node::{Context};
 
 pub async fn send_batchreconstruct(cx: &mut Context, coin_number:usize)-> CoinMsg{
     let now = SystemTime::now();
-    let vss_state = &mut cx.batchvss_state;
+    let coin_number = coin_number % cx.batch_size;
+    let vss_state = &mut cx.prev_batchvss_state;
     let shares_vector = vss_state.secret_shares(coin_number);
     // Add your own share into your own map
     for (rep,wss_share) in shares_vector.clone().into_iter() {
@@ -21,7 +22,7 @@ pub async fn send_batchreconstruct(cx: &mut Context, coin_number:usize)-> CoinMs
 
 pub async fn process_batchreconstruct(cx: &mut Context,wss_msg:Vec<WSSMsg>,share_sender:Replica, coin_num:usize, smr_msg:&mut SMRMsg){
     let now = SystemTime::now();
-    let vss_state = &mut cx.batchvss_state;
+    let vss_state = &mut cx.prev_batchvss_state;
     for wss_msg in wss_msg.into_iter(){
         let sec_origin = wss_msg.origin.clone();
         if vss_state.recon_secret > coin_num{
@@ -51,21 +52,21 @@ pub async fn process_batchreconstruct(cx: &mut Context,wss_msg:Vec<WSSMsg>,share
                         continue;
                     },
                     Some(leader)=>{
-                        log::error!("{:?} {:?}",SystemTime::now()
+                        log::info!("{:?} {:?}",SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .unwrap()
                         .as_millis(),time_before_processing);
-                        log::error!("Leader elected: {:?}",leader);
-                        if vss_state.recon_secret < cx.batch_size{
-                            
-                            // Leader elected!
-                            //send_batchreconstruct(cx, coin_num+1).await;
+                        log::info!("Leader elected: {:?} for round {}",leader,cx.curr_round);
+                        if vss_state.recon_secret <= cx.batch_size{
+                            // Leader elected for round, trigger leader checks
+                            // Commit vertices for the wave using the leader
+                            cx.dag_state.commit_vertices( leader, cx.num_nodes, cx.num_faults,cx.curr_round).await;
                         }
                         else {
-                            log::error!("Number of messages passed between nodes: {}",cx.num_messages);
-                            log::error!("Benchmark map: {:?}",cx.bench.clone());
+                            log::info!("Number of messages passed between nodes: {}",cx.num_messages);
+                            log::info!("Benchmark map: {:?}",cx.bench.clone());
                         }
-                        return;
+                        break;
                     }
                 }
             }

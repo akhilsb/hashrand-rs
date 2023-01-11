@@ -60,7 +60,7 @@ pub fn reconstruct_and_verify(map:HashMap<Replica,(Vec<u8>,MerkleProof)>,num_nod
         _=> {}
     }
     let hashes:Vec<Hash> = shard_vector.clone().into_iter().map(|x| do_hash(x.unwrap().as_slice())).collect();
-    log::info!("Vector of hashes in reconstruction verification {:?}",hashes);
+    //log::info!("Vector of hashes in reconstruction verification {:?}",hashes);
     let merkle_tree:MerkleTree<[u8; 32],HashingAlg> = MerkleTree::from_iter(hashes.into_iter());
     if merkle_tree.root() == mr{
         let mut vec_f = Vec::new();
@@ -96,7 +96,7 @@ pub fn reconstruct_and_return(map:&HashMap<Replica,Vec<u8>>,num_nodes:usize,num_
         },
         _=> {}
     }
-    log::info!("Vector after reconstruction {:?}",shard_vector.clone());
+    //log::info!("Vector after reconstruction {:?}",shard_vector.clone());
     let mut vec_f = Vec::new();
     for i in 0..num_faults+1{
         for byte in shard_vector[i].clone().unwrap(){
