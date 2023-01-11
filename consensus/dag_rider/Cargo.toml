@@ -34,5 +34,12 @@ num-integer = {version = "0.1.42", features = ["std", "i128"]}
 secp256k1 = {version = "0.17.2", features = ["rand-std", "serde"]}
 
 storage = { package = "libstorage-rs", git = "https://github.com/libdist-rs/libstorage-rs.git" }
-nohash-hasher = "0.2.0"
 linked_hash_set = "0.1.4"
+
+anyhow = "1"
+
+async-trait = "0"
+futures-util = "0"
+network = { package = "network", git = "https://github.com/libdist-rs/libnet-rs.git" }
+
+nohash-hasher = "0.2.0"

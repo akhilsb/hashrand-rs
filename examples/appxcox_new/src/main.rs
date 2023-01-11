@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
     }
     let config = config;
     // Start the Reliable Broadcast protocol
-    let exit_tx = hash_cc_baa::node::Context::spawn(config).unwrap();
+    let exit_tx = hash_cc::node::Context::spawn(config).unwrap();
     // Implement a waiting strategy
     let mut signals = Signals::new(&[SIGINT, SIGTERM])?;
     signals.forever().next();

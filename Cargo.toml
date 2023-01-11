@@ -11,33 +11,6 @@ members = [
     "discovery",
     "util",
     # "comm", (WIP: Do not enable unless testing)
-    # Sink Experiment modules
-    "examples/sink-exp/relay",
-    "examples/sink-exp/sink",
-    "examples/sink-exp/stream",
-    # Ping modules
-    "examples/echo-exp/echo",
-    "examples/echo-exp/ping",
-    # Apollo modules
-    "consensus/apollo",
-    "examples/apollo/node",
-    "examples/apollo/client",
-    "examples/apollo/normal-client",
-    # Sync HotStuff modules
-    "consensus/synchs",
-    "examples/synchs/node-rr",
-    "examples/synchs/node",
-    "examples/synchs/client",
-    # Opt Sync modules
-    "consensus/optsync",
-    "examples/optsync/node",
-    "examples/optsync/client",
-    # Artemis modules
-    "consensus/artemis",
-    "examples/artemis/node",
-    "examples/artemis/client",
-    # Dummy consensus module
-    "consensus/dummy",
     # RBC module
     "consensus/rbc",
     "consensus/appxcon",
