@@ -100,7 +100,7 @@ impl RBCRoundState{
     pub fn echo_check(&mut self, rbc_origin: Replica, num_nodes: usize,num_faults:usize, myid:Replica)-> Option<(Vec<u8>,MerkleProof)>{
         let echos = self.echos.get_mut(&rbc_origin).unwrap();
         // 2. Check if echos reached the threshold, init already received, and round number is matching
-        log::debug!("WSS ECHO check: echos.len {}, contains key: {}"
+        log::trace!("WSS ECHO check: echos.len {}, contains key: {}"
         ,echos.len(),self.node_msgs.contains_key(&rbc_origin));
         
         if !self.echo_sent.contains(&rbc_origin) && echos.len() >= num_nodes-num_faults && 
@@ -127,7 +127,7 @@ impl RBCRoundState{
     pub fn ready_check(&mut self, rbc_origin: Replica, num_nodes: usize,num_faults:usize, myid:Replica)-> Option<(Vec<u8>,MerkleProof,usize)>{
         let readys = self.readys.get_mut(&rbc_origin).unwrap();
         // 2. Check if readys reached the threshold, init already received, and round number is matching
-        log::debug!("READY check: echos.len {}, contains key: {}"
+        log::trace!("READY check: echos.len {}, contains key: {}"
         ,readys.len(),self.node_msgs.contains_key(&rbc_origin));
         
         if !self.ready_sent.contains(&rbc_origin) && readys.len() >= num_faults+1 &&
@@ -185,7 +185,7 @@ impl RBCRoundState{
                     return None;
                 }
                 Ok(vec)=>{
-                    log::info!("Successfully reconstructed message for RBC, terminating RBC of node {}",rbc_origin);
+                    log::debug!("Successfully reconstructed message for RBC, terminating RBC of node {}",rbc_origin);
                     self.accepted_msgs.insert(rbc_origin, vec.clone());
                     self.terminated_rbcs.insert(rbc_origin);
                     return Some(vec);

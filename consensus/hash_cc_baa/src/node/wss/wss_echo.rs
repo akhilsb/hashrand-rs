@@ -1,6 +1,5 @@
 use std::{collections::HashSet, time::SystemTime};
 
-use network::NetSender;
 use types::{Replica, hash_cc::{CoinMsg, WrapperMsg}};
 
 use crate::node::{Context};

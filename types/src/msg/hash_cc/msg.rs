@@ -1,4 +1,5 @@
-use std::iter::FromIterator;
+use core::fmt;
+use std::{iter::FromIterator, convert::TryInto};
 
 use crypto::hash::{Hash, do_mac, do_hash_merkle, do_hash};
 use merkle_light::merkle::MerkleTree;
@@ -112,7 +113,7 @@ impl BatchWSSMsg {
         let secrets = self.secrets.clone();
         let commitments = self.commitments.clone();
         let merkle_proofs = self.mps.clone();
-        log::info!("Received WSSInit message for secret from {}",sec_origin);
+        log::debug!("Received WSSInit message for secret from {}",sec_origin);
         let mut root_ind:Vec<Hash> = Vec::new();
         for i in 0..secrets.len(){
             let secret = BigInt::from_bytes_be(Sign::Plus, secrets[i].as_slice());
@@ -139,7 +140,7 @@ impl BatchWSSMsg {
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct DAGData{
-    pub data: Vec<u8>,
+    pub data: Vec<Vec<u8>>,
     // Store both replica and the original digest of the block as part of the edges
     pub vertices: Vec<(Replica,Round,Hash)>,
     pub round:u32,
@@ -147,13 +148,38 @@ pub struct DAGData{
 }
 
 impl DAGData {
-    pub fn new(data:Vec<u8>, vertices:Vec<(Replica,Round,Hash)>, round:u32, origin:Replica)-> DAGData{
-        DAGData { 
+    pub fn new(data:Vec<Vec<u8>>, vertices:Vec<(Replica,Round,Hash)>, round:u32, origin:Replica)-> DAGData{
+        let dag_data = DAGData { 
             data: data, 
             vertices: vertices, 
             round: round, 
             origin: origin 
+        };
+        let size;
+        if dag_data.data.len() > 0{
+            size = dag_data.data.len()*dag_data.data[0].len();
         }
+        else{
+            size = 0;
+        }
+        let tx_ids: Vec<_> = dag_data.data
+            .iter()
+            .filter(|tx| tx[0] == 0u8 && tx.len() > 8)
+            .filter_map(|tx| tx[1..9].try_into().ok())
+            .collect();
+        // NOTE: This is one extra hash that is only needed to print the following log entries.
+        let digest = dag_data.digest();
+        for id in tx_ids {
+            // NOTE: This log entry is used to compute performance.
+            log::info!(
+                "Batch {:?} contains sample tx {}",
+                base64::encode(digest).get(0..16).unwrap(),
+                u64::from_be_bytes(id)
+            );
+        }
+        // NOTE: This log entry is used to compute performance.
+        log::info!("Batch {:?} contains {} B", base64::encode(digest).get(0..16).unwrap(), size);
+        dag_data
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -169,6 +195,12 @@ impl DAGData {
     pub fn digest(&self) -> Hash {
         let bytes = self.to_bytes();
         do_hash(bytes.as_slice())
+    }
+}
+
+impl fmt::Display for DAGData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "B{}({})", self.round, self.origin)
     }
 }
 
@@ -215,7 +247,6 @@ impl WrapperMsg{
         let new_msg = msg.clone();
         let bytes = bincode::serialize(&new_msg).expect("Failed to serialize protocol message");
         let mac = do_mac(&bytes.as_slice(), sk);
-        //log::info!("secret key of: {} {:?}",msg.clone().node,sk);
         Self{
             protmsg: new_msg,
             mac: mac,
@@ -255,7 +286,6 @@ impl WrapperSMRMsg{
         let new_msg = msg.clone();
         let bytes = bincode::serialize(&new_msg).expect("Failed to serialize protocol message");
         let mac = do_mac(&bytes.as_slice(), sk);
-        //log::info!("secret key of: {} {:?}",msg.clone().node,sk);
         Self{
             protmsg: new_msg,
             mac: mac,

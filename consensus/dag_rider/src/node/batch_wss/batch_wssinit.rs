@@ -67,14 +67,14 @@ impl Context{
             roots_vec.push(mt.root());
             master_vec.append(&mut Vec::from(mt.root()));
         }
-        log::info!("Secret sharing for node {}, root_poly {:?}, str_construct {:?}",self.myid,roots_vec.clone(),master_vec.clone());
+        log::debug!("Secret sharing for node {}, root_poly {:?}, str_construct {:?}",self.myid,roots_vec.clone(),master_vec.clone());
         let master_root_mt:MerkleTree<Hash, HashingAlg> = MerkleTree::from_iter(roots_vec.into_iter());
         let master_root = master_root_mt.root();
         // reliably broadcast the vector of merkle roots of each secret sharing instance
         let shards = get_shards(master_vec, self.num_faults);
         // Construct Merkle tree
         let hashes_rbc:Vec<Hash> = shards.clone().into_iter().map(|x| do_hash(x.as_slice())).collect();
-        log::info!("Vector of hashes during RBC Init {:?}",hashes_rbc);
+        log::debug!("Vector of hashes during RBC Init {:?}",hashes_rbc);
         let merkle_tree:MerkleTree<[u8; 32],HashingAlg> = MerkleTree::from_iter(hashes_rbc.into_iter());
         for (rep,batch_wss) in vec_msgs_to_be_sent.iter_mut(){
             let replica = rep.clone()-1;
@@ -101,7 +101,7 @@ impl Context{
             return;
         }
         // 1. Check if the protocol reached the round for this node
-        log::info!("Received RBC Init from node {}",ctr.origin);
+        log::debug!("Received RBC Init from node {}",ctr.origin);
         let wss_state = &mut self.cur_batchvss_state;
         let master_merkle_root = wss_init.master_root.clone();
         wss_state.add_batch_secrets(wss_init);

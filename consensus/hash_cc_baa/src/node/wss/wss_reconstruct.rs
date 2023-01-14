@@ -1,7 +1,6 @@
 use std::{collections::HashMap};
 
 use crypto::hash::{do_hash, do_hash_merkle};
-use network::NetSender;
 use num_bigint::{BigInt, Sign};
 use std::time::{SystemTime, UNIX_EPOCH};
 

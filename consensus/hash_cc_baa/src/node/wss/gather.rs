@@ -1,7 +1,6 @@
 use std::{time::SystemTime};
 
 use async_recursion::async_recursion;
-use network::NetSender;
 use num_bigint::BigInt;
 use num_traits::pow;
 use types::{hash_cc::{CoinMsg, WrapperMsg}, Replica};

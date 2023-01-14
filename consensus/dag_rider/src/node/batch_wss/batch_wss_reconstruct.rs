@@ -2,7 +2,7 @@ use std::{time::SystemTime};
 
 use types::{Replica, hash_cc::{CTRBCMsg, SMRMsg}};
 
-use crate::node::{Context, start_rbc};
+use crate::node::{Context};
 use crypto::hash::{Hash};
 
 impl Context{
@@ -11,7 +11,7 @@ impl Context{
         let vss_state = &mut self.cur_batchvss_state;
         let sec_origin = ctr.origin.clone();
         if vss_state.terminated_secrets.contains(&sec_origin){
-            log::info!("Batch secret instance from node {} already terminated",sec_origin);
+            log::debug!("Batch secret instance from node {} already terminated",sec_origin);
             return;
         }
         if !vss_state.node_secrets.contains_key(&sec_origin){
@@ -33,8 +33,8 @@ impl Context{
             Some(_res) => {
                 // Begin next round of reliable broadcast
                 if vss_state.terminated_secrets.len() >= self.num_nodes - self.num_faults{
-                    log::info!("Terminated n-f Reliable Broadcasts, sending list of first n-f reliable broadcasts to other nodes");
-                    log::info!("Terminated : {:?}",vss_state.terminated_secrets);
+                    log::debug!("Terminated n-f Reliable Broadcasts, sending list of first n-f reliable broadcasts to other nodes");
+                    log::debug!("Terminated : {:?}",vss_state.terminated_secrets);
                     let rounds_for_coin = 4+ (self.rounds_aa*4)/3;
                     let is_current_round_wss = self.curr_round % rounds_for_coin;
                     // Next RBC must start here if the current round is doing weak secret sharing
@@ -44,7 +44,7 @@ impl Context{
                             // Change round only here
                             // Maintain only one round number throughout, use that round number to derive round numbers for other apps
                             self.curr_round+=1;
-                            start_rbc(self).await;
+                            self.start_rbc().await;
                         }
                     }
                 }

@@ -27,7 +27,7 @@ impl Context{
         for wss_msg in wss_msg.into_iter(){
             let sec_origin = wss_msg.origin.clone();
             if vss_state.recon_secret > coin_num{
-                log::info!("Older secret share received from node {}, not processing share", sec_origin);
+                log::debug!("Older secret share received from node {}, not processing share", sec_origin);
                 continue;
             }
             if !vss_state.validate_secret_share(wss_msg.clone(), coin_num){
@@ -53,11 +53,11 @@ impl Context{
                             continue;
                         },
                         Some(leader)=>{
-                            log::info!("{:?} {:?}",SystemTime::now()
+                            log::debug!("{:?} {:?}",SystemTime::now()
                             .duration_since(UNIX_EPOCH)
                             .unwrap()
                             .as_millis(),time_before_processing);
-                            log::info!("Leader elected: {:?} for round {}",leader,self.curr_round);
+                            log::debug!("Leader elected: {:?} for round {}",leader,self.curr_round);
                             if vss_state.recon_secret <= self.batch_size{
                                 // Leader elected for round, trigger leader checks
                                 // Commit vertices for the wave using the leader

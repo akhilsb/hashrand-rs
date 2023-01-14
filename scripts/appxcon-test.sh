@@ -1,15 +1,15 @@
 # A script to test quickly
 
-killall {appxcox_new} &> /dev/null
+killall {node} &> /dev/null
 rm -rf /tmp/*.db &> /dev/null
 
-TESTDIR=${TESTDIR:="testdata/baa_test_16"}
+TESTDIR=${TESTDIR:="testdata/new_rbc_test"}
 TYPE=${TYPE:="release"}
 EXP=${EXP:-"appxcox_new"}
 W=${W:="10000"}
 
-for((i=0;i<16;i++)); do
-./target/$TYPE/appxcox_new \
+for((i=0;i<4;i++)); do
+./target/$TYPE/node \
     --config $TESTDIR/nodes-$i.json \
     --ip ip_file \
     --sleep 10 > $i.log &

@@ -65,15 +65,15 @@ impl CoinRoundState{
                     arr_vec[0].1.insert(echo_sender);
                     // check for t+1 votes: if it has t+1 votes, send out another echo1 message
                     // check whether an echo has been sent out for this value in this instance
-                    //log::info!("Processing values: {:?} inst: {} echo count: {}",arr_vec[0].clone(),rep, arr_vec[0].1.len());
+                    //log::debug!("Processing values: {:?} inst: {} echo count: {}",arr_vec[0].clone(),rep, arr_vec[0].1.len());
                     if arr_vec[0].1.len() == num_faults+1 && !arr_vec[0].3{
-                        log::info!("Got t+1 ECHO messages for BAA inst {} sending ECHO",rep.clone());
+                        log::debug!("Got t+1 ECHO messages for BAA inst {} sending ECHO",rep.clone());
                         echo1_msgs.push((rep,msg.clone()));
                         arr_vec[0].3 = true;
                     }
                     // check for 2t+1 votes: if it has 2t+1 votes, send out echo2 message
                     else if arr_vec[0].1.len() >= num_nodes-num_faults && !arr_vec[0].4{
-                        log::info!("Got 2t+1 ECHO messages for BAA inst {} sending ECHO2",rep.clone());
+                        log::debug!("Got 2t+1 ECHO messages for BAA inst {} sending ECHO2",rep.clone());
                         echo2_msgs.push((rep,msg.clone()));
                         arr_tup.1.insert(parsed_bigint);
                         if arr_tup.1.len() == 2{
@@ -95,7 +95,7 @@ impl CoinRoundState{
                     else {
                         arr_vec[1].1.insert(rep);
                         if arr_vec[1].1.len() == num_faults+1 && !arr_vec[1].3{
-                            log::info!("Second value {} got t+1 votes",parsed_bigint.clone());
+                            log::debug!("Second value {} got t+1 votes",parsed_bigint.clone());
                             echo1_msgs.push((rep,msg.clone()));
                             arr_vec[1].3 = true;
                         }
@@ -149,7 +149,7 @@ impl CoinRoundState{
                     else{
                         arr_vec[1].2.insert(rep);
                         if arr_vec[1].2.len() == num_nodes-num_faults{
-                            log::info!("Value {:?} received n-f echo2s for instance {}",arr_vec[1].0.clone(),rep);
+                            log::debug!("Value {:?} received n-f echo2s for instance {}",arr_vec[1].0.clone(),rep);
                             arr_tup.2.push(parsed_bigint);
                             self.term_vals.insert(rep, arr_vec[1].0.clone());
                         }

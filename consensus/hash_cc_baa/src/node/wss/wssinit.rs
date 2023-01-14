@@ -2,7 +2,6 @@ use std::{collections::{HashSet}, time::SystemTime};
 
 use crypto::hash::{do_hash, Hash, do_hash_merkle};
 use merkle_light::merkle::MerkleTree;
-use network::NetSender;
 use num_bigint::{BigInt, RandBigInt, Sign};
 use types::{appxcon::{HashingAlg, MerkleProof}, hash_cc::{WSSMsg, CoinMsg, WrapperMsg}};
 

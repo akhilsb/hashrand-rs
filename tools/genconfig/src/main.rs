@@ -174,6 +174,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap_or("0")
         .parse()
         .unwrap();
+    let local:String = m.value_of("local")
+        .unwrap_or("false")
+        .parse()
+        .unwrap();
     let mut client = Client::new();
     client.block_size = blocksize;
     client.crypto_alg = t.clone();
@@ -187,7 +191,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let (cert, privkey) = new_root_cert()?;
     let mut sec_keys:Vec<Vec<SecretKey>> = Vec::with_capacity(num_nodes);
-    (0..num_nodes).for_each(|i| {
+    (0..num_nodes).for_each(|_i| {
         sec_keys.push(Vec::with_capacity(num_nodes));
     });
     if t == Algorithm::NOPKI{
@@ -254,7 +258,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         node[i].pk_map = pk.clone();
         node[i].net_map = ip.clone();
     }
-
+    if local != String::from("false"){
+        // write ip map to file
+        let filename = format!("ip_file");
+        println!("Writing ips to ip_file");
+        write_json(filename, &ip.clone());
+    }
     client.server_pk = pk;
 
     // Write all the files
@@ -310,12 +319,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_codec() -> Result<(), Box<dyn Error>>{
-    use rustls::{Certificate, ClientConfig};
+    // use rustls::{Certificate};
 
-    let (cert, _key) = new_root_cert()?;
-    let data = cert.to_der()?;
-    let ok = Certificate(data);
-    //let mut config = ClientConfig::new();
-    //config.root_store.add(&ok)?;
+    // let (cert, _key) = new_root_cert()?;
+    // let data = cert.to_der()?;
+    // //let ok = Certificate(data);
+    // //let mut config = ClientConfig::new();
+    // //config.root_store.add(&ok)?;
     Ok(())
 }

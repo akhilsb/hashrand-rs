@@ -82,7 +82,6 @@ impl WrapperMsg{
         let new_msg = msg.clone();
         let bytes = bincode::serialize(&new_msg).expect("Failed to serialize protocol message");
         let mac = do_mac(&bytes.as_slice(), sk);
-        //log::info!("secret key of: {} {:?}",msg.clone().node,sk);
         Self{
             protmsg: new_msg,
             mac: mac,

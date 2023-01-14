@@ -68,3 +68,8 @@ args:
         long: payload
         help: the amount of payload to send in every block
         takes_value: true
+    - local:
+        short: z
+        long: local
+        help: Local running or not
+        takes_value: true

@@ -15,7 +15,7 @@ members = [
     "consensus/rbc",
     "consensus/appxcon",
     "examples/rbc_ex",
-    "examples/appxcox_new",
+    "node",
     "consensus/ct_rbc",
     "consensus/hash_cc",
     "consensus/hash_cc_baa",

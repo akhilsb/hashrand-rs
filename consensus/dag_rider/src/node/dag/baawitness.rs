@@ -7,7 +7,7 @@ use crate::node::{Context, RoundState, start_baa};
 impl Context{
     pub async fn handle_witness(self: &mut Context,vec_rbc_indices:Vec<Replica>, witness_sender:Replica,round: u32){
         let round_state_map = &mut self.round_state;
-        log::info!("Received witness message {:?} from node {} for round {}",vec_rbc_indices.clone(),witness_sender,round);
+        log::debug!("Received witness message {:?} from node {} for round {}",vec_rbc_indices.clone(),witness_sender,round);
         if round_state_map.contains_key(&round){
             let rnd_state = round_state_map.get_mut(&round).unwrap();
             rnd_state.witnesses.insert(witness_sender,vec_rbc_indices.clone());
@@ -53,15 +53,15 @@ impl Context{
                 }
             }
             let mut final_round_vals:Vec<(Replica,BigInt)> = Vec::new();
-            log::info!("Message matrix: {:?}",array_vecs.clone());
+            log::trace!("Message matrix: {:?}",array_vecs.clone());
             for i in 0..self.num_nodes{
                 array_vecs[i].sort();
                 let index_val:BigInt = (array_vecs[i][min_threshold].clone()+ array_vecs[i][high_threshold].clone())/2;
-                log::info!("{}",index_val.clone());
+                log::trace!("{}",index_val.clone());
                 final_round_vals.push((i,index_val));
             }
     
-            log::info!("Completed round {} of BAA, starting round {} with BigInt Array {:?}",round,round+1,final_round_vals.clone());
+            log::debug!("Completed round {} of BAA, starting round {} with BigInt Array {:?}",round,round+1,final_round_vals.clone());
             self.curr_round = round+1;
             start_baa(self, final_round_vals).await;
         }

@@ -1,13 +1,13 @@
 use types::{hash_cc::{CTRBCMsg,DAGMsg}, Replica};
 
-use crate::node::{Context, RBCRoundState, process_ready};
+use crate::node::{Context, RBCRoundState};
 
 impl Context{
-    pub async fn process_echo(cx: &mut Context, ctr:CTRBCMsg, echo_sender:Replica)-> Vec<DAGMsg>{
+    pub async fn process_echo(self: &mut Context, ctr:CTRBCMsg, echo_sender:Replica)-> Vec<DAGMsg>{
         let mut ret_vec = Vec::new();
         let rbc_origin = ctr.origin.clone();
-        let round_state_map = &mut cx.round_state;
-        log::info!("Received ECHO message from {} for RBC of node {} of round {}",echo_sender,rbc_origin,ctr.round);
+        let round_state_map = &mut self.round_state;
+        log::debug!("Received ECHO message from {} for RBC of node {} of round {}",echo_sender,rbc_origin,ctr.round);
         let round = ctr.round;
         if !ctr.verify_mr_proof(){
             return ret_vec;
@@ -29,19 +29,19 @@ impl Context{
             rnd_state.add_echo(rbc_origin, echo_sender, &ctr);
             //let echos = rnd_state.echos.get_mut(&rbc_origin).unwrap();
             // 2. Check if echos reached the threshold, init already received, and round number is matching
-            match rnd_state.echo_check(rbc_origin,cx.num_nodes,cx.num_faults,cx.myid){
+            match rnd_state.echo_check(rbc_origin,self.num_nodes,self.num_faults,self.myid){
                 None =>{
                     return ret_vec;
                 },
                 Some(vec_x) =>{
                     let ctrbc = CTRBCMsg::new(vec_x.0, vec_x.1, round, rbc_origin);
-                    ret_vec.push(DAGMsg::RBCREADY(ctrbc.clone(), cx.myid));
-                    ret_vec.append(&mut process_ready(cx,ctrbc,cx.myid).await);
+                    ret_vec.push(DAGMsg::RBCREADY(ctrbc.clone(), self.myid));
+                    ret_vec.append(&mut self.process_ready(ctrbc,self.myid).await);
                 }
             }
         }
         else{
-            //let mut rnd_state = create_roundstate(rbc_originator, &main_msg, cx.myid);
+            //let mut rnd_state = create_roundstate(rbc_originator, &main_msg, self.myid);
             let mut rnd_state = RBCRoundState::new(&ctr);
             rnd_state.add_echo(rbc_origin, echo_sender, &ctr);
             round_state_map.insert(round, rnd_state);

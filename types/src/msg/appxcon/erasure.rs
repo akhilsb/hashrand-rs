@@ -31,35 +31,35 @@ pub fn get_shards(data:Vec<u8>,faults:Replica)->Vec<Vec<u8>>{
         vec_vecs.push(parity_vec);
     }
     r.encode(&mut vec_vecs).unwrap();
-    log::info!("Vec_vecs for Erasure codes: {:?}",vec_vecs);
-    let mut vec_recon = Vec::new();
-    let mut vec_recon_2 = Vec::new();
+    log::trace!("Vec_vecs for Erasure codes: {:?}",vec_vecs);
+    // let mut vec_recon = Vec::new();
+    // let mut vec_recon_2 = Vec::new();
     
-    for _i in 0..3*faults+1{
-        vec_recon.push(None);
-        vec_recon_2.push(None);
-    }
+    // for _i in 0..3*faults+1{
+    //     vec_recon.push(None);
+    //     vec_recon_2.push(None);
+    // }
 
-    for i in 1..faults+2{
-        vec_recon[i] = Some(vec_vecs[i].clone());
-        vec_recon_2[i] = Some(vec_vecs[i].clone());
-    }
-    match r.reconstruct(&mut vec_recon){
-        Err(error)=> {
-            log::error!("Erasure reconstruction failed because of {:?}",error);
-        },
-        _ => {
-            log::info!("Reconstruct shards: {:?}",vec_recon);
-        }
-    }
-    match r.reconstruct_data(&mut vec_recon_2){
-        Err(error)=> {
-            log::error!("Erasure reconstruction failed because of {:?}",error);
-        },
-        _=> {
-            log::info!("Reconstruct data: {:?}",vec_recon_2);
-        }
-    }
+    // for i in 1..faults+2{
+    //     vec_recon[i] = Some(vec_vecs[i].clone());
+    //     vec_recon_2[i] = Some(vec_vecs[i].clone());
+    // }
+    // match r.reconstruct(&mut vec_recon){
+    //     Err(error)=> {
+    //         log::error!("Erasure reconstruction failed because of {:?}",error);
+    //     },
+    //     _ => {
+    //         log::trace!("Reconstruct shards: {:?}",vec_recon);
+    //     }
+    // }
+    // match r.reconstruct_data(&mut vec_recon_2){
+    //     Err(error)=> {
+    //         log::error!("Erasure reconstruction failed because of {:?}",error);
+    //     },
+    //     _=> {
+    //         log::trace!("Reconstruct data: {:?}",vec_recon_2);
+    //     }
+    // }
     vec_vecs
 }
 
@@ -127,7 +127,7 @@ pub fn reconstruct_and_return(map:&HashMap<Replica,Vec<u8>>,num_nodes:usize,num_
             Some(shard) => shard_vector.push(Some(shard.clone()))
         }
     }
-    log::info!("Vector before reconstruction {:?}",shard_vector.clone());
+    log::trace!("Vector before reconstruction {:?}",shard_vector.clone());
     match reconstruct_data(num_faults, &mut shard_vector){
         Err(error)=> {
             log::error!("Erasure reconstruction failed because of {:?}",error);
@@ -135,7 +135,7 @@ pub fn reconstruct_and_return(map:&HashMap<Replica,Vec<u8>>,num_nodes:usize,num_
         },
         _=> {}
     }
-    log::info!("Vector after reconstruction {:?}",shard_vector.clone());
+    log::trace!("Vector after reconstruction {:?}",shard_vector.clone());
     let mut vec_f = Vec::new();
     for i in 0..num_faults+1{
         for byte in shard_vector[i].clone().unwrap(){

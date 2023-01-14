@@ -1,9 +1,11 @@
-use std::{collections::{HashMap, HashSet, BTreeSet}};
+use std::{collections::{HashMap, HashSet, BTreeSet, VecDeque}};
 
 use crypto::hash::Hash;
 use linked_hash_set::LinkedHashSet;
 use types::{hash_cc::DAGData, Replica, Round};
 use storage::rocksdb::Storage;
+
+use crate::node::Blk;
 
 
 type Dag = HashMap<Round,HashMap<Replica,(DAGData,Hash),nohash_hasher::BuildNoHashHasher<Replica>>,nohash_hasher::BuildNoHashHasher<Replica>>;
@@ -17,13 +19,15 @@ pub struct DAGState {
 
     wave_leaders: Vec<Option<Replica>>,
 
-    last_committed_wave:u32,
+    pub last_committed_wave:u32,
 
     dag:Dag,
 
     buffer: Vec<(DAGData,Hash)>,
 
     storage: Storage,
+
+    pub client_batches: VecDeque<Blk>,
 }
 
 impl DAGState{
@@ -41,23 +45,26 @@ impl DAGState{
             buffer: Vec::new(),
             last_committed_wave: 0,
             storage: store,
+            client_batches:VecDeque::new()
         }
     }
 
     pub async fn add_vertex(&mut self,data: Vec<u8>) -> (){
         let mut dag_vertex = DAGData::from_bytes(data);
-        log::info!("Adding Vertex {:?} to buffer", dag_vertex.clone());
+        log::debug!("Adding Vertex {:?} to buffer", dag_vertex.clone());
         let round = dag_vertex.round;
         let digest = dag_vertex.digest();
         // Add data as vecu8 to the storage
         // DO NOT KEEP BLOCKS IN MEMORY!!
-        self.storage.write(digest.clone().into(), dag_vertex.data.clone()).await;
+        for _txn in dag_vertex.data.clone().into_iter(){
+            //self.storage.write(digest.clone().into(), txn).await;
+        }
         // Are all the parents in the dag previously?
         // If not, trigger the check for every vertex in the buffer
         dag_vertex.data.clear();
         if self.parents_in_dag(&dag_vertex){
             self.yet_to_be_committed.insert(dag_vertex.round);
-            log::info!("Adding DAG Vertex {:?} to DAG", dag_vertex.clone());
+            //log::debug!("Adding DAG Vertex {:?} to DAG", dag_vertex.clone());
             if self.dag.contains_key(&dag_vertex.round){
                 let round_map = self.dag.get_mut(&round).unwrap();
                 round_map.insert(dag_vertex.origin,(dag_vertex,digest.clone()));
@@ -160,7 +167,7 @@ impl DAGState{
     }
 
     pub async fn commit_vertices(&mut self,leader_id: Replica,num_nodes:usize,num_faults:usize,curr_round:Round){
-        log::info!("Committing vertices in dag using leader election");
+        log::debug!("Committing vertices in dag using leader election");
         self.clear_buffer();
         let leader_validity = self.validate_leader(leader_id, num_nodes, num_faults,curr_round).await;
         // First, find out all past leaders that were uncommitted and waves that were undecided
@@ -171,7 +178,7 @@ impl DAGState{
         else{
             wave = (curr_round-2)/4;
         }
-        log::info!("Wave: {}, round {}",wave,curr_round);
+        log::debug!("Wave: {}, round {}",wave,curr_round);
         match leader_validity{
             None => {
                 log::error!("No leader valid, pushing leader to later");
@@ -223,12 +230,12 @@ impl DAGState{
                                 path = self.does_path_exist(&current_leader,&(*replica,round_iter,digest.clone()));
                                 if path == 1{
                                     // Commit vertex here
-                                    log::info!("Vertex {:?} committed in wave {}",vertex.clone(),wave);
+                                    log::info!("Committed {} -> {:?}",*vertex,base64::encode(digest.clone()).get(0..16).unwrap());
                                     tree_set_wave.insert((*replica,round_iter));
                                     return 1;
                                 }
                                 else {
-                                    log::info!("No path from vertex {:?} to leader {} in round {}, try again later",vertex.clone(),current_leader.0,current_leader.1);
+                                    //log::debug!("No path from vertex {:?} to leader {} in round {}, try again later",vertex.clone(),current_leader.0,current_leader.1);
                                     return 0;
                                 }
                             }
@@ -269,7 +276,7 @@ impl DAGState{
         let leader_vertex = graph.get(&end_round).unwrap().get(&leader);
         match leader_vertex{
             None=>{
-                log::info!("Leader's vertex not delivered yet, skip adding the leader at all!");
+                log::debug!("Leader's vertex not delivered yet, skip adding the leader at all!");
                 return None;
             },
             Some(vertex) =>{
@@ -286,7 +293,7 @@ impl DAGState{
                         self.does_path_exist(&(*rep,dag_data.0.round,dag_data.1), &target_vertex)    
                     )
                     .sum();
-                log::info!("Wave for vertices: {}",wave_for_vertices);
+                log::debug!("Wave for vertices: {}",wave_for_vertices);
                 self.wave_leaders.push(Some(leader));
                 if wave_for_vertices >= num_nodes-num_faults{
                     // If this is the case, this leader can be committed in this round
@@ -325,14 +332,25 @@ impl DAGState{
                 }
             }
         }
-        let data = vec![10,11,12,13,14,15,16,17,18,19,20];
+        let data = self.client_batches.pop_front();
+        let dagvertex;
+        match data{
+            None=> {
+                // empty batch
+                dagvertex = DAGData::new(Vec::new(), edges, round, self.myid);
+            },
+            Some(blk)=>{
+                dagvertex = DAGData::new(blk, edges, round, self.myid);
+            }
+        }
+        log::info!("Created {} -> {:?}",dagvertex,base64::encode(dagvertex.digest()).get(0..16).unwrap());
         // pull data from storage
-        return DAGData::new(data, edges, round, self.myid);
+        return dagvertex;
     }
 
     fn genesis_vertex(&mut self)-> DAGData{
         let edges = Vec::new();
-        let data = vec![10,11,12,13,14,15,16,17,18,19,20];
+        let data = Vec::new();
         // pull data from storage
         return DAGData::new(data, edges, 0, self.myid);
     }

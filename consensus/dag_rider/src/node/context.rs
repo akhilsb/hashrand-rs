@@ -1,16 +1,15 @@
-use std::{time::{SystemTime, UNIX_EPOCH, Duration}, path::PathBuf};
+use std::{path::PathBuf, collections::HashMap};
 
 use anyhow::{Result, Ok,anyhow};
-use network::{plaintcp::{TcpSimpleSender, TcpReliableSender, CancelHandler}, Acknowledgement, NetSender};
+use network::{plaintcp::{TcpReliableSender, CancelHandler}, Acknowledgement};
 use num_bigint::BigInt;
-use tokio::{sync::{mpsc::UnboundedReceiver, oneshot}};
-use tokio_util::time::DelayQueue;
-use types::{hash_cc::{WrapperMsg, Replica, CoinMsg, WrapperSMRMsg, DAGMsg, SMRMsg}, Round};
+use tokio::{sync::{mpsc::{UnboundedReceiver}, oneshot}};
+use types::{hash_cc::{Replica, CoinMsg, WrapperSMRMsg, DAGMsg, SMRMsg}, Round};
 use config::Node;
-use fnv::FnvHashMap as HashMap;
-use tokio_stream::StreamExt;
 
-use super::{BatchVSSState, Handler, RBCRoundState, CoinRoundState, DAGState};
+use crate::node::Processor;
+
+use super::{BatchVSSState, Handler, RBCRoundState, CoinRoundState, DAGState, Blk};
 
 use fnv::FnvHashMap;
 use network::{plaintcp::{TcpReceiver}};
@@ -43,10 +42,10 @@ pub struct Context {
     pub cur_batchvss_state: BatchVSSState,
     pub batch_size: usize,
     pub prev_batchvss_state: BatchVSSState,
-    pub round_state: HashMap<u32,RBCRoundState>,
+    pub round_state: HashMap<u32,RBCRoundState,nohash_hasher::BuildNoHashHasher<Round>>,
 
     /// Approximate agreement context
-    pub cc_round_state: HashMap<u32,CoinRoundState>,
+    pub cc_round_state: HashMap<u32,CoinRoundState,nohash_hasher::BuildNoHashHasher<Round>>,
     pub bench: HashMap<String,u128>,
 
     /// DAG Context
@@ -55,15 +54,15 @@ pub struct Context {
     /// Exit protocol
     exit_rx: oneshot::Receiver<()>,
     /// Cancel Handlers
-    pub cancel_handlers: HashMap<Round,Vec<CancelHandler<Acknowledgement>>>,
+    pub cancel_handlers: HashMap<Round,Vec<CancelHandler<Acknowledgement>>,nohash_hasher::BuildNoHashHasher<Round>>,
+    /// Client related Context
+    pub rx_stream_from_batcher: UnboundedReceiver<Blk>,
 }
 
 impl Context {
     pub fn spawn(
         config:Node
     )->anyhow::Result<oneshot::Sender<()>>{
-        let prot_payload = &config.prot_payload;
-        let v:Vec<&str> = prot_payload.split(',').collect();
         let mut consensus_addrs :FnvHashMap<Replica,SocketAddr>= FnvHashMap::default();
         for (replica,address) in config.net_map.iter(){
             let address:SocketAddr = address.parse().expect("Unable to parse address");
@@ -71,6 +70,7 @@ impl Context {
         }
         let my_port = consensus_addrs.get(&config.id).unwrap();
         let my_address = to_socket_address("0.0.0.0", my_port.port());
+        //let client_address = to_socket_address("0.0.0.0", config.client_port);
         // No clients needed
 
         // let prot_net_rt = tokio::runtime::Builder::new_multi_thread()
@@ -81,17 +81,22 @@ impl Context {
         // Setup networking
         let (tx_net_to_consensus, rx_net_to_consensus) = unbounded_channel();
         TcpReceiver::<Acknowledgement, WrapperSMRMsg, _>::spawn(
-            my_address,
+            my_address.clone(),
             Handler::new(tx_net_to_consensus),
         );
 
+        let (tx_batch_client,rx_batch_client) = unbounded_channel();
+        Processor::spawn(tx_batch_client);
+        //let (tx_client_str,rx_client_str) = unbounded_channel();
         let consensus_net = TcpReliableSender::<Replica,WrapperSMRMsg,Acknowledgement>::with_peers(
             consensus_addrs.clone()
         );
-        if v[0] == "cc" {
-            let (exit_tx, exit_rx) = oneshot::channel();
-            // The modulus of the secret is set for probability of coin success = 1- 5*10^{-9}
-            tokio::spawn(async move {
+        let (exit_tx, exit_rx) = oneshot::channel();
+        log::info!(" booted on {:?}",my_address);
+        tokio::spawn(async move {
+            let v:Vec<&str> = config.prot_payload.split(',').collect();
+            if v[0] == "cc"{
+                // The modulus of the secret is set for probability of coin success = 1- 5*10^{-9}
                 let prime = BigInt::parse_bytes(b"685373784908497",10).unwrap();
                 let epsilon:u32 = ((1024*1024)/(config.num_nodes*config.num_faults)) as u32;
                 let rounds = (50.0 - ((epsilon as f32).log2().ceil())) as u32;
@@ -120,7 +125,7 @@ impl Context {
                     path.set_extension("db");
                     path
                 };
-                log::error!("{:?} {:?} {:?}",v[1],v,path);
+                log::debug!("{:?} {:?} {:?}",v[1],v,path);
                 let dag_state = DAGState::new(path.to_str().unwrap().to_string(), config.id);
                 let mut c = Context {
                     net_send:consensus_net,
@@ -147,7 +152,8 @@ impl Context {
                     //echos_ss: HashMap::default(),
                     dag_state:dag_state,
                     cancel_handlers:HashMap::default(),
-                    exit_rx: exit_rx
+                    exit_rx: exit_rx,
+                    rx_stream_from_batcher: rx_batch_client,
                 };
                 for (id, sk_data) in config.sk_map.clone() {
                     c.sec_key_map.insert(id, sk_data.clone());
@@ -155,12 +161,12 @@ impl Context {
                 if let Err(e) = c.run().await {
                     log::error!("Consensus error: {}", e);
                 }
-            });
-            Ok(exit_tx)
-        }
-        else {
-            panic!("Invalid configuration for protocol");
-        }
+            }
+            else {
+                panic!("Invalid configuration for protocol");
+            }
+        });
+        Ok(exit_tx)
     }
     pub fn add_benchmark(&mut self,func: String, elapsed_time:u128)->(){
         if self.bench.contains_key(&func){
@@ -209,18 +215,34 @@ impl Context {
             .push(canc);
     }
 
+    pub fn clear_cancel_handlers(&mut self){
+        // clear all handlers in the last committed wave
+        let round_num_latest= self.dag_state.last_committed_wave*4;
+        let last_round;
+        if round_num_latest > 20{
+            last_round = round_num_latest -20;
+        }
+        else{
+            last_round = 0;
+        }
+        for j in last_round..round_num_latest{
+            self.cancel_handlers.remove(&j);
+        }
+    }
+
     pub async fn send(&mut self,replica:Replica, wrapper_msg:WrapperSMRMsg){
         let cancel_handler:CancelHandler<Acknowledgement> = self.net_send.send(replica, wrapper_msg).await;
         self.add_cancel_handler(cancel_handler);
     }
 
     pub async fn run(&mut self)-> Result<()>{
-        let mut num_msgs = 0;
+        //let mut num_msgs = 0;
         // start batch wss and then start waiting
         log::debug!("Starting txn loop");
         // Do not start loop until all nodes are up and online
-        self.start_batchwss().await;
-        let mut flag = true;
+        self.start_rbc().await;
+        //let mut flag = true;
+        let mut channel_closed = false;
         loop {
             tokio::select! {
                 // Receive exit handlers
@@ -231,46 +253,58 @@ impl Context {
                 },
                 msg = self.net_recv.recv() => {
                     // Received a protocol message
-                    log::debug!("Got a consensus message from the network: {:?}", msg);
+                    log::trace!("Got a consensus message from the network: {:?}", msg);
                     let msg = msg.ok_or_else(||
                         anyhow!("Networking layer has closed")
                     )?;
                     self.process_msg( msg).await;
                 },
-                b_opt = self.invoke_coin.next(), if !self.invoke_coin.is_empty() => {
-                    // Got something from the timer
-                    match b_opt {
-                        None => {
-                            log::error!("Timer finished");
+                blk = self.rx_stream_from_batcher.recv(), if !channel_closed => {
+                    // Received a protocol message
+                    match blk{
+                        None=>{
+                            log::error!("Empty batch received");
+                            channel_closed = true;
                         },
-                        Some(core::result::Result::Ok(b)) => {
-                            log::debug!("Timer expired");
-                            let num = b.into_inner().clone();
-                            if num == 100 && flag{
-                                self.start_batchwss().await;
-                                flag = false;
-                            }
-                            else{
-                                if self.num_messages <= num_msgs+10{
-                                    log::error!("Start reconstruction {:?}",SystemTime::now()
-                                    .duration_since(UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_millis());
-                                    self.send_batchreconstruct(0).await;
-                                }
-                                else{
-                                    log::error!("{:?} {:?}",num,num_msgs);
-                                    //self.invoke_coin.insert(0, Duration::from_millis((5000).try_into().unwrap()));
-                                }
-                                num_msgs = self.num_messages;
-                            }
-                        },
-                        Some(Err(e)) => {
-                            log::warn!("Timer misfired: {}", e);
-                            continue;
+                        Some(blk)=>{
+                            self.dag_state.client_batches.push_back(blk);
                         }
                     }
                 }
+                // b_opt = self.invoke_coin.next(), if !self.invoke_coin.is_empty() => {
+                //     // Got something from the timer
+                //     match b_opt {
+                //         None => {
+                //             log::error!("Timer finished");
+                //         },
+                //         Some(core::result::Result::Ok(b)) => {
+                //             log::debug!("Timer expired");
+                //             let num = b.into_inner().clone();
+                //             if num == 100 && flag{
+                //                 self.start_batchwss().await;
+                //                 flag = false;
+                //             }
+                //             else{
+                //                 if self.num_messages <= num_msgs+10{
+                //                     log::error!("Start reconstruction {:?}",SystemTime::now()
+                //                     .duration_since(UNIX_EPOCH)
+                //                     .unwrap()
+                //                     .as_millis());
+                //                     self.send_batchreconstruct(0).await;
+                //                 }
+                //                 else{
+                //                     log::error!("{:?} {:?}",num,num_msgs);
+                //                     //self.invoke_coin.insert(0, Duration::from_millis((5000).try_into().unwrap()));
+                //                 }
+                //                 num_msgs = self.num_messages;
+                //             }
+                //         },
+                //         Some(Err(e)) => {
+                //             log::warn!("Timer misfired: {}", e);
+                //             continue;
+                //         }
+                //     }
+                // }
             };
         }
         Ok(())

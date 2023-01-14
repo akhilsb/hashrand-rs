@@ -5,13 +5,13 @@ use num_bigint::{BigInt};
 use num_traits::{pow, ToPrimitive};
 use types::{hash_cc::{ CoinMsg, SMRMsg}, Replica};
 
-use crate::node::{Context, CoinRoundState, start_rbc, BatchVSSState};
+use crate::node::{Context, CoinRoundState,BatchVSSState};
 impl Context{
     #[async_recursion]
     pub async fn process_baa_echo(self: &mut Context, msgs: Vec<(Replica,Vec<u8>)>, echo_sender:Replica, round:u32, smr_msg:&mut SMRMsg){
         let now = SystemTime::now();
         let coin_round = get_baa_round(round, self.rounds_aa);
-        log::info!("Received ECHO1 message from node {} with content {:?} for round {}",echo_sender,msgs,round);
+        log::debug!("Received ECHO1 message from node {} with content {:?} for round {}",echo_sender,msgs,round);
         let baa_round:u32 = coin_round.try_into().unwrap();
         let round_state_map = &mut self.cc_round_state;
         smr_msg.coin_msg = CoinMsg::NoMessage();
@@ -19,7 +19,7 @@ impl Context{
             let rnd_state = round_state_map.get_mut(&baa_round).unwrap();
             let (echo1_msgs,echo2_msgs) = rnd_state.add_echo(msgs, echo_sender, self.num_nodes, self.num_faults);
             if rnd_state.term_vals.len() == self.num_nodes {
-                log::info!("All n instances of Binary AA terminated for round {}, starting round {}",round,round+1);
+                log::debug!("All n instances of Binary AA terminated for round {}, starting round {}",round,round+1);
                 rnd_state.complete_round();
                 smr_msg.coin_msg = CoinMsg::NoMessage();
                 self.broadcast(&mut smr_msg.clone()).await;
@@ -28,7 +28,7 @@ impl Context{
                     // Change round only here
                     // Maintain only one round number throughout, use that round number to derive round numbers for other apps
                     self.curr_round+=1;
-                    start_rbc(self).await;
+                    self.start_rbc().await;
                 }
                 // Start BAA next round with n-parallel reliable broadcast
                 //let vec_vals:Vec<(Replica,BigInt)> = rnd_state.term_vals.clone().into_iter().map(|(rep,val)| (rep,val)).collect();
@@ -58,7 +58,7 @@ impl Context{
     pub async fn process_baa_echo2(self: &mut Context, msgs: Vec<(Replica,Vec<u8>)>, echo2_sender:Replica, round:u32, _smr_msg:&mut SMRMsg){
         let now = SystemTime::now();
         let coin_round = get_baa_round(round, self.rounds_aa);
-        log::info!("Received ECHO2 message from node {} with content {:?} for round {}",echo2_sender,msgs,round);
+        log::debug!("Received ECHO2 message from node {} with content {:?} for round {}",echo2_sender,msgs,round);
         if coin_round<0{
             return;
         }
@@ -69,7 +69,7 @@ impl Context{
             let rnd_state = round_state_map.get_mut(&baa_round).unwrap();
             rnd_state.add_echo2(msgs, echo2_sender, self.num_nodes, self.num_faults);
             if rnd_state.term_vals.len() == self.num_nodes {
-                log::info!("All n instances of Binary AA terminated for round {}, starting round {}",round,round+1);
+                log::debug!("All n instances of Binary AA terminated for round {}, starting round {}",round,round+1);
                 rnd_state.complete_round();
                 // definitely complete the broadcast phase
                 self.broadcast(&mut _smr_msg.clone()).await;
@@ -78,7 +78,7 @@ impl Context{
                     // Change round only here
                     // Maintain only one round number throughout, use that round number to derive round numbers for other apps
                     self.curr_round+=1;
-                    start_rbc(self).await;
+                    self.start_rbc().await;
                 }
                 //let vec_vals:Vec<(Replica,BigInt)> = rnd_state.term_vals.clone().into_iter().map(|(rep,val)| (rep,val)).collect();
                 //self.add_benchmark(String::from("process_baa_echo2"), now.elapsed().unwrap().as_nanos());
@@ -105,7 +105,7 @@ impl Context{
         let mod_round = round % rounds_for_coin;
         let wave_num:i32 = (mod_round/4).try_into().unwrap();
         let wave_round:i32 = (mod_round%4).try_into().unwrap();
-        log::info!("Received request to start BAA for round {} with wave_num:{},{}, max: {}",round, wave_num,wave_round,rounds_for_coin);
+        log::debug!("Received request to start BAA for round {} with wave_num:{},{}, max: {}",round, wave_num,wave_round,rounds_for_coin);
         // First wave contributes 2 rounds to BAA from coin, each wave contributes 3 rounds for coin, current wave contributes 1/2 in round 3 and 4. 
         let coin_round:i32 = (wave_num-1)*3+(wave_round-1);
         if coin_round < 0{
@@ -133,14 +133,14 @@ impl Context{
         }
         else{
             if coin_round.to_u32().unwrap() == self.rounds_aa-1{
-                log::error!("Last round of approximate agreement for batch of coins, terminating approx agreement");
+                log::info!("Last round of approximate agreement for batch of coins, terminating approx agreement");
                 // Last round for approximate agreement, generate the coin here
                 let appxcon_map = &mut self.cur_batchvss_state.nz_appxcon_rs;
                 let coin_round = (coin_round-1).try_into().unwrap();
                 let rnd_state = self.cc_round_state.get(&coin_round).unwrap();
                 if rnd_state.completed{
                     let round_vecs:Vec<(Replica,BigInt)> = rnd_state.term_vals.clone().into_iter().map(|(rep,val)|(rep,val)).collect();
-                    log::info!("Approximate Agreement Protocol terminated with values {:?}",round_vecs.clone());
+                    log::debug!("Approximate Agreement Protocol terminated with values {:?}",round_vecs.clone());
                     // Reconstruct values
                     let mapped_rvecs:Vec<(Replica,BigInt)> = 
                         round_vecs.clone().into_iter()
@@ -158,7 +158,7 @@ impl Context{
             else{
                 let coin_round = (coin_round-1).try_into().unwrap();
                 let rnd_state = self.cc_round_state.get(&coin_round).unwrap();
-                //log::info!("Round State: {:?}",self.cc_round_state);
+                //log::debug!("Round State: {:?}",self.cc_round_state);
                 if rnd_state.completed{
                     // Start new round with old round's data
                     let vec_vals:Vec<(Replica,BigInt)> = rnd_state.term_vals.clone().into_iter().map(|(rep,val)| (rep,val)).collect();
@@ -176,7 +176,7 @@ impl Context{
         // self.curr_round = round;
         // if self.curr_round == self.rounds_aa{
         //     let appxcon_map = &mut self.batchvss_state.nz_appxcon_rs;
-        //     log::info!("Approximate Agreement Protocol terminated with values {:?}",round_vecs.clone());
+        //     log::debug!("Approximate Agreement Protocol terminated with values {:?}",round_vecs.clone());
         //     // Reconstruct values
         //     let mapped_rvecs:Vec<(Replica,BigInt)> = 
         //         round_vecs.clone().into_iter()
@@ -189,7 +189,7 @@ impl Context{
         //     return;
         // }
         
-        //log::info!("Broadcasted message {:?}",prot_msg);
+        //log::debug!("Broadcasted message {:?}",prot_msg);
     }
 }
 
