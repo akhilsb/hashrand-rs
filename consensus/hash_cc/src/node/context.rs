@@ -1,4 +1,4 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{time::{SystemTime, UNIX_EPOCH, Duration}, process::exit};
 
 use anyhow::{Result, Ok,anyhow};
 use network::{plaintcp::{TcpReliableSender, CancelHandler}, Acknowledgement};
@@ -121,7 +121,7 @@ impl Context {
                 for (id, sk_data) in config.sk_map.clone() {
                     c.sec_key_map.insert(id, sk_data.clone());
                 }
-                //c.invoke_coin.insert(100, Duration::from_millis(1000));
+                c.invoke_coin.insert(100, Duration::from_millis(5000));
                 if let Err(e) = c.run().await {
                     log::error!("Consensus error: {}", e);
                 }
@@ -173,8 +173,14 @@ impl Context {
         // start batch wss and then start waiting
         log::debug!("Starting txn loop");
         // Do not start loop until all nodes are up and online
-        self.start_wss().await;
+        log::error!("Sharing Start time: {:?}", SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis());
+        //self.start_batchwss().await;
         let mut flag = true;
+        let mut flag2 = true;
+        let mut num_times = 0;
         loop {
             tokio::select! {
                 // Receive exit handlers
@@ -199,8 +205,13 @@ impl Context {
                         },
                         Some(core::result::Result::Ok(b)) => {
                             log::debug!("Timer expired");
+                            num_times+=1;
                             let num = b.into_inner().clone();
                             if num == 100 && flag{
+                                log::error!("Sharing Start time: {:?}", SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis());
                                 self.start_wss().await;
                                 flag = false;
                             }
@@ -211,12 +222,17 @@ impl Context {
                                     .unwrap()
                                     .as_millis());
                                     self.send_reconstruct().await;
+                                    flag2 = false;
                                 }
                                 else{
                                     log::error!("{:?} {:?}",num,num_msgs);
                                     //self.invoke_coin.insert(0, Duration::from_millis((5000).try_into().unwrap()));
                                 }
                                 num_msgs = self.num_messages;
+                            }
+                            if num_times > 8 && !flag2{
+                                log::error!("Process exiting!");
+                                exit(0);
                             }
                         },
                         Some(Err(e)) => {

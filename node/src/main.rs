@@ -11,9 +11,11 @@ use std::{net::{SocketAddr, SocketAddrV4}};
 async fn main() -> Result<()> {
     let yaml = load_yaml!("cli.yml");
     let m = App::from_yaml(yaml).get_matches();
-
+    //println!("{:?}",m);
     let conf_str = m.value_of("config")
         .expect("unable to convert config file into a string");
+    let vss_type = m.value_of("vsstype")
+        .expect("Unable to detect VSS type");
     let conf_file = std::path::Path::new(conf_str);
     let str = String::from(conf_str);
     let mut config = match conf_file
@@ -35,7 +37,7 @@ async fn main() -> Result<()> {
     //     1 => log::set_max_level(log::LevelFilter::Debug),
     //     2 | _ => log::set_max_level(log::LevelFilter::Trace),
     // }
-    log::set_max_level(log::LevelFilter::Info);
+    log::set_max_level(log::LevelFilter::Error);
     config
         .validate()
         .expect("The decoded config is not valid");
@@ -46,7 +48,23 @@ async fn main() -> Result<()> {
     }
     let config = config;
     // Start the Reliable Broadcast protocol
-    let exit_tx = dag_rider::node::Context::spawn(config).unwrap();
+    let exit_tx;
+    match vss_type{
+        "ped" =>{
+            exit_tx = pedavss_cc::node::Context::spawn(config).unwrap();
+        },
+        "fre" => {
+            exit_tx = hash_cc::node::Context::spawn(config).unwrap();
+        },
+        "hr" => {
+            exit_tx = hash_cc_baa::node::Context::spawn(config).unwrap();
+        },
+        _ =>{
+            log::error!("Matching VSS not provided, canceling execution");
+            return Ok(());
+        }
+    }
+    //let exit_tx = pedavss_cc::node::Context::spawn(config).unwrap();
     // Implement a waiting strategy
     let mut signals = Signals::new(&[SIGINT, SIGTERM])?;
     signals.forever().next();

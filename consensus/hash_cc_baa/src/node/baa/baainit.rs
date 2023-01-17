@@ -1,4 +1,4 @@
-use std::{time::{SystemTime, Duration}};
+use std::{time::{SystemTime, Duration, UNIX_EPOCH}};
 
 use async_recursion::async_recursion;
 use num_bigint::{BigInt};
@@ -68,6 +68,10 @@ impl Context{
         let now = SystemTime::now();
         self.curr_round = round;
         if self.curr_round == self.rounds_aa{
+            log::error!("Sharing End time: {:?}", SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis());
             let appxcon_map = &mut self.batchvss_state.nz_appxcon_rs;
             log::info!("Approximate Agreement Protocol terminated with values {:?}",round_vecs.clone());
             // Reconstruct values

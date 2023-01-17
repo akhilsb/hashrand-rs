@@ -92,8 +92,8 @@ impl Context{
                     let rand_fin = sum_vars.clone() % mod_prime.clone();
                     let mod_number = mod_prime.clone()/(self.num_nodes);
                     let leader_elected = rand_fin.clone()/mod_number;
-                    log::error!("Random leader election terminated random number: sec_origin {} rand_fin{} leader_elected {}, elected leader is node",sum_vars.clone(),rand_fin.clone(),leader_elected.clone());
-                    log::error!("{:?}",SystemTime::now()
+                    //log::error!("Random leader election terminated random number: sec_origin {} rand_fin{} leader_elected {}, elected leader is node",sum_vars.clone(),rand_fin.clone(),leader_elected.clone());
+                    log::error!("Terminated Recon {:?}",SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
                     .as_millis());

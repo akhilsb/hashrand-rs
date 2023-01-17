@@ -12,7 +12,8 @@ for((i=0;i<4;i++)); do
 ./target/$TYPE/node \
     --config $TESTDIR/nodes-$i.json \
     --ip ip_file \
-    --sleep 10 > $i.log &
+    --sleep 10 \
+    --vsstype $1 > $i.log &
 done
 
 sleep 20

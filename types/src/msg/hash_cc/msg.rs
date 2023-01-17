@@ -40,7 +40,11 @@ pub enum CoinMsg{
     // (Msg for AA inst, message), sender node, round number
     BinaryAAEcho(Vec<(Replica,Vec<u8>)>,Replica,u32),
     BinaryAAEcho2(Vec<(Replica,Vec<u8>)>,Replica,u32),
-
+    PedAVSSInit(Vec<u8>, Vec<u8>, CTRBCMsg),
+    PedAVSSEcho(CTRBCMsg,Replica),
+    PedAVSSReady(CTRBCMsg,Replica),
+    PedAVSSReconstruct(CTRBCMsg,Replica),
+    PedAVSSSRecon(Vec<u8>,Replica,Replica),
     NoMessage(),
 }
 

@@ -13,6 +13,7 @@ pub struct BatchVSSState{
     pub node_secrets: HashMap<Replica,BatchWSSMsg,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub echos: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub readys: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub ready_sent:HashSet<Replica>,
     pub recon_msgs:HashMap<Replica,HashMap<Replica,Vec<u8>>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub comm_vectors:HashMap<Replica,Vec<Hash>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub terminated_secrets: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
@@ -36,6 +37,7 @@ impl BatchVSSState{
             node_secrets: HashMap::default(),
             echos: HashMap::default(),
             readys:HashMap::default(),
+            ready_sent:HashSet::default(),
             recon_msgs:HashMap::default(),
             comm_vectors:HashMap::default(),
             secret_shares:HashMap::default(),
@@ -135,13 +137,12 @@ impl BatchVSSState{
         ,echos.len(),self.node_secrets.contains_key(&sec_origin));
         
         if echos.len() == num_nodes-num_faults && 
-            self.node_secrets.contains_key(&sec_origin){
+            self.node_secrets.contains_key(&sec_origin) && !self.ready_sent.contains(&sec_origin){
             // Broadcast readys, otherwise, just wait longer
             // Cachin-Tessaro RBC implies verification needed
             // Send your own shard in the echo phase to every other node. 
-            
             let mut echo_map = HashMap::default();
-
+            self.ready_sent.insert(sec_origin);
             for (rep,(shard,_mp)) in echos.clone().into_iter(){
                 echo_map.insert(rep, shard);
             }
@@ -159,9 +160,10 @@ impl BatchVSSState{
         for (rep,(shard,_mp)) in readys.clone().into_iter(){
             ready_map.insert(rep, shard);
         }
-        if readys.len() == num_faults+1 && self.node_secrets.contains_key(&sec_origin){
+        if readys.len() == num_faults+1 && self.node_secrets.contains_key(&sec_origin) && !self.ready_sent.contains(&sec_origin){
             // Broadcast readys, otherwise, just wait longer
             // Cachin-Tessaro RBC implies verification needed
+            self.ready_sent.insert(sec_origin);
             return (num_faults+1,self.verify_reconstructed_root(sec_origin, num_nodes, num_faults, batch_size, ready_map));
         }
         else if readys.len() == num_nodes-num_faults &&

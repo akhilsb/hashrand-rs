@@ -27,3 +27,8 @@ args:
         long: sleep
         help: the initial sleep time (in seconds) to ensure that all the other nodes are up and ready for the protocol
         takes_value: true
+    - vsstype:
+        short: s
+        long: vsstype
+        help: Helps determine what VSS scheme to run
+        takes_value: true

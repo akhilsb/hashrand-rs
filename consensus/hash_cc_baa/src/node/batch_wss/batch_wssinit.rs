@@ -10,6 +10,7 @@ use crate::node::{Context, ShamirSecretSharing};
 impl Context{
     pub async fn start_batchwss(&mut self){
         let now = SystemTime::now();
+        log::error!("Protocol started");
         let faults = self.num_faults;
         // Secret number can be increased to any number possible, but there exists a performance tradeoff with the size of RBC increasing\
         // TODO: Does it affect security in any manner?

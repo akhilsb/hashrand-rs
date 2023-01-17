@@ -38,7 +38,7 @@ impl Context {
                 return;
             }
             Some(root_vec) =>{
-                if res.0 == self.num_faults +1 && !vss_state.readys.contains_key(&self.myid){
+                if res.0 == self.num_faults +1 && !vss_state.readys.get(&sec_origin).unwrap().contains_key(&self.myid){
                     let shard = vss_state.echos.get(&sec_origin).unwrap().get(&self.myid).unwrap();
                     let ctrbc = CTRBCMsg::new(shard.0.clone(), shard.1.clone(), 0, sec_origin);
                     vss_state.add_ready(sec_origin, self.myid, &ctrbc);
