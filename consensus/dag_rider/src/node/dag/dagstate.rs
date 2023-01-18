@@ -3,7 +3,6 @@ use std::{collections::{HashMap, HashSet, BTreeSet, VecDeque}};
 use crypto::hash::Hash;
 use linked_hash_set::LinkedHashSet;
 use types::{hash_cc::DAGData, Replica, Round};
-use storage::rocksdb::Storage;
 
 use crate::node::Blk;
 
@@ -25,7 +24,7 @@ pub struct DAGState {
 
     buffer: Vec<(DAGData,Hash)>,
 
-    storage: Storage,
+    //storage: Storage,
 
     pub client_batches: VecDeque<Blk>,
 }
@@ -35,7 +34,7 @@ impl DAGState{
     pub fn new(path_to_db:String, myid: Replica)->Self{
         // Create the DB
         
-        let store = Storage::new(&path_to_db).unwrap();
+        //let store = Storage::new(&path_to_db).unwrap();
         DAGState {
             myid: myid,
             last_committed: LinkedHashSet::default(),
@@ -44,7 +43,7 @@ impl DAGState{
             dag: HashMap::default(), 
             buffer: Vec::new(),
             last_committed_wave: 0,
-            storage: store,
+            //storage: store,
             client_batches:VecDeque::new()
         }
     }
