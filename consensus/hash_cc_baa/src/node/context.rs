@@ -61,7 +61,7 @@ pub struct Context {
 impl Context {
     pub fn spawn(
         config:Node,
-        sleep:u64,
+        sleep:u128,
         batch:usize
     )->anyhow::Result<oneshot::Sender<()>>{
         let prot_payload = &config.prot_payload;
@@ -86,7 +86,9 @@ impl Context {
             my_address,
             Handler::new(tx_net_to_consensus),
         );
-
+        let sleep_time = sleep - SystemTime::now().duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
         let consensus_net = TcpReliableSender::<Replica,WrapperMsg,Acknowledgement>::with_peers(
             consensus_addrs.clone()
         );
@@ -125,7 +127,7 @@ impl Context {
                 for (id, sk_data) in config.sk_map.clone() {
                     c.sec_key_map.insert(id, sk_data.clone());
                 }
-                c.invoke_coin.insert(100, Duration::from_millis(sleep));
+                c.invoke_coin.insert(100, Duration::from_millis(sleep_time.try_into().unwrap()));
                 if let Err(e) = c.run().await {
                     log::error!("Consensus error: {}", e);
                 }

@@ -18,7 +18,7 @@ async fn main() -> Result<()> {
     let vss_type = m.value_of("vsstype")
         .expect("Unable to detect VSS type");
     let sleep = m.value_of("sleep")
-        .expect("Unable to detect sleep time").parse::<u64>().unwrap();
+        .expect("Unable to detect sleep time").parse::<u128>().unwrap();
     let batch = m.value_of("batch")
         .expect("Unable to parse batch size").parse::<usize>().unwrap();
     let conf_file = std::path::Path::new(conf_str);
@@ -56,10 +56,10 @@ async fn main() -> Result<()> {
     let exit_tx;
     match vss_type{
         "ped" =>{
-            exit_tx = pedavss_cc::node::Context::spawn(config,sleep).unwrap();
+            exit_tx = pedavss_cc::node::Context::spawn(config,sleep.try_into().unwrap()).unwrap();
         },
         "fre" => {
-            exit_tx = hash_cc::node::Context::spawn(config,sleep).unwrap();
+            exit_tx = hash_cc::node::Context::spawn(config,sleep.try_into().unwrap()).unwrap();
         },
         "hr" => {
             exit_tx = hash_cc_baa::node::Context::spawn(config,sleep,batch).unwrap();

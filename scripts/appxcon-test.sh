@@ -7,12 +7,15 @@ TESTDIR=${TESTDIR:="testdata/new_rbc_test"}
 TYPE=${TYPE:="release"}
 EXP=${EXP:-"appxcox_new"}
 W=${W:="10000"}
-
+curr_date=$(date +"%s%3N")
+sleep=$1
+st_time=$((curr_date+sleep))
+echo $st_time
 for((i=0;i<4;i++)); do
 ./target/$TYPE/node \
     --config $TESTDIR/nodes-$i.json \
     --ip ip_file \
-    --sleep $1 \
+    --sleep $st_time \
     --vsstype $2 \
     --batch $3 > $i.log &
 done

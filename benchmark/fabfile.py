@@ -67,7 +67,7 @@ def log_v(ctx, debug=True):
 
 
 @task
-def create(ctx, nodes=1):
+def create(ctx, nodes=4):
     ''' Create a testbed'''
     try:
         InstanceManager.make().create_instances(nodes)
@@ -85,7 +85,7 @@ def destroy(ctx):
 
 
 @task
-def start(ctx, max=2):
+def start(ctx, max=4):
     ''' Start at most `max` machines per data center '''
     try:
         InstanceManager.make().start_instances(max)
@@ -125,7 +125,7 @@ def remote(ctx, debug=False):
     ''' Run benchmarks on AWS '''
     bench_params = {
         'faults': 0,
-        'nodes': [4],
+        'nodes': [16],
         'workers': 1,
         'collocate': True,
         'rate': [10_000, 110_000],
@@ -144,6 +144,33 @@ def remote(ctx, debug=False):
     }
     try:
         Bench(ctx).run(bench_params, node_params, debug)
+    except BenchError as e:
+        Print.error(e)
+
+@task
+def rerun(ctx, debug=False):
+    ''' Run benchmarks on AWS '''
+    bench_params = {
+        'faults': 0,
+        'nodes': [16],
+        'workers': 1,
+        'collocate': True,
+        'rate': [10_000, 110_000],
+        'tx_size': 512,
+        'duration': 300,
+        'runs': 2,
+    }
+    node_params = {
+        'header_size': 1_000,  # bytes
+        'max_header_delay': 200,  # ms
+        'gc_depth': 50,  # rounds
+        'sync_retry_delay': 10_000,  # ms
+        'sync_retry_nodes': 3,  # number of nodes
+        'batch_size': 500_000,  # bytes
+        'max_batch_delay': 200  # ms
+    }
+    try:
+        Bench(ctx).justrun(bench_params, node_params, debug)
     except BenchError as e:
         Print.error(e)
 
@@ -180,7 +207,7 @@ def logs(ctx):
     ''' Run benchmarks on AWS '''
     bench_params = {
         'faults': 0,
-        'nodes': [4],
+        'nodes': [16],
         'workers': 1,
         'collocate': True,
         'rate': [10_000, 110_000],

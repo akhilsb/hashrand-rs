@@ -42,6 +42,21 @@ class LogParser:
             raise ParseError(f'Failed to parse clients\' logs: {e}')
         print(results,results_recon)
         print(mean(results),mean(results_recon))
+        try:
+            with Pool() as p:
+                results = p.map(self._start_times, clients)
+                results.sort()
+        except (ValueError, IndexError, AttributeError) as e:
+            raise ParseError(f'Failed to parse clients\' logs: {e}')
+        try:
+            with Pool() as p:
+                results_recon = p.map(self._end_times, clients)
+                results_recon = [i for i in results_recon if i >= 0]
+                results_recon.sort()
+        except (ValueError, IndexError, AttributeError) as e:
+            raise ParseError(f'Failed to parse clients\' logs: {e}')
+        print(results,results_recon)
+        #print(mean(results),mean(results_recon))
         # self.size, self.rate, self.start, misses, self.sent_samples \
         #     = zip(*results)
         # self.misses = sum(misses)
@@ -85,7 +100,13 @@ class LogParser:
                 if not k in merged or merged[k] > v:
                     merged[k] = v
         return merged
+    def _start_times(self,log):
+        start = int(search(r'Sharing Start time: (\d+)', log).group(1))
+        return start
 
+    def _end_times(self,log):
+        end = int(search(r'Sharing End time: (\d+)', log).group(1))
+        return end
     def _parse_lat(self, log):
         #if search(r'Error', log) is not None:
         #    raise ParseError('Client(s) panicked')
