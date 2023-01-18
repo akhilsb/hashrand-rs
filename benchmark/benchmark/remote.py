@@ -380,13 +380,13 @@ class Bench:
 
         # Download log files.
         #workers_addresses = committee.workers_addresses(faults)
-        # progress = progress_bar(hosts, prefix='Downloading workers logs:')
-        # for i, address in enumerate(progress):
-        #     c = Connection(address, user='ubuntu', connect_kwargs=self.connect)
-        #     c.get(
-        #         PathMaker.client_log_file(i, 0), 
-        #         local=PathMaker.client_log_file(i, 0)
-        #     )
+        progress = progress_bar(hosts, prefix='Downloading workers logs:')
+        for i, address in enumerate(progress):
+            c = Connection(address, user='ubuntu', connect_kwargs=self.connect)
+            c.get(
+                PathMaker.client_log_file(i, 0), 
+                local=PathMaker.client_log_file(i, 0)
+            )
             # c.get(
             #     PathMaker.worker_log_file(i, id), 
             #     local=PathMaker.worker_log_file(i, id)

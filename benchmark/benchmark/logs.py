@@ -32,12 +32,13 @@ class LogParser:
         try:
             with Pool() as p:
                 results = p.map(self._parse_lat, clients)
+                results = [i for i in results if i > 0]
         except (ValueError, IndexError, AttributeError) as e:
             raise ParseError(f'Failed to parse clients\' logs: {e}')
         try:
             with Pool() as p:
                 results_recon = p.map(self._parse_lat_recon, clients)
-                results_recon = [i for i in results_recon if i >= 0]
+                results_recon = [i for i in results_recon if i > 0]
         except (ValueError, IndexError, AttributeError) as e:
             raise ParseError(f'Failed to parse clients\' logs: {e}')
         print(results,results_recon)
@@ -101,18 +102,38 @@ class LogParser:
                     merged[k] = v
         return merged
     def _start_times(self,log):
-        start = int(search(r'Sharing Start time: (\d+)', log).group(1))
+        start = search(r'Sharing Start time: (\d+)', log)
+        if start!= None:
+            start = int(start.group(1))
+        else:
+            start = 0
+            return 0
         return start
 
     def _end_times(self,log):
-        end = int(search(r'Sharing End time: (\d+)', log).group(1))
+        end = search(r'Sharing End time: (\d+)', log)
+        if end!= None:
+            end = int(end.group(1))
+        else:
+            end = 0
+            return 0
         return end
     def _parse_lat(self, log):
         #if search(r'Error', log) is not None:
         #    raise ParseError('Client(s) panicked')
 
-        start = int(search(r'Sharing Start time: (\d+)', log).group(1))
-        end = int(search(r'Sharing End time: (\d+)', log).group(1))
+        start = search(r'Sharing Start time: (\d+)', log)
+        if start!= None:
+            start = int(start.group(1))
+        else:
+            start = 0
+            return 0
+        end = search(r'Sharing End time: (\d+)', log)
+        if end!= None:
+            end = int(end.group(1))
+        else:
+            end = 0
+            return 0
         #tmp = search(r'(.*Z) .* Start ', log).group(1)
         #start = self._to_posix(tmp)
         #misses = len(findall(r'rate too high', log))
@@ -124,12 +145,18 @@ class LogParser:
     def _parse_lat_recon(self, log):
         #if search(r'Error', log) is not None:
         #    raise ParseError('Client(s) panicked')
-        start = int(search(r'Start reconstruction (\d+)', log).group(1))
+        start = search(r'Start reconstruction (\d+)', log)
+        if start!= None:
+            start = int(start.group(1))
+        else:
+            start = 0
+            return 0
         end = search(r'Recon ended: (\d+)', log)
         if end!= None:
             end = int(end.group(1))
         else:
             end = 0
+            return 0
         # end = int(search(r'Recon ended (\d+)', log).group(1))
         #tmp = search(r'(.*Z) .* Start ', log).group(1)
         #start = self._to_posix(tmp)
