@@ -34,7 +34,6 @@ num-integer = {version = "0.1.42", features = ["std", "i128"]}
 secp256k1 = {version = "0.17.2", features = ["rand-std", "serde"]}
 base64="0.13.1"
 
-storage = { package = "libstorage-rs", git = "https://github.com/libdist-rs/libstorage-rs.git" }
 linked_hash_set = "0.1.4"
 
 anyhow = "1"
