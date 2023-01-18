@@ -40,7 +40,7 @@ impl Context{
         let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
         if !vss_state.send_w2{
             for (_replica,ss_inst) in vss_state.witness1.clone().into_iter(){
-                log::info!("Aggr context:{:?}",self.aggr_context);
+                //log::info!("Aggr context:{:?}",self.aggr_context);
                 let check = ss_inst.iter().all(|item| self.aggr_context.terminated_rbcs.contains(item));
                 if check {
                     i = i+1;
