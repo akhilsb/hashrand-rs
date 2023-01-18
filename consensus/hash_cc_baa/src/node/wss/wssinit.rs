@@ -68,7 +68,6 @@ impl Context{
         let nonce = BigInt::from_bytes_be(Sign::Plus, wss_init.commitment.0.clone().as_slice());
         let secret = BigInt::from_bytes_be(Sign::Plus, wss_init.secret.clone().as_slice());
         let comm = nonce+secret;
-        log::info!("Added_secret {:?}",comm.clone());
         let commitment = do_hash(comm.to_bytes_be().1.as_slice());
         let merkle_proof = wss_init.mp.to_proof();
         let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
@@ -118,7 +117,6 @@ impl Context{
                     self.process_wssecho( merkle_proof.root(),sec_origin,self.myid).await;
                 }
             }
-            log::info!("Broadcasted message {:?}",prot_msg.clone());
         }
         let passed = now.elapsed().unwrap().as_nanos();
         if self.bench.contains_key(&func_name) && *self.bench.get(&func_name).unwrap() < passed{

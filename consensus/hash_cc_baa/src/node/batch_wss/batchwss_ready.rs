@@ -13,7 +13,6 @@ impl Context {
         let vss_state = &mut self.batchvss_state;
         let sec_origin = ctrbc.origin;
         // Highly unlikely that the node will get an echo before rbc_init message
-        log::info!("Received READY message {:?} for secret from {}",ctrbc.clone(),sec_origin);
         // If RBC already terminated, do not consider this RBC
         if vss_state.terminated_secrets.contains(&sec_origin){
             log::info!("Terminated secretsharing of instance {} already, skipping this echo",sec_origin);

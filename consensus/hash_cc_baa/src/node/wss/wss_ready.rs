@@ -82,7 +82,7 @@ impl Context{
                     }
                 }
             }
-            log::info!("Broadcasted message {:?}",prot_msg.clone());
+            //log::info!("Broadcasted message {:?}",prot_msg.clone());
         }
         let passed = now.elapsed().unwrap().as_nanos();
         if self.bench.contains_key(&func_name) && *self.bench.get(&func_name).unwrap() < passed{

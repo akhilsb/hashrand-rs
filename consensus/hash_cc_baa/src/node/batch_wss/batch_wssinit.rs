@@ -67,14 +67,12 @@ impl Context{
             roots_vec.push(mt.root());
             master_vec.append(&mut Vec::from(mt.root()));
         }
-        log::info!("Secret sharing for node {}, root_poly {:?}, str_construct {:?}",self.myid,roots_vec.clone(),master_vec.clone());
         let master_root_mt:MerkleTree<Hash, HashingAlg> = MerkleTree::from_iter(roots_vec.into_iter());
         let master_root = master_root_mt.root();
         // reliably broadcast the vector of merkle roots of each secret sharing instance
         let shards = get_shards(master_vec, self.num_faults);
         // Construct Merkle tree
         let hashes_rbc:Vec<Hash> = shards.clone().into_iter().map(|x| do_hash(x.as_slice())).collect();
-        log::info!("Vector of hashes during RBC Init {:?}",hashes_rbc);
         let merkle_tree:MerkleTree<[u8; 32],HashingAlg> = MerkleTree::from_iter(hashes_rbc.into_iter());
         for (rep,batch_wss) in vec_msgs_to_be_sent.iter_mut(){
             let replica = rep.clone()-1;
