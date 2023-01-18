@@ -35,7 +35,7 @@ class CommandMaker:
         assert isinstance(debug, bool)
         #v = '-vvv' if debug else '-vv'
         return (f'./node --config {key} --ip ip_file '
-                f'--sleep 15000 --vsstype hr --batch 100')
+                f'--sleep 15000 --vsstype hr --batch 250')
 
     @staticmethod
     def run_worker(keys, committee, store, parameters, id, debug=False):
