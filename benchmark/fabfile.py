@@ -67,7 +67,7 @@ def log_v(ctx, debug=True):
 
 
 @task
-def create(ctx, nodes=4):
+def create(ctx, nodes=7):
     ''' Create a testbed'''
     try:
         InstanceManager.make().create_instances(nodes)
@@ -85,7 +85,7 @@ def destroy(ctx):
 
 
 @task
-def start(ctx, max=4):
+def start(ctx, max=7):
     ''' Start at most `max` machines per data center '''
     try:
         InstanceManager.make().start_instances(max)
@@ -125,7 +125,7 @@ def remote(ctx, debug=False):
     ''' Run benchmarks on AWS '''
     bench_params = {
         'faults': 0,
-        'nodes': [16],
+        'nodes': [28],
         'workers': 1,
         'collocate': True,
         'rate': [10_000, 110_000],
@@ -152,7 +152,7 @@ def rerun(ctx, debug=False):
     ''' Run benchmarks on AWS '''
     bench_params = {
         'faults': 0,
-        'nodes': [16],
+        'nodes': [28],
         'workers': 1,
         'collocate': True,
         'rate': [10_000, 110_000],
@@ -207,7 +207,7 @@ def logs(ctx):
     ''' Run benchmarks on AWS '''
     bench_params = {
         'faults': 0,
-        'nodes': [16],
+        'nodes': [4],
         'workers': 1,
         'collocate': True,
         'rate': [10_000, 110_000],
