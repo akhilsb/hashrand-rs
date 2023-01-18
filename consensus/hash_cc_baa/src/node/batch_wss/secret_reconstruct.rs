@@ -57,7 +57,7 @@ impl Context{
                             //log::error!("Leader elected: {:?}",leader);
                             if vss_state.recon_secret < self.batch_size{
                                 send_next_recon = false;
-                                log::error!("Recon ended {:?}",SystemTime::now()
+                                log::error!("Recon ended: {:?}",SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
                                 .as_millis());

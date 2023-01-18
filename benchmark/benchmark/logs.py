@@ -104,7 +104,7 @@ class LogParser:
         #if search(r'Error', log) is not None:
         #    raise ParseError('Client(s) panicked')
         start = int(search(r'Start reconstruction (\d+)', log).group(1))
-        end = search(r'Recon ended (\d+)', log)
+        end = search(r'Recon ended: (\d+)', log)
         if end!= None:
             end = int(end.group(1))
         else:
