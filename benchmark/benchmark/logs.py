@@ -31,43 +31,51 @@ class LogParser:
         # Parse the clients logs.
         try:
             with Pool() as p:
-                results = p.map(self._parse_clients, clients)
+                results = p.map(self._parse_lat, clients)
         except (ValueError, IndexError, AttributeError) as e:
             raise ParseError(f'Failed to parse clients\' logs: {e}')
-        self.size, self.rate, self.start, misses, self.sent_samples \
-            = zip(*results)
-        self.misses = sum(misses)
-        #print(self.size,self.rate,self.start,self.sent_samples)
-        # Parse the primaries logs.
         try:
             with Pool() as p:
-                results = p.map(self._parse_primaries, primaries)
+                results_recon = p.map(self._parse_lat_recon, clients)
+                results_recon = [i for i in results_recon if i >= 0]
         except (ValueError, IndexError, AttributeError) as e:
-            raise ParseError(f'Failed to parse nodes\' logs: {e}')
-        #proposals, commits, self.configs, primary_ips = zip(*results)
-        proposals, commits, primary_ips = zip(*results)
-        self.proposals = self._merge_results([x.items() for x in proposals])
-        self.commits = self._merge_results([x.items() for x in commits])
+            raise ParseError(f'Failed to parse clients\' logs: {e}')
+        print(results,results_recon)
+        print(mean(results),mean(results_recon))
+        # self.size, self.rate, self.start, misses, self.sent_samples \
+        #     = zip(*results)
+        # self.misses = sum(misses)
+        # #print(self.size,self.rate,self.start,self.sent_samples)
+        # # Parse the primaries logs.
+        # try:
+        #     with Pool() as p:
+        #         results = p.map(self._parse_primaries, primaries)
+        # except (ValueError, IndexError, AttributeError) as e:
+        #     raise ParseError(f'Failed to parse nodes\' logs: {e}')
+        # #proposals, commits, self.configs, primary_ips = zip(*results)
+        # proposals, commits, primary_ips = zip(*results)
+        # self.proposals = self._merge_results([x.items() for x in proposals])
+        # self.commits = self._merge_results([x.items() for x in commits])
 
-        # Parse the workers logs.
-        try:
-            with Pool() as p:
-                results = p.map(self._parse_workers, workers)
-        except (ValueError, IndexError, AttributeError) as e:
-            raise ParseError(f'Failed to parse workers\' logs: {e}')
-        sizes, self.received_samples, workers_ips = zip(*results)
-        self.sizes = {
-            k: v for x in sizes for k, v in x.items() if k in self.commits
-        }
+        # # Parse the workers logs.
+        # try:
+        #     with Pool() as p:
+        #         results = p.map(self._parse_workers, workers)
+        # except (ValueError, IndexError, AttributeError) as e:
+        #     raise ParseError(f'Failed to parse workers\' logs: {e}')
+        # sizes, self.received_samples, workers_ips = zip(*results)
+        # self.sizes = {
+        #     k: v for x in sizes for k, v in x.items() if k in self.commits
+        # }
 
-        # Determine whether the primary and the workers are collocated.
-        self.collocate = set(primary_ips) == set(workers_ips)
+        # # Determine whether the primary and the workers are collocated.
+        # self.collocate = set(primary_ips) == set(workers_ips)
 
-        # Check whether clients missed their target rate.
-        if self.misses != 0:
-            Print.warn(
-                f'Clients missed their target rate {self.misses:,} time(s)'
-            )
+        # # Check whether clients missed their target rate.
+        # if self.misses != 0:
+        #     Print.warn(
+        #         f'Clients missed their target rate {self.misses:,} time(s)'
+        #     )
 
     def _merge_results(self, input):
         # Keep the earliest timestamp.
@@ -77,6 +85,39 @@ class LogParser:
                 if not k in merged or merged[k] > v:
                     merged[k] = v
         return merged
+
+    def _parse_lat(self, log):
+        #if search(r'Error', log) is not None:
+        #    raise ParseError('Client(s) panicked')
+
+        start = int(search(r'Sharing Start time: (\d+)', log).group(1))
+        end = int(search(r'Sharing End time: (\d+)', log).group(1))
+        #tmp = search(r'(.*Z) .* Start ', log).group(1)
+        #start = self._to_posix(tmp)
+        #misses = len(findall(r'rate too high', log))
+
+        #tmp = findall(r'(.*Z) .* sample transaction (\d+)', log)
+        #samples = {int(s): self._to_posix(t) for t, s in tmp}
+
+        return end-start
+    def _parse_lat_recon(self, log):
+        #if search(r'Error', log) is not None:
+        #    raise ParseError('Client(s) panicked')
+        start = int(search(r'Start reconstruction (\d+)', log).group(1))
+        end = search(r'Recon ended (\d+)', log)
+        if end!= None:
+            end = int(end.group(1))
+        else:
+            end = 0
+        # end = int(search(r'Recon ended (\d+)', log).group(1))
+        #tmp = search(r'(.*Z) .* Start ', log).group(1)
+        #start = self._to_posix(tmp)
+        #misses = len(findall(r'rate too high', log))
+
+        #tmp = findall(r'(.*Z) .* sample transaction (\d+)', log)
+        #samples = {int(s): self._to_posix(t) for t, s in tmp}
+
+        return end-start
 
     def _parse_clients(self, log):
         #if search(r'Error', log) is not None:

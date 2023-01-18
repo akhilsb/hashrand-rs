@@ -50,14 +50,14 @@ class Committee:
             }
         '''
         assert isinstance(addresses, OrderedDict)
-        assert all(isinstance(x, str) for x in addresses.keys())
-        assert all(
-            isinstance(x, list) and len(x) > 1 for x in addresses.values()
-        )
-        assert all(
-            isinstance(x, str) for y in addresses.values() for x in y
-        )
-        assert len({len(x) for x in addresses.values()}) == 1
+        # assert all(isinstance(x, str) for x in addresses.keys())
+        # assert all(
+        #     isinstance(x, list) and len(x) > 1 for x in addresses.values()
+        # )
+        # assert all(
+        #     isinstance(x, str) for y in addresses.values() for x in y
+        # )
+        # assert len({len(x) for x in addresses.values()}) == 1
         assert isinstance(base_port, int) and base_port > 1024
 
         port = base_port

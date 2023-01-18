@@ -151,7 +151,7 @@ class Bench:
             f'(cd {self.settings.repo_name} && git checkout -f {self.settings.branch})',
             f'(cd {self.settings.repo_name} && git pull -f)',
             'source $HOME/.cargo/env',
-            'sudo apt install pkg-config && sudo apt install libssl-dev'
+            'sudo apt install pkg-config && sudo apt install libssl-dev',
             f'(cd {self.settings.repo_name} && {CommandMaker.compile()})',
             CommandMaker.alias_binaries(
                 f'./{self.settings.repo_name}/target/release/'
@@ -225,8 +225,7 @@ class Bench:
             c.put("ip_file",'.')
             #c.put(PathMaker.parameters_file(), '.')
         Print.info('Booting primaries...')
-        i=0
-        for ip in enumerate(hosts):
+        for i,ip in enumerate(hosts):
             #host = Committee.ip(address)
             cmd = CommandMaker.run_primary(
                 PathMaker.key_file(i),
@@ -234,7 +233,6 @@ class Bench:
             )
             log_file = PathMaker.primary_log_file(i)
             self._background_run(ip, cmd, log_file)
-            i+=1
         return committee
 
     def _run_single(self, hosts, debug=False):
@@ -296,36 +294,34 @@ class Bench:
         #     sleep(ceil(duration / 20))
         # self.kill(hosts=hosts, delete_logs=False)
 
-    def _logs(self, committee, faults):
+    def _logs(self, hosts, faults):
         # Delete local logs (if any).
         cmd = CommandMaker.clean_logs()
         subprocess.run([cmd], shell=True, stderr=subprocess.DEVNULL)
 
         # Download log files.
-        workers_addresses = committee.workers_addresses(faults)
-        progress = progress_bar(workers_addresses, prefix='Downloading workers logs:')
-        for i, addresses in enumerate(progress):
-            for id, address in addresses:
-                host = Committee.ip(address)
-                c = Connection(host, user='ubuntu', connect_kwargs=self.connect)
-                c.get(
-                    PathMaker.client_log_file(i, id), 
-                    local=PathMaker.client_log_file(i, id)
-                )
-                c.get(
-                    PathMaker.worker_log_file(i, id), 
-                    local=PathMaker.worker_log_file(i, id)
-                )
-
-        primary_addresses = committee.primary_addresses(faults)
-        progress = progress_bar(primary_addresses, prefix='Downloading primaries logs:')
+        #workers_addresses = committee.workers_addresses(faults)
+        progress = progress_bar(hosts, prefix='Downloading workers logs:')
         for i, address in enumerate(progress):
-            host = Committee.ip(address)
-            c = Connection(host, user='ubuntu', connect_kwargs=self.connect)
+            c = Connection(address, user='ubuntu', connect_kwargs=self.connect)
             c.get(
-                PathMaker.primary_log_file(i), 
-                local=PathMaker.primary_log_file(i)
+                PathMaker.client_log_file(i, 0), 
+                local=PathMaker.client_log_file(i, 0)
             )
+            # c.get(
+            #     PathMaker.worker_log_file(i, id), 
+            #     local=PathMaker.worker_log_file(i, id)
+            # )
+
+        # primary_addresses = committee.primary_addresses(faults)
+        # progress = progress_bar(primary_addresses, prefix='Downloading primaries logs:')
+        # for i, address in enumerate(progress):
+        #     host = Committee.ip(address)
+        #     c = Connection(host, user='ubuntu', connect_kwargs=self.connect)
+        #     c.get(
+        #         PathMaker.primary_log_file(i), 
+        #         local=PathMaker.primary_log_file(i)
+        #    )
 
         # Parse logs and return the parser.
         Print.info('Parsing logs and computing performance...')
@@ -395,3 +391,16 @@ class Bench:
         #                     e = FabricError(e)
         #                 Print.error(BenchError('Benchmark failed', e))
         #                 continue
+    def pull_logs(self, bench_parameters_dict, node_parameters_dict, debug=False):
+        assert isinstance(debug, bool)
+        Print.heading('Starting remote benchmark')
+        try:
+            bench_parameters = BenchParameters(bench_parameters_dict)
+            node_parameters = NodeParameters(node_parameters_dict)
+        except ConfigError as e:
+            raise BenchError('Invalid nodes or bench parameters', e)
+
+        # Select which hosts to use.
+        selected_hosts = self._select_hosts(bench_parameters)
+        return self._logs(selected_hosts,0)
+
