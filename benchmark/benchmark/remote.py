@@ -101,6 +101,7 @@ class Bench:
 
             # Ensure there are enough hosts.
             hosts = self.manager.hosts()
+            print("{} {}",sum(len(x) for x in hosts.values()), nodes)
             if sum(len(x) for x in hosts.values()) < nodes:
                 return []
 
@@ -150,17 +151,18 @@ class Bench:
             f'(cd {self.settings.repo_name} && git checkout -f {self.settings.branch})',
             f'(cd {self.settings.repo_name} && git pull -f)',
             'source $HOME/.cargo/env',
-            f'(cd {self.settings.repo_name}/node && {CommandMaker.compile()})',
+            'sudo apt install pkg-config && sudo apt install libssl-dev'
+            f'(cd {self.settings.repo_name} && {CommandMaker.compile()})',
             CommandMaker.alias_binaries(
                 f'./{self.settings.repo_name}/target/release/'
             )
         ]
         g = Group(*ips, user='ubuntu', connect_kwargs=self.connect)
-        g.run(' && '.join(cmd), hide=True)
+        print(g.run(' && '.join(cmd), hide=True))
 
     def _config(self, hosts, node_parameters, bench_parameters):
         Print.info('Generating configuration files...')
-
+        print(hosts)
         # Cleanup all local configuration files.
         cmd = CommandMaker.cleanup()
         subprocess.run([cmd], shell=True, stderr=subprocess.DEVNULL)
@@ -174,14 +176,28 @@ class Bench:
         subprocess.run([cmd], shell=True)
 
         # Generate configuration files.
-        keys = []
-        key_files = [PathMaker.key_file(i) for i in range(len(hosts))]
-        for filename in key_files:
-            cmd = CommandMaker.generate_key(filename).split()
-            subprocess.run(cmd, check=True)
-            keys += [Key.from_file(filename)]
+        # keys = []
+        # key_files = [PathMaker.key_file(i) for i in range(len(hosts))]
+        # for filename in key_files:
+        #     cmd = CommandMaker.generate_key(filename).split()
+        #     subprocess.run(cmd, check=True)
+        #     keys += [Key.from_file(filename)]
+        names = [str(x) for x in range(len(hosts))]
+        ip_file = ""
+        for x in range(len(hosts)):
+            port = self.settings.base_port + x
+            ip_file += hosts[x]+ ":"+ str(port) + "\n"
+        with open("ip_file", 'w') as f:
+            f.write(ip_file)
+        f.close()
+        #committee = LocalCommittee(names, self.BASE_PORT)
+        #ip_file.print("ip_file")
 
-        names = [x.name for x in keys]
+        # Generate the configuration files for HashRand
+        cmd = CommandMaker.generate_config_files(self.settings.base_port,10000,len(hosts))
+        subprocess.run(cmd,shell=True)
+
+        names = [str(x) for x in range(len(hosts))]
 
         if bench_parameters.collocate:
             workers = bench_parameters.workers
@@ -201,75 +217,84 @@ class Bench:
         names = names[:len(names)-bench_parameters.faults]
         progress = progress_bar(names, prefix='Uploading config files:')
         for i, name in enumerate(progress):
-            for ip in committee.ips(name):
-                c = Connection(ip, user='ubuntu', connect_kwargs=self.connect)
-                c.run(f'{CommandMaker.cleanup()} || true', hide=True)
-                c.put(PathMaker.committee_file(), '.')
-                c.put(PathMaker.key_file(i), '.')
-                c.put(PathMaker.parameters_file(), '.')
-
+            #for ip in committee.ips(name):
+            c = Connection(hosts[i], user='ubuntu', connect_kwargs=self.connect)
+            c.run(f'{CommandMaker.cleanup()} || true', hide=True)
+            #c.put(PathMaker.committee_file(), '.')
+            c.put(PathMaker.key_file(i), '.')
+            c.put("ip_file",'.')
+            #c.put(PathMaker.parameters_file(), '.')
+        Print.info('Booting primaries...')
+        i=0
+        for ip in enumerate(hosts):
+            #host = Committee.ip(address)
+            cmd = CommandMaker.run_primary(
+                PathMaker.key_file(i),
+                debug=False
+            )
+            log_file = PathMaker.primary_log_file(i)
+            self._background_run(ip, cmd, log_file)
+            i+=1
         return committee
 
-    def _run_single(self, rate, committee, bench_parameters, debug=False):
-        faults = bench_parameters.faults
+    def _run_single(self, hosts, debug=False):
+        # faults = bench_parameters.faults
 
         # Kill any potentially unfinished run and delete logs.
-        hosts = committee.ips()
+        # hosts = committee.ips()
         self.kill(hosts=hosts, delete_logs=True)
 
         # Run the clients (they will wait for the nodes to be ready).
         # Filter all faulty nodes from the client addresses (or they will wait
         # for the faulty nodes to be online).
-        Print.info('Booting clients...')
-        workers_addresses = committee.workers_addresses(faults)
-        rate_share = ceil(rate / committee.workers())
-        for i, addresses in enumerate(workers_addresses):
-            for (id, address) in addresses:
-                host = Committee.ip(address)
-                cmd = CommandMaker.run_client(
-                    address,
-                    bench_parameters.tx_size,
-                    rate_share,
-                    [x for y in workers_addresses for _, x in y]
-                )
-                log_file = PathMaker.client_log_file(i, id)
-                self._background_run(host, cmd, log_file)
+        #Print.info('Booting clients...')
+        #workers_addresses = committee.workers_addresses(faults)
+        # rate_share = ceil(rate / committee.workers())
+        # for i, addresses in enumerate(workers_addresses):
+        #     for (id, address) in addresses:
+        #         host = Committee.ip(address)
+        #         cmd = CommandMaker.run_client(
+        #             address,
+        #             bench_parameters.tx_size,
+        #             rate_share,
+        #             [x for y in workers_addresses for _, x in y]
+        #         )
+        #         log_file = PathMaker.client_log_file(i, id)
+        #         self._background_run(host, cmd, log_file)
 
         # Run the primaries (except the faulty ones).
         Print.info('Booting primaries...')
-        for i, address in enumerate(committee.primary_addresses(faults)):
-            host = Committee.ip(address)
+        i=0
+        for ip in enumerate(hosts):
+            #host = Committee.ip(address)
             cmd = CommandMaker.run_primary(
                 PathMaker.key_file(i),
-                PathMaker.committee_file(),
-                PathMaker.db_path(i),
-                PathMaker.parameters_file(),
                 debug=debug
             )
             log_file = PathMaker.primary_log_file(i)
-            self._background_run(host, cmd, log_file)
-
+            self._background_run(ip, cmd, log_file)
+            i+=1
         # Run the workers (except the faulty ones).
-        Print.info('Booting workers...')
-        for i, addresses in enumerate(workers_addresses):
-            for (id, address) in addresses:
-                host = Committee.ip(address)
-                cmd = CommandMaker.run_worker(
-                    PathMaker.key_file(i),
-                    PathMaker.committee_file(),
-                    PathMaker.db_path(i, id),
-                    PathMaker.parameters_file(),
-                    id,  # The worker's id.
-                    debug=debug
-                )
-                log_file = PathMaker.worker_log_file(i, id)
-                self._background_run(host, cmd, log_file)
+        # Print.info('Booting workers...')
+        # for i, addresses in enumerate(workers_addresses):
+        #     for (id, address) in addresses:
+        #         host = Committee.ip(address)
+        #         cmd = CommandMaker.run_worker(
+        #             PathMaker.key_file(i),
+        #             PathMaker.committee_file(),
+        #             PathMaker.db_path(i, id),
+        #             PathMaker.parameters_file(),
+        #             id,  # The worker's id.
+        #             debug=debug
+        #         )
+        #         log_file = PathMaker.worker_log_file(i, id)
+        #         self._background_run(host, cmd, log_file)
 
         # Wait for all transactions to be processed.
-        duration = bench_parameters.duration
-        for _ in progress_bar(range(20), prefix=f'Running benchmark ({duration} sec):'):
-            sleep(ceil(duration / 20))
-        self.kill(hosts=hosts, delete_logs=False)
+        # duration = bench_parameters.duration
+        # for _ in progress_bar(range(20), prefix=f'Running benchmark ({duration} sec):'):
+        #     sleep(ceil(duration / 20))
+        # self.kill(hosts=hosts, delete_logs=False)
 
     def _logs(self, committee, faults):
         # Delete local logs (if any).
@@ -317,6 +342,7 @@ class Bench:
 
         # Select which hosts to use.
         selected_hosts = self._select_hosts(bench_parameters)
+        print(selected_hosts)
         if not selected_hosts:
             Print.warn('There are not enough instances available')
             return
@@ -338,34 +364,34 @@ class Bench:
             raise BenchError('Failed to configure nodes', e)
 
         # Run benchmarks.
-        for n in bench_parameters.nodes:
-            committee_copy = deepcopy(committee)
-            committee_copy.remove_nodes(committee.size() - n)
+        # for n in bench_parameters.nodes:
+        #     committee_copy = deepcopy(committee)
+        #     committee_copy.remove_nodes(committee.size() - n)
 
-            for r in bench_parameters.rate:
-                Print.heading(f'\nRunning {n} nodes (input rate: {r:,} tx/s)')
+        #     for r in bench_parameters.rate:
+        #         Print.heading(f'\nRunning {n} nodes (input rate: {r:,} tx/s)')
 
-                # Run the benchmark.
-                for i in range(bench_parameters.runs):
-                    Print.heading(f'Run {i+1}/{bench_parameters.runs}')
-                    try:
-                        self._run_single(
-                            r, committee_copy, bench_parameters, debug
-                        )
+        #         # Run the benchmark.
+        #         for i in range(bench_parameters.runs):
+        #             Print.heading(f'Run {i+1}/{bench_parameters.runs}')
+        #             try:
+        #                 self._run_single(
+        #                     r, committee_copy, bench_parameters, debug
+        #                 )
 
-                        faults = bench_parameters.faults
-                        logger = self._logs(committee_copy, faults)
-                        logger.print(PathMaker.result_file(
-                            faults,
-                            n, 
-                            bench_parameters.workers,
-                            bench_parameters.collocate,
-                            r, 
-                            bench_parameters.tx_size, 
-                        ))
-                    except (subprocess.SubprocessError, GroupException, ParseError) as e:
-                        self.kill(hosts=selected_hosts)
-                        if isinstance(e, GroupException):
-                            e = FabricError(e)
-                        Print.error(BenchError('Benchmark failed', e))
-                        continue
+        #                 faults = bench_parameters.faults
+        #                 #logger = self._logs(committee_copy, faults)
+        #                 logger.print(PathMaker.result_file(
+        #                     faults,
+        #                     n, 
+        #                     bench_parameters.workers,
+        #                     bench_parameters.collocate,
+        #                     r, 
+        #                     bench_parameters.tx_size, 
+        #                 ))
+        #             except (subprocess.SubprocessError, GroupException, ParseError) as e:
+        #                 self.kill(hosts=selected_hosts)
+        #                 if isinstance(e, GroupException):
+        #                     e = FabricError(e)
+        #                 Print.error(BenchError('Benchmark failed', e))
+        #                 continue

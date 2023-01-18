@@ -19,6 +19,5 @@ members = [
     "consensus/ct_rbc",
     "consensus/hash_cc",
     "consensus/hash_cc_baa",
-    "consensus/dag_rider",
     "consensus/pedavss_cc"
 ]

@@ -1,0 +1,16 @@
+{
+    "key": {
+        "name": "aws",
+        "path": "/home/akhil/.ssh/aws"
+    },
+    "port": 8500,
+    "repo": {
+        "name": "async-cc-hash",
+        "url": "https://github.com/akhilsb/async-cc-hash",
+        "branch": "master"
+    },
+    "instances": {
+        "type": "c5.large",
+        "regions": ["us-east-1", "eu-north-1", "ap-southeast-2", "ap-northeast-1"]
+    }
+}
