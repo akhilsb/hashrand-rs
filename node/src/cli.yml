@@ -32,3 +32,8 @@ args:
         long: vsstype
         help: Helps determine what VSS scheme to run
         takes_value: true
+    - batch:
+        short: b
+        long: batch
+        help: Batch size used in protocol
+        takes_value: true

@@ -11,7 +11,7 @@ from benchmark.utils import Print, BenchError, PathMaker
 
 
 class LocalBench:
-    BASE_PORT = 3000
+    BASE_PORT = 9000
     cl_bport = 10000
     def __init__(self, bench_parameters_dict, node_parameters_dict):
         try:
@@ -25,15 +25,19 @@ class LocalBench:
 
     def _background_run(self, command, log_file):
         name = splitext(basename(log_file))[0]
-        cmd = f'{command} 2> {log_file}'
-        print(command)
-        print(log_file)
-        #subprocess.run(['tmux', 'new', '-d', '-s', name, cmd], check=True)
+        cmd = f'{command} > {log_file}'
+        print("Command running: {}",command)
+        #print(log_file)
+        try:
+            subprocess.run(['tmux', 'new', '-d', '-s', name, cmd], check=True)
+        except subprocess.SubprocessError as e:
+            raise BenchError('Failed to kill testbed', e)
+        
 
     def _kill_nodes(self):
         try:
             cmd = CommandMaker.kill().split()
-            #subprocess.run(cmd, stderr=subprocess.DEVNULL)
+            subprocess.run(cmd, stderr=subprocess.DEVNULL)
         except subprocess.SubprocessError as e:
             raise BenchError('Failed to kill testbed', e)
 
@@ -62,16 +66,23 @@ class LocalBench:
             subprocess.run([cmd], shell=True)
 
             # Generate configuration files.
-            keys = []
-            key_files = [PathMaker.key_file(i) for i in range(nodes)]
-            for filename in key_files:
-                cmd = CommandMaker.generate_key(filename).split()
-                subprocess.run(cmd, check=True)
-                keys += [Key.from_file(filename)]
+            # keys = []
+            # key_files = [PathMaker.key_file(i) for i in range(nodes)]
+            # for filename in key_files:
+            #     cmd = CommandMaker.generate_key(filename).split()
+            #     subprocess.run(cmd, check=True)
+            #     keys += [Key.from_file(filename)]
 
-            names = [x.name for x in keys]
-            committee = LocalCommittee(names, self.BASE_PORT, self.workers)
-            committee.print(PathMaker.committee_file())
+            names = [str(x) for x in range(nodes)]
+            ip_file = ""
+            for x in range(nodes):
+                port = self.BASE_PORT + x
+                ip_file += '127.0.0.1:'+ str(port) + "\n"
+            with open("ip_file", 'w') as f:
+                f.write(ip_file)
+            f.close()
+            #committee = LocalCommittee(names, self.BASE_PORT)
+            #ip_file.print("ip_file")
 
             # Generate the configuration files for HashRand
             cmd = CommandMaker.generate_config_files(self.BASE_PORT,self.cl_bport,nodes)
@@ -79,57 +90,54 @@ class LocalBench:
 
             # Generate the ip file for HashRand
 
-            self.node_parameters.print(PathMaker.parameters_file())
+            #self.node_parameters.print(PathMaker.parameters_file())
 
             # Run the clients (they will wait for the nodes to be ready).
-            workers_addresses = committee.workers_addresses(self.faults)
-            print(workers_addresses)
-            rate_share = ceil(rate / committee.workers())
-            for i, addresses in enumerate(workers_addresses):
-                for (id, address) in addresses:
-                    cmd = CommandMaker.run_client(
-                        address,
-                        self.tx_size,
-                        rate_share,
-                        [x for y in workers_addresses for _, x in y]
-                    )
-                    log_file = PathMaker.client_log_file(i, id)
-                    self._background_run(cmd, log_file)
+            # workers_addresses = committee.workers_addresses(self.faults)
+            # print(workers_addresses)
+            # rate_share = ceil(rate / committee.workers())
+            # for i, addresses in enumerate(workers_addresses):
+            #     for (id, address) in addresses:
+            #         cmd = CommandMaker.run_client(
+            #             address,
+            #             self.tx_size,
+            #             rate_share,
+            #             [x for y in workers_addresses for _, x in y]
+            #         )
+            #         log_file = PathMaker.client_log_file(i, id)
+            #         self._background_run(cmd, log_file)
 
-            # Run the primaries (except the faulty ones).
-            for i, address in enumerate(committee.primary_addresses(self.faults)):
+            # # Run the primaries (except the faulty ones).
+            for i in range(nodes):
                 cmd = CommandMaker.run_primary(
                     PathMaker.key_file(i),
-                    PathMaker.committee_file(),
-                    PathMaker.db_path(i),
-                    PathMaker.parameters_file(),
                     debug=debug
                 )
                 log_file = PathMaker.primary_log_file(i)
                 self._background_run(cmd, log_file)
 
-            # Run the workers (except the faulty ones).
-            for i, addresses in enumerate(workers_addresses):
-                for (id, address) in addresses:
-                    cmd = CommandMaker.run_worker(
-                        PathMaker.key_file(i),
-                        PathMaker.committee_file(),
-                        PathMaker.db_path(i, id),
-                        PathMaker.parameters_file(),
-                        id,  # The worker's id.
-                        debug=debug
-                    )
-                    log_file = PathMaker.worker_log_file(i, id)
-                    self._background_run(cmd, log_file)
+            # # Run the workers (except the faulty ones).
+            # for i, addresses in enumerate(workers_addresses):
+            #     for (id, address) in addresses:
+            #         cmd = CommandMaker.run_worker(
+            #             PathMaker.key_file(i),
+            #             PathMaker.committee_file(),
+            #             PathMaker.db_path(i, id),
+            #             PathMaker.parameters_file(),
+            #             id,  # The worker's id.
+            #             debug=debug
+            #         )
+            #         log_file = PathMaker.worker_log_file(i, id)
+            #         self._background_run(cmd, log_file)
 
-            # Wait for all transactions to be processed.
-            Print.info(f'Running benchmark ({self.duration} sec)...')
-            sleep(self.duration)
-            self._kill_nodes()
+            # # Wait for all transactions to be processed.
+            # Print.info(f'Running benchmark ({self.duration} sec)...')
+            # sleep(self.duration)
+            # self._kill_nodes()
 
-            # Parse logs and return the parser.
-            Print.info('Parsing logs...')
-            return LogParser.process(PathMaker.logs_path(), faults=self.faults)
+            # # Parse logs and return the parser.
+            # Print.info('Parsing logs...')
+            # return LogParser.process(PathMaker.logs_path(), faults=self.faults)
 
         except (subprocess.SubprocessError, ParseError) as e:
             self._kill_nodes()

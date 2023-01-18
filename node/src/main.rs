@@ -9,6 +9,7 @@ use std::{net::{SocketAddr, SocketAddrV4}};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    log::error!("{}", std::env::current_dir().unwrap().display());
     let yaml = load_yaml!("cli.yml");
     let m = App::from_yaml(yaml).get_matches();
     //println!("{:?}",m);
@@ -16,6 +17,10 @@ async fn main() -> Result<()> {
         .expect("unable to convert config file into a string");
     let vss_type = m.value_of("vsstype")
         .expect("Unable to detect VSS type");
+    let sleep = m.value_of("sleep")
+        .expect("Unable to detect sleep time").parse::<u64>().unwrap();
+    let batch = m.value_of("batch")
+        .expect("Unable to parse batch size").parse::<usize>().unwrap();
     let conf_file = std::path::Path::new(conf_str);
     let str = String::from(conf_str);
     let mut config = match conf_file
@@ -51,13 +56,13 @@ async fn main() -> Result<()> {
     let exit_tx;
     match vss_type{
         "ped" =>{
-            exit_tx = pedavss_cc::node::Context::spawn(config).unwrap();
+            exit_tx = pedavss_cc::node::Context::spawn(config,sleep).unwrap();
         },
         "fre" => {
-            exit_tx = hash_cc::node::Context::spawn(config).unwrap();
+            exit_tx = hash_cc::node::Context::spawn(config,sleep).unwrap();
         },
         "hr" => {
-            exit_tx = hash_cc_baa::node::Context::spawn(config).unwrap();
+            exit_tx = hash_cc_baa::node::Context::spawn(config,sleep,batch).unwrap();
         },
         _ =>{
             log::error!("Matching VSS not provided, canceling execution");

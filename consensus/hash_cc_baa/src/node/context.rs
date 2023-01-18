@@ -60,7 +60,9 @@ pub struct Context {
 
 impl Context {
     pub fn spawn(
-        config:Node
+        config:Node,
+        sleep:u64,
+        batch:usize
     )->anyhow::Result<oneshot::Sender<()>>{
         let prot_payload = &config.prot_payload;
         let v:Vec<&str> = prot_payload.split(',').collect();
@@ -112,7 +114,7 @@ impl Context {
 
                     vss_state: VSSState::new(),
                     batchvss_state: BatchVSSState::new(prime),
-                    batch_size:7,
+                    batch_size:batch,
                     round_state: HashMap::default(),
                     bench: HashMap::default(),
                     //echos_ss: HashMap::default(),
@@ -123,7 +125,7 @@ impl Context {
                 for (id, sk_data) in config.sk_map.clone() {
                     c.sec_key_map.insert(id, sk_data.clone());
                 }
-                c.invoke_coin.insert(100, Duration::from_millis(5000));
+                c.invoke_coin.insert(100, Duration::from_millis(sleep));
                 if let Err(e) = c.run().await {
                     log::error!("Consensus error: {}", e);
                 }

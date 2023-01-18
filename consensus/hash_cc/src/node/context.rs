@@ -59,7 +59,8 @@ pub struct Context {
 
 impl Context {
     pub fn spawn(
-        config:Node
+        config:Node,
+        sleep: u64
     )->anyhow::Result<oneshot::Sender<()>>{
         let prot_payload = &config.prot_payload;
         let v:Vec<&str> = prot_payload.split(',').collect();
@@ -121,7 +122,7 @@ impl Context {
                 for (id, sk_data) in config.sk_map.clone() {
                     c.sec_key_map.insert(id, sk_data.clone());
                 }
-                c.invoke_coin.insert(100, Duration::from_millis(5000));
+                c.invoke_coin.insert(100, Duration::from_millis(sleep));
                 if let Err(e) = c.run().await {
                     log::error!("Consensus error: {}", e);
                 }

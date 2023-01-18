@@ -27,17 +27,15 @@ class CommandMaker:
 
     @staticmethod
     def generate_config_files(bport,client_bport,num_nodes):
-        return f'./genconfig --base_port {bport} --client_base_port {client_bport} --NumNodes {num_nodes} --target .'
+        return f'./genconfig --blocksize 100 --delay 100 --base_port {bport} --client_base_port {client_bport} --NumNodes {num_nodes} --target .'
 
     @staticmethod
-    def run_primary(keys, committee, store, parameters, debug=False):
-        assert isinstance(keys, str)
-        assert isinstance(committee, str)
-        assert isinstance(parameters, str)
+    def run_primary(key, debug=False):
+        assert isinstance(key, str)
         assert isinstance(debug, bool)
-        v = '-vvv' if debug else '-vv'
-        return (f'./node {v} run --keys {keys} --committee {committee} '
-                f'--store {store} --parameters {parameters} primary')
+        #v = '-vvv' if debug else '-vv'
+        return (f'./node --config {key} --ip ip_file '
+                f'--sleep 15000 --vsstype ped --batch 10')
 
     @staticmethod
     def run_worker(keys, committee, store, parameters, id, debug=False):
