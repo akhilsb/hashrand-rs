@@ -10,6 +10,7 @@ impl Context {
         let now = SystemTime::now();
         let vss_state = &mut self.batchvss_state;
         let sec_origin = ctr.origin.clone();
+        log::info!("Received RECON message from {} for secret from {}",recon_sender,ctr.origin);
         if vss_state.terminated_secrets.contains(&sec_origin){
             log::info!("Batch secret instance from node {} already terminated",sec_origin);
             return;

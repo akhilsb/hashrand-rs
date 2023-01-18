@@ -12,6 +12,7 @@ impl Context {
         let now = SystemTime::now();
         let vss_state = &mut self.batchvss_state;
         let sec_origin = ctrbc.origin;
+        log::info!("Received READY message from {} for secret from {}",ready_sender,ctrbc.origin);
         // Highly unlikely that the node will get an echo before rbc_init message
         // If RBC already terminated, do not consider this RBC
         if vss_state.terminated_secrets.contains(&sec_origin){
