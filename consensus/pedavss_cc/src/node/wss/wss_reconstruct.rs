@@ -82,7 +82,7 @@ impl Context{
                     //let mod_number = mod_prime.clone()/(self.num_nodes);
                     //let leader_elected = rand_fin.clone()/mod_number;
                     //log::error!("Random leader election terminated random number: sec_origin {} rand_fin{} leader_elected {}, elected leader is node",sum_vars.clone(),sum_vars.clone(),sum_vars.clone());
-                    log::error!("Terminated recon: {:?}",SystemTime::now()
+                    log::error!("Recon ended: {:?}",SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
                     .as_millis());
