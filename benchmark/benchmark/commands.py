@@ -30,12 +30,12 @@ class CommandMaker:
         return f'./genconfig --blocksize 100 --delay 100 --base_port {bport} --client_base_port {client_bport} --NumNodes {num_nodes} --target .'
 
     @staticmethod
-    def run_primary(key, debug=False):
+    def run_primary(key,delay, debug=False):
         assert isinstance(key, str)
         assert isinstance(debug, bool)
         #v = '-vvv' if debug else '-vv'
         return (f'./node --config {key} --ip ip_file '
-                f'--sleep 30000 --vsstype hr --batch 250')
+                f'--sleep {delay} --vsstype hr --batch 250')
 
     @staticmethod
     def run_worker(keys, committee, store, parameters, id, debug=False):

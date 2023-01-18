@@ -229,6 +229,7 @@ class Bench:
             #host = Committee.ip(address)
             cmd = CommandMaker.run_primary(
                 PathMaker.key_file(i),
+                30000-i*1000,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)
