@@ -52,6 +52,7 @@ impl Context {
             match prot_msg {
                 CoinMsg::GatherEcho(vec_term_secs, echo_sender) =>{
                     self.process_gatherecho(vec_term_secs.clone(), *echo_sender, 1).await;
+                    self.witness_check().await;
                 },
                 _ => {}
             }
