@@ -39,9 +39,6 @@ impl Context {
         let now = SystemTime::now();
         let vss_state = &mut self.batchvss_state;
         let mut i = 0;
-        if vss_state.terminated_secrets.len() <= self.num_faults+1{
-            return;
-        }
         let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
         if !vss_state.send_w2{
             for (_replica,ss_inst) in vss_state.witness1.clone().into_iter(){
