@@ -104,6 +104,9 @@ impl Context{
         let rbc_origin = ctr.origin.clone();
         let round_state_map = &mut self.round_state;
         let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
+        if self.curr_round > ctr.round{
+            return;
+        }
         // Highly unlikely that the node will get an echo before rbc_init message
         log::info!("Received Reconstruct message from {} for RBC of node {}",recon_sender,rbc_origin);
         let round = ctr.round;
@@ -141,7 +144,7 @@ impl Context{
             // Check if the RBC received n-f readys
             let ready_check = rnd_state.readys.get(&rbc_origin).unwrap().len() >= (self.num_nodes-self.num_faults);
             let vec_fmap = rnd_state.recon_msgs.get(&rbc_origin).unwrap();
-            log::info!("Recon shard map: {:?} for rbc of node {}",vec_fmap,rbc_origin);
+            //log::info!("Recon shard map: {:?} for rbc of node {}",vec_fmap,rbc_origin);
             if vec_fmap.len()>=self.num_nodes-self.num_faults && ready_check{
                 // Reconstruct here
                 let result = reconstruct_and_return(
