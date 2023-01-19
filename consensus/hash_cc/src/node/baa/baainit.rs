@@ -86,13 +86,11 @@ impl Context{
         }
         let transmit_vector:Vec<String> = round_vecs.into_iter().map(|x| x.1.to_str_radix(16)).collect();
         let str_rbc = transmit_vector.join(",");
-        log::info!("Transmitted message: {:?} {:?}",str_rbc,str_rbc.as_bytes());
         let f_tran = Vec::from(str_rbc.as_bytes());
         let shards = get_shards(f_tran, self.num_faults);
         let own_shard = shards[self.myid].clone();
         // Construct Merkle tree
         let hashes:Vec<Hash> = shards.clone().into_iter().map(|x| do_hash(x.as_slice())).collect();
-        log::info!("Vector of hashes during RBC Init {:?}",hashes);
         let merkle_tree:MerkleTree<[u8; 32],HashingAlg> = MerkleTree::from_iter(hashes.into_iter());
         for (replica,sec_key) in self.sec_key_map.clone().into_iter() {
             if replica != self.myid{
