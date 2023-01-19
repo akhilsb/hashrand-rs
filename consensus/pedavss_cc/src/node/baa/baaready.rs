@@ -13,7 +13,7 @@ impl Context{
         let rbc_origin = ctr.origin.clone();
         let round_state_map = &mut self.round_state;
         // Highly unlikely that the node will get an echo before rbc_init message
-        log::info!("Received READY message from {} for RBC of node {}",ready_sender,rbc_origin);
+        //log::info!("Received READY message from {} for RBC of node {}",ready_sender,rbc_origin);
         let round = ctr.round;
         if self.curr_round > ctr.round{
             return;

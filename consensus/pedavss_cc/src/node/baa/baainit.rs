@@ -17,7 +17,7 @@ impl Context{
             return;
         }
         // 1. Check if the protocol reached the round for this node
-        log::info!("Received RBC Init from node {} for round {}",sender,ctr.round);
+        //log::info!("Received RBC Init from node {} for round {}",sender,ctr.round);
         if !verify_merkle_proof(&mp, &shard){
             log::error!("Failed to evaluate merkle proof for RBC Init received from node {}",sender);
             return;
@@ -79,7 +79,7 @@ impl Context{
             for (rep,val) in mapped_rvecs.into_iter(){
                 appxcon_map.insert(rep, (val,false,BigInt::from(0i32)));
             }
-            for i in 0..10{
+            for i in 0..100{
                 self.invoke_coin.insert(i, Duration::from_millis((1000*i).try_into().unwrap()));
             }
             return;

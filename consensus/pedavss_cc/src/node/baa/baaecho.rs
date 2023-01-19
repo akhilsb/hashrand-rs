@@ -12,7 +12,7 @@ impl Context{
         let rbc_origin = ctr.origin.clone();
         let round_state_map = &mut self.round_state;
         // Highly unlikely that the node will get an echo before rbc_init message
-        log::info!("Received ECHO message from {} for RBC of node {}",echo_sender,rbc_origin);
+        //log::info!("Received ECHO message from {} for RBC of node {}",echo_sender,rbc_origin);
         let round = ctr.round;
         if !verify_merkle_proof(&mp, &shard){
             log::error!("Failed to evaluate merkle proof for ECHO received from node {} for RBC {}",echo_sender,rbc_origin);
