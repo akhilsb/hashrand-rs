@@ -10,6 +10,7 @@ impl Context {
         let now = SystemTime::now();
         let vss_state = &mut self.batchvss_state;
         let sec_origin = ctr.origin.clone();
+        let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
         log::info!("Received RECON message from {} for secret from {}",recon_sender,ctr.origin);
         if vss_state.terminated_secrets.contains(&sec_origin){
             log::info!("Batch secret instance from node {} already terminated",sec_origin);
@@ -39,11 +40,20 @@ impl Context {
                         log::info!("Terminated n-f wss instances. Sending echo2 message to everyone");
                         vss_state.send_w1 = true;
                         let broadcast_msg = CoinMsg::GatherEcho(vss_state.terminated_secrets.clone().into_iter().collect(), self.myid);
-                        self.broadcast(broadcast_msg).await;
+                        msgs_to_be_sent.push(broadcast_msg);
                     }
                     self.add_benchmark(String::from("process_batchreconstruct_message"), now.elapsed().unwrap().as_nanos());
                     self.witness_check().await;
                 }
+            }
+        }
+        for prot_msg in msgs_to_be_sent.iter(){
+            self.broadcast(prot_msg.clone()).await;
+            match prot_msg {
+                CoinMsg::GatherEcho(vec_term_secs, echo_sender) =>{
+                    self.process_gatherecho(vec_term_secs.clone(), *echo_sender, 1).await;
+                },
+                _ => {}
             }
         }
     }   
