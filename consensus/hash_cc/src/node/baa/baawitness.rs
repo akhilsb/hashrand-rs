@@ -7,7 +7,7 @@ use crate::node::{Context, RoundState};
 impl Context{
     pub async fn handle_witness(self: &mut Context,vec_rbc_indices:Vec<Replica>, witness_sender:Replica,round: u32){
         let round_state_map = &mut self.round_state;
-        log::info!("Received witness message {:?} from node {} for round {}",vec_rbc_indices.clone(),witness_sender,round);
+        //log::info!("Received witness message {:?} from node {} for round {}",vec_rbc_indices.clone(),witness_sender,round);
         if round_state_map.contains_key(&round){
             let rnd_state = round_state_map.get_mut(&round).unwrap();
             rnd_state.witnesses.insert(witness_sender,vec_rbc_indices.clone());

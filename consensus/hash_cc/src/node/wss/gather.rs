@@ -8,7 +8,7 @@ use crate::node::{Context};
 impl Context{
     pub async fn process_gatherecho(self: &mut Context,wss_indices:Vec<Replica>, echo_sender:Replica,round: u32){
         let vss_state = &mut self.vss_state;
-        log::info!("Received gather echo message {:?} from node {} for round {}",wss_indices.clone(),echo_sender,round);
+        //log::info!("Received gather echo message {:?} from node {} for round {}",wss_indices.clone(),echo_sender,round);
         if vss_state.send_w2{
             if round == 2{
                 vss_state.witness2.insert(echo_sender, wss_indices);
@@ -62,7 +62,7 @@ impl Context{
             }    
             if i >= self.num_nodes-self.num_faults{
                 // Received n-f witness2s. Start approximate agreement from here. 
-                log::info!("Accepted n-f witness2 for node {} with set {:?}",self.myid,vss_state.terminated_secrets.clone());
+                //log::info!("Accepted n-f witness2 for node {} with set {:?}",self.myid,vss_state.terminated_secrets.clone());
                 let terminated_secrets = vss_state.terminated_secrets.clone();
                 let mut transmit_vector:Vec<(Replica,BigInt)> = Vec::new();
                 let rounds = self.rounds_aa;
