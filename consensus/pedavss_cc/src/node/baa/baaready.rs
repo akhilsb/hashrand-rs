@@ -156,14 +156,14 @@ impl Context{
                     }
                     Ok(vec)=>{
                         log::info!("Successfully reconstructed message for RBC, terminating RBC of node {}",rbc_origin);
-                        log::info!("Terminated with message: {:?} {:?}",vec.clone(),String::from_utf8(vec.clone()).expect("Invalid utf8"));
+                        //log::info!("Terminated with message: {:?} {:?}",vec.clone(),String::from_utf8(vec.clone()).expect("Invalid utf8"));
                         rnd_state.accepted_msgs.insert(rbc_origin, vec);
                         rnd_state.terminated_rbcs.insert(rbc_origin);
                         // Initiate next phase of the protocol here
                         if rnd_state.terminated_rbcs.len() >= self.num_nodes - self.num_faults{
                             if !rnd_state.witness_sent{
                                 log::info!("Terminated n-f RBCs, sending list of first n-f RBCs to other nodes");
-                                log::info!("Round state: {:?}",rnd_state.terminated_rbcs);
+                                //log::info!("Round state: {:?}",rnd_state.terminated_rbcs);
                                 let vec_rbcs = Vec::from_iter(rnd_state.terminated_rbcs.clone().into_iter());
                                 let witness_msg = CoinMsg::AppxConWitness(
                                     vec_rbcs.clone(), 
