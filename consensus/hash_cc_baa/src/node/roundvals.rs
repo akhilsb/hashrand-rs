@@ -63,7 +63,7 @@ impl RoundState{
                     // check for t+1 votes: if it has t+1 votes, send out another echo1 message
                     // check whether an echo has been sent out for this value in this instance
                     //log::info!("Processing values: {:?} inst: {} echo count: {}",arr_vec[0].clone(),rep, arr_vec[0].1.len());
-                    if arr_vec[0].1.len() == num_faults+1 && !arr_vec[0].3{
+                    if arr_vec[0].1.len() <= num_faults+1 && !arr_vec[0].3{
                         log::info!("Got t+1 ECHO messages for BAA inst {} sending ECHO",rep.clone());
                         echo1_msgs.push((rep,msg.clone()));
                         arr_vec[0].3 = true;
@@ -131,7 +131,7 @@ impl RoundState{
                 if arr_vec[0].0 == parsed_bigint{
                     arr_vec[0].2.insert(echo2_sender);
                     // check for 2t+1 votes: if it has 2t+1 votes, send out echo2 message
-                    if arr_vec[0].2.len() == num_nodes-num_faults{
+                    if arr_vec[0].2.len() >= num_nodes-num_faults{
                         arr_tup.2.push(parsed_bigint);
                         self.term_vals.insert(rep, arr_vec[0].0.clone());
                     }
@@ -145,7 +145,7 @@ impl RoundState{
                     }
                     else{
                         arr_vec[1].2.insert(rep);
-                        if arr_vec[1].2.len() == num_nodes-num_faults{
+                        if arr_vec[1].2.len() >= num_nodes-num_faults{
                             log::info!("Value {:?} received n-f echo2s for instance {}",arr_vec[1].0.clone(),rep);
                             arr_tup.2.push(parsed_bigint);
                             self.term_vals.insert(rep, arr_vec[1].0.clone());
