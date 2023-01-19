@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
     //     1 => log::set_max_level(log::LevelFilter::Debug),
     //     2 | _ => log::set_max_level(log::LevelFilter::Trace),
     // }
-    log::set_max_level(log::LevelFilter::Info);
+    log::set_max_level(log::LevelFilter::Error);
     config
         .validate()
         .expect("The decoded config is not valid");
