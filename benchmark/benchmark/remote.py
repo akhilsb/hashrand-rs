@@ -226,7 +226,7 @@ class Bench:
             c.put("ip_file",'.')
             #c.put(PathMaker.parameters_file(), '.')
         Print.info('Booting primaries...')
-        st_time = round(time.time() * 1000) + 60000
+        st_time = round(time.time() * 1000) + 100000
         for i,ip in enumerate(hosts):
             #host = Committee.ip(address)
             cmd = CommandMaker.run_primary(
@@ -303,7 +303,7 @@ class Bench:
         #     c.put("ip_file",'.')
         #     #c.put(PathMaker.parameters_file(), '.')
         Print.info('Booting primaries...')
-        st_time = round(time.time() * 1000) + 60000
+        st_time = round(time.time() * 1000) + 100000
         for i,ip in enumerate(hosts):
             #host = Committee.ip(address)
             cmd = CommandMaker.run_primary(

@@ -161,6 +161,6 @@ impl RoundState{
                 self.state.insert(rep, (arr_vec,HashSet::default(),Vec::new()));
             }
         }
-        log::info!("Round state after receiving echo2: {:?}",self.state);
+        //log::info!("Round state after receiving echo2: {:?}",self.state);
     }
 }

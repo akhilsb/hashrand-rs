@@ -9,7 +9,7 @@ use vsss_rs::{Share, FeldmanVerifier, Feldman};
 
 use crate::node::{Context};
 
-pub const FAULTS:usize = 9;
+pub const FAULTS:usize = 17;
 
 impl Context{
     pub async fn start_wss(self: &mut Context){
