@@ -7,16 +7,11 @@ members = [
     "crypto",
     "tools/genconfig",
     "consensus",
-    "net",
-    "discovery",
-    "util",
     # "comm", (WIP: Do not enable unless testing)
     # RBC module
-    "consensus/rbc",
     "consensus/appxcon",
-    "examples/rbc_ex",
     "node",
-    "consensus/ct_rbc",
+    #"consensus/ct_rbc",
     "consensus/hash_cc",
     "consensus/hash_cc_baa",
     "consensus/pedavss_cc"

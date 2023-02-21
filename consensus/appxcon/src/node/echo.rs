@@ -1,67 +1,52 @@
-use std::{sync::Arc, collections::HashSet};
+use std::{collections::HashSet};
 
 use async_recursion::async_recursion;
-use types::appxcon::{Msg, Replica, ProtMsg, WrapperMsg};
-
-use crate::node::process_ready;
+use types::appxcon::{Msg, Replica, ProtMsg};
 
 use super::{Context, RoundState};
 
-
-#[async_recursion]
-pub async fn process_echo(cx: &mut Context, main_msg:Msg, echo_sender:Replica){
-    let rbc_originator = main_msg.origin;
-    let round_state_map = &mut cx.round_state;
-    let mut msgs_to_be_sent:Vec<ProtMsg> = Vec::new();
-    // Highly unlikely that the node will get an echo before rbc_init message
-    log::info!("Received ECHO message {:?}",main_msg.clone());
-    if round_state_map.contains_key(&main_msg.round){
-        // 1. Add echos to the round state object
-        let rnd_state = round_state_map.get_mut(&main_msg.round).unwrap();
-        // If RBC already terminated, do not consider this RBC
-        if rnd_state.terminated_rbcs.contains(&rbc_originator){
-            return;
-        }
-        match rnd_state.echos.get_mut(&rbc_originator) {
-            None => {
-                let mut echoset = HashSet::default();
-                echoset.insert(echo_sender);
-                rnd_state.echos.insert(rbc_originator, echoset);
-            },
-            Some(x) => {
-                x.insert(echo_sender);
+impl Context{
+    #[async_recursion]
+    pub async fn process_echo(&mut self, main_msg:Msg, echo_sender:Replica){
+        let rbc_originator = main_msg.origin;
+        let round_state_map = &mut self.round_state;
+        // Highly unlikely that the node will get an echo before rbc_init message
+        log::info!("Received ECHO message {:?}",main_msg.clone());
+        if round_state_map.contains_key(&main_msg.round){
+            // 1. Add echos to the round state object
+            let rnd_state = round_state_map.get_mut(&main_msg.round).unwrap();
+            // If RBC already terminated, do not consider this RBC
+            if rnd_state.terminated_rbcs.contains(&rbc_originator){
+                return;
+            }
+            match rnd_state.echos.get_mut(&rbc_originator) {
+                None => {
+                    let mut echoset = HashSet::default();
+                    echoset.insert(echo_sender);
+                    rnd_state.echos.insert(rbc_originator, echoset);
+                },
+                Some(x) => {
+                    x.insert(echo_sender);
+                }
+            }
+            let echos = rnd_state.echos.get_mut(&rbc_originator).unwrap();
+            // 2. Check if echos reached the threshold, init already received, and round number is matching
+            log::debug!("ECHO check: Round equals: {}, echos.len {}, contains key: {}"
+            ,self.round == main_msg.round,echos.len(),rnd_state.node_msgs.contains_key(&rbc_originator));
+            if echos.len() == self.num_nodes-self.num_faults && 
+                rnd_state.node_msgs.contains_key(&rbc_originator){
+                // Broadcast readys, otherwise, just wait longer
+                self.broadcast(ProtMsg::READY(main_msg.clone(),main_msg.origin, self.myid)).await;
+                //msgs_to_be_sent.push(ProtMsg::READY(main_msg.clone(),main_msg.origin, self.myid));
+                self.process_ready(main_msg, self.myid).await;
             }
         }
-        let echos = rnd_state.echos.get_mut(&rbc_originator).unwrap();
-        // 2. Check if echos reached the threshold, init already received, and round number is matching
-        log::debug!("ECHO check: Round equals: {}, echos.len {}, contains key: {}"
-        ,cx.round == main_msg.round,echos.len(),rnd_state.node_msgs.contains_key(&rbc_originator));
-        if echos.len() == cx.num_nodes-cx.num_faults && 
-            rnd_state.node_msgs.contains_key(&rbc_originator){
-            // Broadcast readys, otherwise, just wait longer
-            msgs_to_be_sent.push(ProtMsg::READY(main_msg.clone(),main_msg.origin, cx.myid));
+        else{
+            let mut rnd_state = create_roundstate(rbc_originator, &main_msg, self.myid);
+            rnd_state.echos.get_mut(&rbc_originator).unwrap().insert(echo_sender);
+            // Do not send echo yet, echo needs to come through from RBC_INIT
+            round_state_map.insert(main_msg.round, rnd_state);
         }
-    }
-    else{
-        let mut rnd_state = create_roundstate(rbc_originator, &main_msg, cx.myid);
-        rnd_state.echos.get_mut(&rbc_originator).unwrap().insert(echo_sender);
-        // Do not send echo yet, echo needs to come through from RBC_INIT
-        round_state_map.insert(main_msg.round, rnd_state);
-    }
-    // Inserting send message block here to not borrow cx as mutable again
-    for prot_msg in msgs_to_be_sent.iter(){
-        let sec_key_map = cx.sec_key_map.clone();
-        for (replica,sec_key) in sec_key_map.into_iter() {
-            if replica != cx.myid{
-                let wrapper_msg = WrapperMsg::new(prot_msg.clone(), cx.myid, &sec_key.as_slice());
-                let sent_msg = Arc::new(wrapper_msg);
-                cx.c_send(replica, sent_msg).await;
-            }
-            else {
-                process_ready(cx, main_msg.clone(), cx.myid).await;
-            }
-        }
-        log::info!("Broadcasted message {:?}",prot_msg.clone());
     }
 }
 

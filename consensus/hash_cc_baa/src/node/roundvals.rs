@@ -45,7 +45,7 @@ impl RoundState{
         rnd_state
     }
 
-    pub fn add_echo(&mut self, msgs: Vec<(Replica,Vec<u8>)>, echo_sender:Replica, num_nodes: usize, num_faults:usize)-> (Vec<(Replica,Vec<u8>)>,Vec<(Replica,Vec<u8>)>){
+    pub fn  add_echo(&mut self, msgs: Vec<(Replica,Vec<u8>)>, echo_sender:Replica, num_nodes: usize, num_faults:usize)-> (Vec<(Replica,Vec<u8>)>,Vec<(Replica,Vec<u8>)>){
         let mut echo1_msgs:Vec<(Replica,Vec<u8>)> = Vec::new();
         let mut echo2_msgs:Vec<(Replica,Vec<u8>)> = Vec::new();
         for (rep,msg) in msgs.into_iter(){
@@ -86,11 +86,11 @@ impl RoundState{
                     if arr_vec.len() == 1{
                         // insert new array vector
                         let mut echo_set:HashSet<Replica>= HashSet::default();
-                        echo_set.insert(rep);
+                        echo_set.insert(echo_sender);
                         arr_vec.push((parsed_bigint,echo_set,HashSet::default(),false,false));
                     }
                     else {
-                        arr_vec[1].1.insert(rep);
+                        arr_vec[1].1.insert(echo_sender);
                         if arr_vec[1].1.len() >= num_faults+1 && !arr_vec[1].3{
                             log::info!("Second value {} got t+1 votes",parsed_bigint.clone());
                             echo1_msgs.push((rep,msg.clone()));
@@ -112,7 +112,7 @@ impl RoundState{
             }
             else{
                 let mut echo_set:HashSet<Replica> = HashSet::default();
-                echo_set.insert(rep);
+                echo_set.insert(echo_sender);
                 let mut arr_vec:Vec<(BigInt, HashSet<Replica>, HashSet<Replica>,bool,bool)> = Vec::new();
                 arr_vec.push((parsed_bigint,echo_set,HashSet::default(),false,false));
                 self.state.insert(rep, (arr_vec,HashSet::default(),Vec::new()));
@@ -140,11 +140,11 @@ impl RoundState{
                     if arr_vec.len() == 1{
                         // insert new array vector
                         let mut echo2_set:HashSet<Replica>= HashSet::default();
-                        echo2_set.insert(rep);
+                        echo2_set.insert(echo2_sender);
                         arr_vec.push((parsed_bigint,HashSet::default(),echo2_set,false,false));
                     }
                     else{
-                        arr_vec[1].2.insert(rep);
+                        arr_vec[1].2.insert(echo2_sender);
                         if arr_vec[1].2.len() >= num_nodes-num_faults{
                             log::info!("Value {:?} received n-f echo2s for instance {}",arr_vec[1].0.clone(),rep);
                             arr_tup.2.push(parsed_bigint);
@@ -155,7 +155,7 @@ impl RoundState{
             }
             else {
                 let mut echo_set:HashSet<Replica> = HashSet::default();
-                echo_set.insert(rep);
+                echo_set.insert(echo2_sender);
                 let mut arr_vec:Vec<(BigInt, HashSet<Replica>, HashSet<Replica>,bool,bool)> = Vec::new();
                 arr_vec.push((parsed_bigint,HashSet::default(),echo_set,false,false));
                 self.state.insert(rep, (arr_vec,HashSet::default(),Vec::new()));

@@ -218,6 +218,7 @@ impl Context {
                                 self.start_batchwss().await;
                             }
                             else{
+                                // What crappy jugaad is this? Need a client to coordinate
                                 if self.num_messages <= num_msgs+50{
                                     log::error!("Start reconstruction {:?}",SystemTime::now()
                                     .duration_since(UNIX_EPOCH)

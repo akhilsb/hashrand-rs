@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 config = { package = "config", path="../config"}
 appxcon = { package = "appxcon", path="../consensus/appxcon"}
-ct_rbc = {package = "ct_rbc",path="../consensus/ct_rbc"}
+#ct_rbc = {package = "ct_rbc",path="../consensus/ct_rbc"}
 hash_cc = {package = "hash_cc",path="../consensus/hash_cc"}
 hash_cc_baa = {package = "hash_cc_baa",path="../consensus/hash_cc_baa"}
 pedavss_cc = {package = "pedavss_cc",path="../consensus/pedavss_cc"}
@@ -16,7 +16,6 @@ consensus = { package = "consensus", path="../consensus"}
 util = { package = "util", path="../util"}
 anyhow = "1"
 types = { package = "types", path="../types"}
-net = { package = "net", path="../net"}
 clap = {version = "2", features = ["yaml"]}
 tokio = { version = "1.0", features = ["full"] }
 futures = "0.3.8"

@@ -62,7 +62,7 @@ impl Context {
                     i = i+1;
                 }
             }    
-            if i >= self.num_nodes-self.num_faults{
+            if i == self.num_nodes-self.num_faults && !vss_state.started_baa{
                 // Received n-f witness2s. Start approximate agreement from here. 
                 log::info!("Accepted n-f witness2 for node {} with set {:?}",self.myid,vss_state.terminated_secrets.clone());
                 let terminated_secrets = vss_state.terminated_secrets.clone();
@@ -79,7 +79,7 @@ impl Context {
                         transmit_vector.push((i,max_power));
                     }
                 }
-                self.add_benchmark(String::from("witness_check"), now.elapsed().unwrap().as_nanos());
+                vss_state.started_baa = true;
                 self.start_baa(transmit_vector,0).await;
             }
         }

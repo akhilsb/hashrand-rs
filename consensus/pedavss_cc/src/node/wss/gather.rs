@@ -61,7 +61,7 @@ impl Context{
                     i = i+1;
                 }
             }    
-            if i >= self.num_nodes-self.num_faults{
+            if i == self.num_nodes-self.num_faults{
                 // Received n-f witness2s. Start approximate agreement from here. 
                 log::info!("Accepted n-f witness2 for node {} with set {:?}",self.myid,self.aggr_context.terminated_rbcs.clone());
                 let terminated_secrets = self.aggr_context.terminated_rbcs.clone();
@@ -78,7 +78,10 @@ impl Context{
                         transmit_vector.push((i,max_power));
                     }
                 }
-                self.start_baa(transmit_vector).await;
+                // start baa only if it hasn't been started already
+                if !self.round_state.contains_key(&0){
+                    self.start_baa(transmit_vector).await;
+                }
             }
         }
         for prot_msg in msgs_to_be_sent.iter(){

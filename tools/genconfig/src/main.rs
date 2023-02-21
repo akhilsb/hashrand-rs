@@ -4,6 +4,7 @@
 use crypto::{ed25519, secp256k1::{self,SecretKey}};
 use config::{Node, Client};
 use clap::{load_yaml, App};
+use rand::Rng;
 use types::Replica;
 use crypto::Algorithm;
 use std::{error::Error};
@@ -217,7 +218,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         node[i].block_size = blocksize;
         node[i].payload = payload;
         node[i].client_port = client_base_port+(i as u16);
-        node[i].prot_payload = String::from("cc,/home/akhil/research/EEBA/libchatter/");
+        // generate random number for approximate consensus
+        let num = rand::thread_rng().gen_range(0, 20000000);
+        node[i].prot_payload = format!("a,{},1",num);
+        //String::from("a,");
+        //node[i].prot_payload = String::from("cc,/home/akhil/research/EEBA/libchatter/");
         node[i].crypto_alg = t.clone();
         match t {
             Algorithm::ED25519 => {

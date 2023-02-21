@@ -64,6 +64,9 @@ async fn main() -> Result<()> {
         "hr" => {
             exit_tx = hash_cc_baa::node::Context::spawn(config,sleep,batch).unwrap();
         },
+        "appx" => {
+            exit_tx = appxcon::node::Context::spawn(config, sleep).unwrap();
+        },
         _ =>{
             log::error!("Matching VSS not provided, canceling execution");
             return Ok(());
