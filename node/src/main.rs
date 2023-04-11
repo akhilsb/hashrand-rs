@@ -4,6 +4,8 @@ use clap::{
     App
 };
 use config::Node;
+use fnv::FnvHashMap;
+use node::Syncer;
 use signal_hook::{iterator::Signals, consts::{SIGINT, SIGTERM}};
 use std::{net::{SocketAddr, SocketAddrV4}};
 
@@ -21,6 +23,8 @@ async fn main() -> Result<()> {
         .expect("Unable to detect sleep time").parse::<u128>().unwrap();
     let batch = m.value_of("batch")
         .expect("Unable to parse batch size").parse::<usize>().unwrap();
+    let syncer_file = m.value_of("syncer")
+        .expect("Unable to parse syncer ip file");
     let conf_file = std::path::Path::new(conf_str);
     let str = String::from(conf_str);
     let mut config = match conf_file
@@ -67,6 +71,21 @@ async fn main() -> Result<()> {
         "appx" => {
             exit_tx = appxcon::node::Context::spawn(config, sleep).unwrap();
         },
+        "hyb" =>{
+            exit_tx = hyb_appxcon::node::Context::spawn(config,sleep).unwrap();
+        },
+        "sync" => {
+            let f_str = syncer_file.to_string();
+            log::info!("Logging the file f {}",f_str);
+            let ip_str = util::io::file_to_ips(f_str);
+            let mut net_map = FnvHashMap::default();
+            let mut idx = 0;
+            for ip in ip_str{
+                net_map.insert(idx, ip.clone());
+                idx += 1;
+            }
+            exit_tx = Syncer::spawn(net_map, config.client_addr.clone()).unwrap();
+        },
         _ =>{
             log::error!("Matching VSS not provided, canceling execution");
             return Ok(());
@@ -83,6 +102,8 @@ async fn main() -> Result<()> {
     log::error!("Shutting down server");
     Ok(())
 }
+
+
 
 pub fn to_socket_address(
     ip_str: &str,

@@ -10,9 +10,10 @@ members = [
     # "comm", (WIP: Do not enable unless testing)
     # RBC module
     "consensus/appxcon",
+    "consensus/hyb_appxcon",
     "node",
     #"consensus/ct_rbc",
     "consensus/hash_cc",
     "consensus/hash_cc_baa",
-    "consensus/pedavss_cc"
+    "consensus/pedavss_cc",
 ]

@@ -3,7 +3,7 @@ use std::{ collections::HashMap, time::{Duration, SystemTime, UNIX_EPOCH}};
 use crypto::hash::{Hash,do_hash};
 use merkle_light::merkle::MerkleTree;
 use num_bigint::BigInt;
-use types::{appxcon::{get_shards, HashingAlg, MerkleProof, verify_merkle_proof}, hash_cc::{CTRBCMsg, CoinMsg, WrapperMsg}, Replica};
+use types::{appxcon::{get_shards, HashingAlg, MerkleProof, verify_merkle_proof}, hash_cc::{CTRBCMsg, CoinMsg, WrapperMsg}, Replica, SyncMsg, SyncState};
 
 use crate::node::{Context, RoundState};
 
@@ -79,9 +79,8 @@ impl Context{
             for (rep,val) in mapped_rvecs.into_iter(){
                 appxcon_map.insert(rep, (val,false,BigInt::from(0i32)));
             }
-            for i in 0..100{
-                self.invoke_coin.insert(i, Duration::from_millis((1000*i).try_into().unwrap()));
-            }
+            let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::CompletedSharing, value:0}).await;
+            self.add_cancel_handler(cancel_handler);
             return;
         }
         let transmit_vector:Vec<String> = round_vecs.into_iter().map(|x| x.1.to_str_radix(16)).collect();

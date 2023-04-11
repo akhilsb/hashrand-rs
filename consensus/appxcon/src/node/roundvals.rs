@@ -7,7 +7,7 @@ pub struct RoundState{
     pub node_msgs: HashMap<Replica,Msg>,
     pub echos: HashMap<Replica,HashSet<Replica>>,
     pub readys: HashMap<Replica,HashSet<Replica>>,
-    pub accepted_vals: Vec<i64>,
+    pub accepted_vals: Vec<u64>,
     pub witnesses: HashMap<Replica,Vec<Replica>>,
     pub terminated_rbcs: HashSet<Replica>,
     pub accepted_witnesses: HashSet<Replica>,

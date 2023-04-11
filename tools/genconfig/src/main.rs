@@ -7,7 +7,7 @@ use clap::{load_yaml, App};
 use rand::Rng;
 use types::Replica;
 use crypto::Algorithm;
-use std::{error::Error};
+use std::{error::Error, fmt::format, io::{BufWriter, Write}, fs::File};
 use util::io::*;
 use openssl::{asn1::Asn1Time, bn::{BigNum, MsbOption}, error::ErrorStack, hash::MessageDigest, pkey::{PKey, PKeyRef, Private}, rsa::Rsa, x509::{X509, X509NameBuilder, X509Ref, X509Req, X509ReqBuilder, extension::{AuthorityKeyIdentifier, BasicConstraints, KeyUsage, SubjectAlternativeName, SubjectKeyIdentifier}}};
 use fnv::FnvHashMap as HashMap;
@@ -179,6 +179,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap_or("false")
         .parse()
         .unwrap();
+    let c_rport:u16 = m.value_of("client_run_port")
+        .expect("Client port expected")
+        .parse::<u16>()
+        .expect("unable to parse client's port into an integer");
     let mut client = Client::new();
     client.block_size = blocksize;
     client.crypto_alg = t.clone();
@@ -189,7 +193,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut pk = HashMap::default();
     let mut ip = HashMap::default();
-
+    
     let (cert, privkey) = new_root_cert()?;
     let mut sec_keys:Vec<Vec<SecretKey>> = Vec::with_capacity(num_nodes);
     (0..num_nodes).for_each(|_i| {
@@ -220,7 +224,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         node[i].client_port = client_base_port+(i as u16);
         // generate random number for approximate consensus
         let num = rand::thread_rng().gen_range(0, 20000000);
-        node[i].prot_payload = format!("a,{},1",num);
+        node[i].prot_payload = format!("a,{},50000,100",num);
         //String::from("a,");
         //node[i].prot_payload = String::from("cc,/home/akhil/research/EEBA/libchatter/");
         node[i].crypto_alg = t.clone();
@@ -250,13 +254,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         format!("127.0.0.1:{}", client_base_port+(i as u16))
         );
 
+
         let (new_cert, new_pkey) = get_signed_cert(&cert, &privkey)?;
 
         node[i].root_cert = cert.to_der()?;
         node[i].my_cert = new_cert.to_der()?;
         node[i].my_cert_key = new_pkey.private_key_to_der()?;
     }
-
+    ip.insert(num_nodes, format!("127.0.0.1:{}",c_rport));
     client.root_cert = cert.to_der()?;
 
     for i in 0..num_nodes {
@@ -265,10 +270,29 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     if local != String::from("false"){
         // write ip map to file
-        let filename = format!("ip_file");
+        //let filename = format!("ip_file");
         println!("Writing ips to ip_file");
-        write_json(filename, &ip.clone());
+        // write ips to ip_file
+        {
+            let file = File::create("ip_file")?;
+            let mut writer = BufWriter::new(file);
+            for iter in 0..num_nodes+1{
+                writeln!(writer,"{}",ip.get(&iter).unwrap())?;
+            }
+            writer.flush()?;
+        }
+        {
+            let file = File::create(format!("{}/syncer",target))?;
+            let mut writer = BufWriter::new(file);
+            for iter in 0..num_nodes{
+                writeln!(writer,"{}",client.net_map.get(&iter).unwrap())?;
+            }
+            writer.flush()?;
+        }
+        //write_json(filename, &ip.clone());
     }
+    let filename = format!("{}/syncer.json",target);
+    write_json(filename, &client.net_map.clone());
     client.server_pk = pk;
 
     // Write all the files

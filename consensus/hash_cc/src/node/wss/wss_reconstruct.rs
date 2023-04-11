@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::{SystemTime, UNIX_EPOCH}};
 
 use crypto::hash::{do_hash, do_hash_merkle};
 use num_bigint::{BigInt, Sign};
-use types::{hash_cc::{WSSMsg, CoinMsg}, appxcon::{HashingAlg}, Replica};
+use types::{hash_cc::{WSSMsg, CoinMsg}, appxcon::{HashingAlg}, Replica, SyncState, SyncMsg};
 
 use crate::node::{Context, ShamirSecretSharing};
 
@@ -97,6 +97,8 @@ impl Context{
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
                     .as_millis());
+                    let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::CompletedRecon,value:0 }).await;
+                    self.add_cancel_handler(cancel_handler);
                     log::error!("Number of messages sent by nodes: {}",self.num_messages);
                 }
             }

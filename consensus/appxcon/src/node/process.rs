@@ -43,9 +43,6 @@ impl Context{
     pub(crate) async fn process_msg(&mut self, wrapper_msg: WrapperMsg){
         log::debug!("Received protocol msg: {:?}",wrapper_msg);
         let msg = Arc::new(wrapper_msg.clone());
-        if self.myid == 3{
-            return;
-        }
         if self.check_proposal(msg){
             match wrapper_msg.clone().protmsg {
                 ProtMsg::RBCInit(main_msg,_rep)=> {

@@ -8,21 +8,23 @@ use super::Replica;
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct Msg {
-    pub value:i64,
+    pub value:u64,
     pub origin:Replica,
-    pub round:u32,
+    pub round:u64,
+    pub rnd_estm:bool,
+    pub message: Vec<usize>
 }
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct CTRBCMsg{
     pub shard:Vec<u8>,
     pub mp:MerkleProof,
-    pub round:u32,
+    pub round:u64,
     pub origin:Replica
 }
 
 impl CTRBCMsg {
-    pub fn new(shard:Vec<u8>,mp:MerkleProof,round:u32,origin:Replica)->Self{
+    pub fn new(shard:Vec<u8>,mp:MerkleProof,round:u64,origin:Replica)->Self{
         CTRBCMsg { shard: shard, mp: mp, round: round, origin: origin }
     }
 }
@@ -37,8 +39,9 @@ pub enum ProtMsg{
     READY(Msg,Replica,Replica),
     // Witness message
     // List of n-f RBCs we accepted, the sender of the message, and the round number
-    WITNESS(Vec<Replica>,Replica,u32),
+    WITNESS(Vec<Replica>,Replica,u64),
 
+    WITNESS2(Vec<Replica>,Replica,u64),
     // Erasure-coded shard, corresponding Merkle proof
     CTRBCInit(CTRBCMsg),
     // Echo message with Origin node, and Sender Node
@@ -46,7 +49,11 @@ pub enum ProtMsg{
     // Ready message with RBC origin and Sender Node
     CTREADY(CTRBCMsg,Replica),
     // Reconstruction message with Sender
-    CTReconstruct(CTRBCMsg,Replica)
+    CTReconstruct(CTRBCMsg,Replica),
+    // Echos related to Binary Approximate Agreement
+    // (Msg for AA inst, message), sender node, round number
+    BinaryAAEcho(Vec<(Replica,Vec<u8>)>,Replica,u64),
+    BinaryAAEcho2(Vec<(Replica,Vec<u8>)>,Replica,u64),
 }
 
 #[derive(Debug,Serialize,Deserialize,Clone)]

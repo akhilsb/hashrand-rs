@@ -1,8 +1,8 @@
-use std::{time::{SystemTime, Duration, UNIX_EPOCH}};
+use std::{time::{SystemTime, UNIX_EPOCH}};
 
 use async_recursion::async_recursion;
 use num_bigint::{BigInt};
-use types::{hash_cc::{ CoinMsg}, Replica};
+use types::{hash_cc::{ CoinMsg}, Replica, SyncMsg, SyncState};
 
 use crate::node::{Context, RoundState};
 
@@ -82,9 +82,11 @@ impl Context{
             for (rep,val) in mapped_rvecs.into_iter(){
                 appxcon_map.insert(rep, (val,false,BigInt::from(0i32)));
             }
-            for i in 0..10{
-                self.invoke_coin.insert(i, Duration::from_millis((1000*i).try_into().unwrap()));
-            }
+            let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::CompletedSharing, value:0}).await;
+            self.add_cancel_handler(cancel_handler);
+            // for i in 0..10{
+            //     self.invoke_coin.insert(i, Duration::from_millis((1000*i).try_into().unwrap()));
+            // }
             return;
         }
         let transmit_vec:Vec<(Replica,Vec<u8>)> = round_vecs.into_iter().map(|(rep,val)| (rep,val.to_bytes_be().1)).collect();

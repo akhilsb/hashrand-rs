@@ -37,3 +37,8 @@ args:
         long: batch
         help: Batch size used in protocol
         takes_value: true
+    - syncer:
+        short: y
+        long: syncer
+        help: IPs for the syncer to connect to
+        takes_value: true

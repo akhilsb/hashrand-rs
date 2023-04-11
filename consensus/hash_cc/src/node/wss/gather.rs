@@ -77,7 +77,10 @@ impl Context{
                         transmit_vector.push((i,max_power));
                     }
                 }
-                self.start_baa(transmit_vector).await;
+                // start baa only if it hasn't been started already
+                if !self.round_state.contains_key(&0){
+                    self.start_baa(transmit_vector).await;
+                }
             }
         }
         for prot_msg in msgs_to_be_sent.iter(){

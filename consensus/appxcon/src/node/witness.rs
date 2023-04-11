@@ -1,4 +1,4 @@
-use types::appxcon::{Replica, Msg, ProtMsg};
+use types::{appxcon::{Replica, Msg, ProtMsg}, SyncMsg};
 
 use crate::node::{RoundState};
 
@@ -7,7 +7,7 @@ use super::Context;
 use async_recursion::async_recursion;
 
 impl Context{
-    pub async fn handle_witness(&mut self,vec_rbc_indices:Vec<Replica>, round: u32, witness_sender:Replica){
+    pub async fn handle_witness(&mut self,vec_rbc_indices:Vec<Replica>, round: u64, witness_sender:Replica){
         let round_state_map = &mut self.round_state;
         log::info!("Received witness message {:?} from node {} for round {}",vec_rbc_indices.clone(),witness_sender,round);
         if round_state_map.contains_key(&round){
@@ -24,7 +24,7 @@ impl Context{
     }
     
     #[async_recursion]
-    pub async fn check_for_ht_witnesses(&mut self, round:u32){
+    pub async fn check_for_ht_witnesses(&mut self, round:u64){
         let round_state_map = &mut self.round_state;
         let rnd_state = round_state_map.get_mut(&round).unwrap();
     
@@ -49,13 +49,15 @@ impl Context{
             self.value = nr_val;
             self.round = round+1;
             // write round estimation protocol
-            if self.round <= 50{
+            if self.round <= 10{
                 // Initiate next RBCInit now
                 log::info!("Protocol completed round {} with new round value {} ",self.round,self.value);
                 self.start_rbc().await;
             }
             else {
                 log::info!("Protocol terminated value {} ",self.value);
+                let cancel_handler = self.sync_send.send(0, SyncMsg{sender:self.myid,state:types::SyncState::COMPLETED,value:self.value}).await;
+                self.add_cancel_handler(cancel_handler);
             }
         }
     }
@@ -65,6 +67,8 @@ impl Context{
             value: self.value,
             origin: self.myid,
             round: self.round,
+            rnd_estm: false,
+            message: Vec::new()
         };
         log::info!("Send RBCInit messages from node {:?} for round {}",self.myid,self.round);
         // Add roundstate for round zero

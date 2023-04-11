@@ -11,6 +11,7 @@ use super::{
 };
 use std::fs::File;
 use std::io::prelude::*;
+use std::net::{SocketAddr, SocketAddrV4};
 use serde_json::from_reader;
 use toml::from_str;
 
@@ -26,6 +27,7 @@ pub struct Node {
     pub num_faults: usize,
     pub block_size:usize,
     pub client_port: u16,
+    pub client_addr: SocketAddr,
     pub payload: usize,
     
     pub prot_payload: String,
@@ -44,17 +46,17 @@ pub struct Node {
 
 impl Node {
     pub fn validate(&self) -> Result<(), ParseError> {
-        if self.net_map.len() != self.num_nodes {
-            return Err(ParseError::InvalidMapLen(self.num_nodes, self.net_map.len()));
+        if self.net_map.len() != self.num_nodes+1 {
+            return Err(ParseError::InvalidMapLen(self.num_nodes+1, self.net_map.len()));
         }
         if 2*self.num_faults >= self.num_nodes {
             return Err(ParseError::IncorrectFaults(self.num_faults, self.num_nodes));
         }
-        for repl in &self.net_map {
-            if !is_valid_replica(*repl.0, self.num_nodes) {
-                return Err(ParseError::InvalidMapEntry(*repl.0));
-            }
-        }
+        // for repl in &self.net_map {
+        //     if !is_valid_replica(*repl.0, self.num_nodes) {
+        //         return Err(ParseError::InvalidMapEntry(*repl.0));
+        //     }
+        // }
         match self.crypto_alg {
             Algorithm::ED25519 => {
                 for repl in &self.pk_map {
@@ -105,6 +107,7 @@ impl Node {
         Node{
             block_size: 0,
             client_port: 0,
+            client_addr: SocketAddrV4::new("0.0.0.0".parse().unwrap(),5000).into(),
             crypto_alg: Algorithm::ED25519,
             delta: 50,
             id: 0,
@@ -163,8 +166,16 @@ impl Node {
 
     pub fn update_config(&mut self, ips: Vec<String>) {
         let mut idx = 0;
+        let max_nodes = self.num_nodes;
         for ip in ips {
             // For self ip, put 0.0.0.0 with the same port
+            if idx == max_nodes{
+                // Syncer address
+                let ip_a:Vec<&str> = ip.split(":").collect();
+                let port:u16 = ip_a.last().expect("invalid ip found").parse().expect("failed to parse port number");
+                let sock_addr = SocketAddrV4::new(ip_a.get(0).unwrap().parse().unwrap(), port);
+                self.client_addr = sock_addr.into();
+            }
             if idx == self.id {
                 let port:u16 = ip.split(":")
                     .last()

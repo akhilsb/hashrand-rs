@@ -1,5 +1,5 @@
 use std::{ time::{SystemTime, UNIX_EPOCH}};
-use types::{hash_cc::{WSSMsg, CoinMsg}, Replica};
+use types::{hash_cc::{WSSMsg, CoinMsg}, Replica, SyncState, SyncMsg};
 
 use crate::node::{Context};
 
@@ -55,7 +55,7 @@ impl Context{
                         },
                         Some(_leader)=>{
                             //log::error!("Leader elected: {:?}",leader);
-                            if vss_state.recon_secret < self.batch_size{
+                            if vss_state.recon_secret == self.batch_size-1{
                                 send_next_recon = false;
                                 log::error!("Recon ended: {:?}",SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
@@ -64,6 +64,9 @@ impl Context{
                                 log::error!("Number of messages passed between nodes: {}",self.num_messages);
                                 log::error!("Benchmark map: {:?}",self.bench.clone());
                             }
+                            else{
+                                send_next_recon = true;
+                            }
                             break;
                         }
                     }
@@ -71,6 +74,10 @@ impl Context{
             }
         }
         if send_next_recon{
+            if coin_num == 1{
+                let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::CompletedRecon, value:0}).await;
+                self.add_cancel_handler(cancel_handler);
+            }
             self.send_batchreconstruct( coin_num+1).await;
         }
         self.add_benchmark(String::from("process_batchreconstruct"), now.elapsed().unwrap().as_nanos()); 

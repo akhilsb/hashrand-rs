@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::{SystemTime, UNIX_EPOCH}};
 
 use bls12_381_plus::{Scalar, G1Projective};
 use num_bigint::{BigInt, Sign};
-use types::{hash_cc::{CoinMsg}, Replica};
+use types::{hash_cc::{CoinMsg}, Replica, SyncMsg, SyncState};
 use vsss_rs::{Share, FeldmanVerifier, Feldman};
 
 use crate::node::{Context, FAULTS};
@@ -78,6 +78,8 @@ impl Context{
                     for (_rep,(_appx,_bcons,sec_contrib)) in res_appxcon.clone().into_iter(){
                         sum_vars = sum_vars + sec_contrib;
                     }
+                    let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::CompletedRecon, value:0}).await;
+                    self.add_cancel_handler(cancel_handler);
                     //let rand_fin = sum_vars.clone() % mod_prime.clone();
                     //let mod_number = mod_prime.clone()/(self.num_nodes);
                     //let leader_elected = rand_fin.clone()/mod_number;

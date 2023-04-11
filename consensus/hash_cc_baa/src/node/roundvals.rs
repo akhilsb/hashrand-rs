@@ -45,7 +45,7 @@ impl RoundState{
         rnd_state
     }
 
-    pub fn  add_echo(&mut self, msgs: Vec<(Replica,Vec<u8>)>, echo_sender:Replica, num_nodes: usize, num_faults:usize)-> (Vec<(Replica,Vec<u8>)>,Vec<(Replica,Vec<u8>)>){
+    pub fn add_echo(&mut self, msgs: Vec<(Replica,Vec<u8>)>, echo_sender:Replica, num_nodes: usize, num_faults:usize)-> (Vec<(Replica,Vec<u8>)>,Vec<(Replica,Vec<u8>)>){
         let mut echo1_msgs:Vec<(Replica,Vec<u8>)> = Vec::new();
         let mut echo2_msgs:Vec<(Replica,Vec<u8>)> = Vec::new();
         for (rep,msg) in msgs.into_iter(){
