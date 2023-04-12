@@ -12,7 +12,6 @@ config = { package = "config", path="../../config"}
 types = { package = "types", path="../../types"}
 crypto = { package = "crypto", path="../../crypto"}
 util = { package = "util", path="../../util"}
-openssl = "0.10"
 rustls = "*"
 fnv = "1"
 rand = "0.6"

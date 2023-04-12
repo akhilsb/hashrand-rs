@@ -20,7 +20,7 @@ serde = "1.0.70"
 log="*"
 priority-queue="1"
 fnv = "1"
-async-recursion = "1.0.0"
+async-recursion = "=1.0.0"
 anyhow = "1"
 
 network = { package = "network", git = "https://github.com/libdist-rs/libnet-rs.git" }

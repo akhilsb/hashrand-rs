@@ -4,7 +4,7 @@ use types::{Replica, SyncMsg, SyncState, appxcon::ProtMsg};
 use crate::node::{Context, RoundStateBin};
 
 impl Context{
-    #[async_recursion]
+    #[async_recursion::async_recursion]
     pub async fn process_baa_echo(self: &mut Context, msgs: Vec<(Replica,Vec<u8>)>, echo_sender:Replica, round:u64){
         let round_state_map = &mut self.bin_round_state;
         if self.round > round{
@@ -13,7 +13,7 @@ impl Context{
         log::info!("Received ECHO1 message from node {} with content {:?} for round {}",echo_sender,msgs,round);
         if round_state_map.contains_key(&round){
             let rnd_state = round_state_map.get_mut(&round).unwrap();
-            let (echo1_msgs,echo2_msgs) = rnd_state.add_echo(msgs, echo_sender, self.num_nodes, self.num_faults);
+            let (echo1_msgs,echo2_msgs) = rnd_state.add_echo(msgs, echo_sender, self.num_nodes, self.num_faults,self.myid);
             if rnd_state.term_vals.len() == 1 {
                 log::info!("Binary AA terminated for round {}, starting round {}",round,round+1);
                 let vec_vals:Vec<(Replica,u64)> = rnd_state.term_vals.clone().into_iter().map(|(rep,val)| (rep,val)).collect();
@@ -22,7 +22,7 @@ impl Context{
             }
             if echo1_msgs.len() > 0{
                 self.broadcast(ProtMsg::BinaryAAEcho(echo1_msgs.clone(), self.myid, round)).await;
-                self.process_baa_echo( echo1_msgs, self.myid, round).await;
+                //self.process_baa_echo( echo1_msgs, self.myid, round).await;
             }
             if echo2_msgs.len() > 0{
                 self.broadcast(ProtMsg::BinaryAAEcho2(echo2_msgs.clone(), self.myid, round)).await;
@@ -59,6 +59,7 @@ impl Context{
         }
     }
 
+    #[async_recursion::async_recursion]
     pub async fn start_baa(self: &mut Context, round_vecs: Vec<(Replica,u64)>, round:u64){
         self.round = round;
         if self.round > self.rounds_bin{
@@ -84,7 +85,7 @@ impl Context{
         let prot_msg = ProtMsg::BinaryAAEcho(transmit_vec.clone(), self.myid,round);
         //self.add_benchmark(String::from("start_baa"), now.elapsed().unwrap().as_nanos());
         self.broadcast(prot_msg.clone()).await;
-        self.process_baa_echo(transmit_vec.clone(), self.myid, round);
+        self.process_baa_echo(transmit_vec.clone(), self.myid, round).await;
         log::info!("Broadcasted message {:?}",prot_msg);
     }
 }

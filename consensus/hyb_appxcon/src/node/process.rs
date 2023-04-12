@@ -94,7 +94,6 @@ impl Context{
         }
     }
     
-    #[async_recursion]
     pub async fn process_rbc_init(self:&mut Context,main_msg: Msg){
         let sender = main_msg.origin;
         let round_state_map = &mut self.round_state;

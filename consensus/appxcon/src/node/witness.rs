@@ -23,7 +23,7 @@ impl Context{
         }
     }
     
-    #[async_recursion]
+    #[async_recursion::async_recursion]
     pub async fn check_for_ht_witnesses(&mut self, round:u64){
         let round_state_map = &mut self.round_state;
         let rnd_state = round_state_map.get_mut(&round).unwrap();

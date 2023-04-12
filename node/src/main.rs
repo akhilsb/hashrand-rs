@@ -59,15 +59,15 @@ async fn main() -> Result<()> {
     // Start the Reliable Broadcast protocol
     let exit_tx;
     match vss_type{
-        "ped" =>{
-            exit_tx = pedavss_cc::node::Context::spawn(config,sleep).unwrap();
-        },
-        "fre" => {
-            exit_tx = hash_cc::node::Context::spawn(config,sleep).unwrap();
-        },
-        "hr" => {
-            exit_tx = hash_cc_baa::node::Context::spawn(config,sleep,batch).unwrap();
-        },
+        // "ped" =>{
+        //     //exit_tx = pedavss_cc::node::Context::spawn(config,sleep).unwrap();
+        // },
+        // "fre" => {
+        //     //exit_tx = hash_cc::node::Context::spawn(config,sleep).unwrap();
+        // },
+        // "hr" => {
+        //     //exit_tx = hash_cc_baa::node::Context::spawn(config,sleep,batch).unwrap();
+        // },
         "appx" => {
             exit_tx = appxcon::node::Context::spawn(config, sleep).unwrap();
         },
