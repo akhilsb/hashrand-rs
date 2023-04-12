@@ -48,7 +48,9 @@ pub struct Context {
 impl Context {
     pub fn spawn(
         config: Node,
-        sleep:u128
+        sleep:u128,
+        val:u64,
+        epsilon:u64
     ) -> anyhow::Result<oneshot::Sender<()>> {
         let prot_payload = &config.prot_payload;
         let v:Vec<&str> = prot_payload.split(',').collect();
@@ -96,7 +98,7 @@ impl Context {
                 let prot_payload = &config.prot_payload;
                 let v:Vec<&str> = prot_payload.split(',').collect();
                 let init_value:u64 = v[1].parse::<u64>().unwrap();
-                let epsilon:u64 = v[2].parse::<u64>().unwrap();
+                //let epsilon:u64 = v[2].parse::<u64>().unwrap();
                 let mut c = Context {
                     net_send: consensus_net,
                     net_recv: rx_net_to_consensus,
@@ -108,7 +110,7 @@ impl Context {
                     num_faults: config.num_faults,
                     payload: config.payload,
                     round:0,
-                    value: init_value,
+                    value: val,
                     epsilon: epsilon,
         
                     round_state: HashMap::default(),

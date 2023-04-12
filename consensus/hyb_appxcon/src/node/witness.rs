@@ -85,15 +85,15 @@ impl Context{
                 }
                 value_set.sort();
                 log::info!("Medians of n-f accepted values by each node {:?}",value_set);
-                let rounds_to_run = (((value_set.last().unwrap() - value_set.first().unwrap())/self.delta) as f64).log2().ceil().round() as u64; 
-                if rounds_to_run == 0{
-                    self.rounds_delta= 1;
-                }
-                else{
-                    self.rounds_delta= rounds_to_run;
-                }
+                //let rounds_to_run = (((value_set.last().unwrap() - value_set.first().unwrap())/self.delta) as f64).log2().ceil().round() as u64; 
+                // if rounds_to_run == 0{
+                //     self.rounds_delta= 1;
+                // }
+                // else{
+                //     self.rounds_delta= rounds_to_run;
+                // }
                 self.value = value_set.get((value_set.len()-1)/2).unwrap().clone();
-                log::info!("Number of rounds to run: {} with starting value: {}",rounds_to_run,self.value);
+                //log::info!("Number of rounds to run: {} with starting value: {}",rounds_to_run,self.value);
                 self.round += 1;
                 self.start_rbc(false).await;
                 return;

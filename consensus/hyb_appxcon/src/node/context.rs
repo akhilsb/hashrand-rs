@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use bincode::de;
 use network::{plaintcp::{TcpReceiver, TcpReliableSender, CancelHandler}, Acknowledgement};
 use tokio::sync::{oneshot, mpsc::{unbounded_channel, UnboundedReceiver}};
 use tokio_util::time::DelayQueue;
@@ -54,7 +55,11 @@ pub struct Context {
 impl Context {
     pub fn spawn(
         config: Node,
-        sleep:u128
+        sleep:u128,
+        val: u64,
+        delta: u64,
+        epsilon: u64,
+        tri: u64
     ) -> anyhow::Result<oneshot::Sender<()>> {
         let prot_payload = &config.prot_payload;
         let v:Vec<&str> = prot_payload.split(',').collect();
@@ -104,8 +109,12 @@ impl Context {
                 let init_value:u64 = v[1].parse::<u64>().unwrap();
                 // delta is the level of allowed overshoot, 
                 // epsilon is the final state of disagreement
-                let delta = v[2].parse::<u64>().unwrap();
-                let epsilon:u64 = v[3].parse::<u64>().unwrap();
+                let rounds_delta:f64 = tri as f64/delta as f64;
+                let rounds_delta = rounds_delta.log2().ceil() as u64;
+                let rounds_bin = delta as f64/epsilon as f64;
+                let rounds_bin = rounds_bin.log2().ceil() as u64;
+                log::info!("Run {:?} with n^3 and {:?} with n^2", rounds_delta,rounds_bin);
+                //let epsilon:u64 = v[3].parse::<u64>().unwrap();
                 // TODO: Estimate the number of rounds of approximate agreement needed
                 let mut c = Context {
                     net_send: consensus_net,
@@ -118,12 +127,12 @@ impl Context {
                     num_faults: config.num_faults,
                     payload: config.payload,
                     round:0,
-                    value: init_value,
+                    value: val,
                     delta:delta,
                     epsilon: epsilon,
 
-                    rounds_delta:2,
-                    rounds_bin:5,
+                    rounds_delta:rounds_delta,
+                    rounds_bin:rounds_bin,
         
                     round_state: HashMap::default(),
                     rnd_estm_state: RoundState::new(),
