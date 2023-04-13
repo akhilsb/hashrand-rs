@@ -1,4 +1,4 @@
-use std::{collections::{HashSet, HashMap}, net::SocketAddr, time::{SystemTime, UNIX_EPOCH, Duration}};
+use std::{collections::{HashSet, HashMap}, net::{SocketAddr,SocketAddrV4}, time::{SystemTime, UNIX_EPOCH, Duration}};
 
 use anyhow::{Result, anyhow};
 use appxcon::node::SyncHandler;
@@ -31,8 +31,10 @@ impl Syncer{
     )-> anyhow::Result<oneshot::Sender<()>>{
         let (exit_tx, exit_rx) = oneshot::channel();
         let (tx_net_to_server, rx_net_to_server) = unbounded_channel();
+        let cli_addr_sock = cli_addr.port();
+        let new_sock_address = SocketAddrV4::new("0.0.0.0".parse().unwrap(), cli_addr_sock);
         TcpReceiver::<Acknowledgement, SyncMsg, _>::spawn(
-            cli_addr,
+            std::net::SocketAddr::V4(new_sock_address),
             SyncHandler::new(tx_net_to_server),
         );
         let mut server_addrs :FnvHashMap<Replica,SocketAddr>= FnvHashMap::default();

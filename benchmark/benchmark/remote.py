@@ -163,7 +163,7 @@ class Bench:
 
     def _config(self, hosts, node_parameters, bench_parameters):
         Print.info('Generating configuration files...')
-        print(hosts)
+        #print(hosts)
         # Cleanup all local configuration files.
         cmd = CommandMaker.cleanup()
         subprocess.run([cmd], shell=True, stderr=subprocess.DEVNULL)
@@ -183,22 +183,28 @@ class Bench:
         #     cmd = CommandMaker.generate_key(filename).split()
         #     subprocess.run(cmd, check=True)
         #     keys += [Key.from_file(filename)]
-        names = [str(x) for x in range(len(hosts))]
-        ip_file = ""
-        for x in range(len(hosts)):
-            port = self.settings.base_port + x
-            ip_file += hosts[x]+ ":"+ str(port) + "\n"
-        with open("ip_file", 'w') as f:
-            f.write(ip_file)
-        f.close()
         #committee = LocalCommittee(names, self.BASE_PORT)
         #ip_file.print("ip_file")
 
         # Generate the configuration files for HashRand
-        cmd = CommandMaker.generate_config_files(self.settings.base_port,10000,len(hosts))
+        cmd = CommandMaker.generate_config_files(self.settings.base_port,self.settings.client_base_port,self.settings.client_run_port,len(hosts))
         subprocess.run(cmd,shell=True)
-
         names = [str(x) for x in range(len(hosts))]
+        ip_file = ""
+        syncer=""
+        for x in range(len(hosts)):
+            port = self.settings.base_port + x
+            syncer_port = self.settings.client_base_port + x
+            ip_file += hosts[x]+ ":"+ str(port) + "\n"
+            syncer += hosts[x] + ":" + str(syncer_port) + "\n"
+        ip_file += hosts[0] + ":" + str(self.settings.client_run_port) + "\n"
+        with open("ip_file", 'w') as f:
+            f.write(ip_file)
+        f.close()
+        with open("syncer",'w') as f:
+            f.write(syncer)
+        f.close()
+        #names = [str(x) for x in range(len(hosts))]
 
         if bench_parameters.collocate:
             workers = bench_parameters.workers
@@ -213,6 +219,7 @@ class Bench:
         committee.print(PathMaker.committee_file())
 
         node_parameters.print(PathMaker.parameters_file())
+        # start the syncer on the first node first. 
 
         # Cleanup all nodes and upload configuration files.
         names = names[:len(names)-bench_parameters.faults]
@@ -222,21 +229,55 @@ class Bench:
             c = Connection(hosts[i], user='ubuntu', connect_kwargs=self.connect)
             c.run(f'{CommandMaker.cleanup()} || true', hide=True)
             #c.put(PathMaker.committee_file(), '.')
+            if i == 0:
+                print('Node 0: writing syncer')
+                c.put(PathMaker.syncer(),'.')
             c.put(PathMaker.key_file(i), '.')
             c.put("ip_file",'.')
             #c.put(PathMaker.parameters_file(), '.')
         Print.info('Booting primaries...')
         st_time = round(time.time() * 1000) + 60000
+        ep = 10
+        delta = 5000
+        exp_vals = self.exp_setup(4)
+        import numpy as np
+        tri = np.max(exp_vals) - np.min(exp_vals)
         for i,ip in enumerate(hosts):
             #host = Committee.ip(address)
+            if i == 0:
+                # Run syncer first
+                print('Running syncer')
+                cmd = CommandMaker.run_syncer(
+                    PathMaker.key_file(i),
+                    st_time,
+                    debug=False
+                )
+                print(cmd)
+                log_file = PathMaker.syncer_log_file()
+                self._background_run(ip, cmd, log_file)
             cmd = CommandMaker.run_primary(
                 PathMaker.key_file(i),
                 st_time,
+                ep,
+                delta,
+                exp_vals[i],
+                tri,
+                100,
                 debug=False
             )
+            print(cmd)
             log_file = PathMaker.primary_log_file(i)
             self._background_run(ip, cmd, log_file)
         return committee
+
+    def exp_setup(self,n):
+        import numpy as np
+        values = np.random.normal(loc=525000,scale=10000,size=n)
+        arr_int = []
+        for val in values:
+            arr_int.append(int(val))
+        return arr_int
+
 
     def _just_run(self, hosts, node_parameters, bench_parameters):
         # Print.info('Generating configuration files...')
@@ -304,11 +345,29 @@ class Bench:
         #     #c.put(PathMaker.parameters_file(), '.')
         Print.info('Booting primaries...')
         st_time = round(time.time() * 1000) + 60000
+        ep = 10
+        delta = 5000
+        exp_vals = self.exp_setup(4)
+        import numpy as np
+        tri = np.max(exp_vals) - np.min(exp_vals)
         for i,ip in enumerate(hosts):
             #host = Committee.ip(address)
+            if i == 0:
+                # Run syncer first
+                print('Running syncer')
+                cmd = CommandMaker.run_syncer(
+                    PathMaker.key_file(i),
+                    st_time,
+                    debug=False
+                )
             cmd = CommandMaker.run_primary(
                 PathMaker.key_file(i),
                 st_time,
+                ep,
+                delta,
+                exp_vals[i],
+                tri,
+                100,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)
@@ -383,6 +442,11 @@ class Bench:
         progress = progress_bar(hosts, prefix='Downloading workers logs:')
         for i, address in enumerate(progress):
             c = Connection(address, user='ubuntu', connect_kwargs=self.connect)
+            if i==0:
+                c.get(
+                    PathMaker.syncer_log_file(),
+                    local=PathMaker.syncer_log_file()
+                )
             c.get(
                 PathMaker.client_log_file(i, 0), 
                 local=PathMaker.client_log_file(i, 0)

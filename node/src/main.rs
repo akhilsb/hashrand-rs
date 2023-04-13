@@ -93,6 +93,7 @@ async fn main() -> Result<()> {
                 net_map.insert(idx, ip.clone());
                 idx += 1;
             }
+            let client_addr = net_map.get(&(net_map.len()-1)).unwrap();
             exit_tx = Syncer::spawn(net_map, config.client_addr.clone()).unwrap();
         },
         _ =>{

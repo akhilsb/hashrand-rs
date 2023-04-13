@@ -26,16 +26,24 @@ class CommandMaker:
         return f'./node generate_keys --filename {filename}'
 
     @staticmethod
-    def generate_config_files(bport,client_bport,num_nodes):
-        return f'./genconfig --blocksize 100 --delay 100 --base_port {bport} --client_base_port {client_bport} --NumNodes {num_nodes} --target .'
+    def generate_config_files(bport,client_bport,client_run_port,num_nodes):
+        return f'./genconfig --blocksize 100 --delay 100 --base_port {bport} --client_base_port {client_bport} --NumNodes {num_nodes} --target . --client_run_port {client_run_port} --local true'
 
     @staticmethod
-    def run_primary(key,delay, debug=False):
+    def run_primary(key,delay,ep,delta,val,tri,batch, debug=False):
         assert isinstance(key, str)
         assert isinstance(debug, bool)
         #v = '-vvv' if debug else '-vv'
         return (f'./node --config {key} --ip ip_file '
-                f'--sleep {delay} --vsstype ped --batch 100')
+                f'--sleep {delay} --vsstype hyb --batch 100 --epsilon {ep} --delta {delta} --val {val} --tri {tri} --syncer syncer')
+    
+    @staticmethod
+    def run_syncer(key,delay, debug=False):
+        assert isinstance(key, str)
+        assert isinstance(debug, bool)
+        #v = '-vvv' if debug else '-vv'
+        return (f'./node --config {key} --ip ip_file '
+                f'--sleep {delay} --vsstype sync --batch 100 --epsilon 10 --delta 5000 --val 100 --tri 10 --syncer syncer')
 
     @staticmethod
     def run_worker(keys, committee, store, parameters, id, debug=False):

@@ -28,6 +28,9 @@ class PathMaker:
         return '.parameters.json'
 
     @staticmethod
+    def syncer():
+        return f'syncer'
+    @staticmethod
     def key_file(i):
         assert isinstance(i, int) and i >= 0
         return f'nodes-{i}.json'
@@ -63,6 +66,9 @@ class PathMaker:
         return join(PathMaker.logs_path(), f'{i}.log')
         #return join(PathMaker.logs_path(), f'client-{i}-{j}.log')
 
+    @staticmethod
+    def syncer_log_file():
+        return join(PathMaker.logs_path(), f'syncer.log')
     @staticmethod
     def results_path():
         return 'results'

@@ -5,7 +5,7 @@ members = [
     "types",
     "config",
     "crypto",
-    #"tools/genconfig",
+    "tools/genconfig",
     "consensus",
     # "comm", (WIP: Do not enable unless testing)
     # RBC module

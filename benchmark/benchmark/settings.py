@@ -7,7 +7,7 @@ class SettingsError(Exception):
 
 
 class Settings:
-    def __init__(self, key_name, key_path, base_port, repo_name, repo_url,
+    def __init__(self, key_name, key_path, base_port,client_base_port,client_run_port, repo_name, repo_url,
                  branch, instance_type, aws_regions):
         inputs_str = [
             key_name, key_path, repo_name, repo_url, branch, instance_type
@@ -28,6 +28,9 @@ class Settings:
 
         self.base_port = base_port
 
+        self.client_base_port = client_base_port
+        self.client_run_port = client_run_port
+
         self.repo_name = repo_name
         self.repo_url = repo_url
         self.branch = branch
@@ -45,6 +48,8 @@ class Settings:
                 data['key']['name'],
                 data['key']['path'],
                 data['port'],
+                data['client_base_port'],
+                data['client_run_port'],
                 data['repo']['name'],
                 data['repo']['url'],
                 data['repo']['branch'],
