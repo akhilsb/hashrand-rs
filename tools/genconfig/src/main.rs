@@ -222,10 +222,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         node[i].payload = payload;
         node[i].client_port = client_base_port+(i as u16);
         // generate random number for approximate consensus
-        let num = rand::thread_rng().gen_range(0, 20000000);
-        node[i].prot_payload = format!("a,{},50000,100",num);
+        //let num = rand::thread_rng().gen_range(0, 20000000);
+        //node[i].prot_payload = format!("a,{},50000,100",num);
         //String::from("a,");
-        //node[i].prot_payload = String::from("cc,/home/akhil/research/EEBA/libchatter/");
+        node[i].prot_payload = String::from("cc,/home/akhil/research/EEBA/libchatter/");
         node[i].crypto_alg = t.clone();
         match t {
             Algorithm::ED25519 => {

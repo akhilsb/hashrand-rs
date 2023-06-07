@@ -3,14 +3,14 @@ import math
 from tqdm import tqdm
 
 # Get the number of H and T characters from the user
-num_h = 33
-num_t = 7
+num_h = 50
+num_t = 5
 
 # Define the value of k
-k = 16
+k_list = [9,10,11,12,13]
 
 # Initialize a variable to keep track of the number of valid strings
-count = 0
+count = [0,0,0,0,0]
 
 # Generate all possible combinations of the positions of the H and T characters
 positions = itertools.combinations(range(num_h + num_t), num_h)
@@ -26,16 +26,19 @@ for pos in positions:
     for i in pos:
         string_list[i] = 'H'
     # Check if the string satisfies the condition
-    valid = True
-    for i in range(len(string_list) - k + 1):
-        group = string_list[i:i+k]
-        if group.count('T') > k // 3:
-            valid = False
-            break
-    # If the string satisfies the condition, print it and increment the count
-    if valid:
-        #print(''.join(string_list))
-        count += 1
+    index = 0
+    for k in k_list:
+        valid = True
+        for i in range(len(string_list) - k + 1):
+            group = string_list[i:i+k]
+            if group.count('T') > k // 3:
+                valid = False
+                break
+        # If the string satisfies the condition, print it and increment the count
+        if valid:
+            #print(''.join(string_list))
+            count[index] += 1
+        index +=1
     # Update the progress bar
     progress_bar.update(1)
 

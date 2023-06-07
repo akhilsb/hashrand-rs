@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use crate::{WireReady, Replica};
+use crate::{WireReady, Replica, beacon::Round};
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub enum SyncState{
@@ -12,7 +12,10 @@ pub enum SyncState{
     COMPLETED,
     CompletedRecon,
     STOP,
-    STOPPED
+    STOPPED,
+    BeaconFin(Round,Replica),
+    // Round number, sender replica, index in batch, BigInt Secret
+    BeaconRecon(Round,Replica,usize,Vec<u8>)
 }
 
 #[derive(Debug,Serialize,Deserialize,Clone)]

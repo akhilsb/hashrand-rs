@@ -4,8 +4,8 @@
         "path": "/home/akhil/.ssh/aws"
     },
     "port": 8500,
-    "client_base_port": 7000,
-    "client_run_port": 6500,
+    "client_base_port": 9000,
+    "client_run_port": 9500,
     "repo": {
         "name": "async-cc-hash",
         "url": "https://github.com/akhilsb/async-cc-hash",

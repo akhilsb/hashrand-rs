@@ -7,7 +7,9 @@ use config::Node;
 use fnv::FnvHashMap;
 use node::Syncer;
 use signal_hook::{iterator::Signals, consts::{SIGINT, SIGTERM}};
-use std::{net::{SocketAddr, SocketAddrV4}, collections::hash_map::DefaultHasher};
+use std::{net::{SocketAddr, SocketAddrV4}};
+
+// ./target/release/genconfig --NumNodes 4 --delay 10 --blocksize 100 --client_base_port 7000 --target testdata/cc_4/ --payload 100 --out_type json --base_port 9000 --client_run_port 4000
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -33,6 +35,8 @@ async fn main() -> Result<()> {
         .expect("Value required").parse::<u64>().unwrap();
     let syncer_file = m.value_of("syncer")
         .expect("Unable to parse syncer ip file");
+    let frequency = m.value_of("frequency")
+        .expect("Unable to parse frequency").parse::<u32>().unwrap();
     let conf_file = std::path::Path::new(conf_str);
     let str = String::from(conf_str);
     let mut config = match conf_file
@@ -68,21 +72,24 @@ async fn main() -> Result<()> {
     // Start the Reliable Broadcast protocol
     let exit_tx;
     match vss_type{
-        // "ped" =>{
-        //     //exit_tx = pedavss_cc::node::Context::spawn(config,sleep).unwrap();
-        // },
-        // "fre" => {
-        //     //exit_tx = hash_cc::node::Context::spawn(config,sleep).unwrap();
-        // },
-        // "hr" => {
-        //     //exit_tx = hash_cc_baa::node::Context::spawn(config,sleep,batch).unwrap();
-        // },
-        "appx" => {
-            exit_tx = appxcon::node::Context::spawn(config, sleep, val_appx,epsilon).unwrap();
+        "ped" =>{
+            exit_tx = pedavss_cc::node::Context::spawn(config,sleep).unwrap();
         },
-        "hyb" =>{
-            exit_tx = hyb_appxcon::node::Context::spawn(config,sleep,val_appx,delta,epsilon,tri).unwrap();
+        "fre" => {
+            exit_tx = hash_cc::node::Context::spawn(config,sleep).unwrap();
         },
+        "hr" => {
+            exit_tx = hash_cc_baa::node::Context::spawn(config,sleep,batch).unwrap();
+        },
+        "bea" => {
+            exit_tx = beacon::node::Context::spawn(config,sleep,batch,frequency).unwrap();
+        },
+        // "appx" => {
+        //     exit_tx = appxcon::node::Context::spawn(config, sleep, val_appx,epsilon).unwrap();
+        // },
+        // "hyb" =>{
+        //     exit_tx = hyb_appxcon::node::Context::spawn(config,sleep,val_appx,delta,epsilon,tri).unwrap();
+        // },
         "sync" => {
             let f_str = syncer_file.to_string();
             log::info!("Logging the file f {}",f_str);
@@ -93,7 +100,7 @@ async fn main() -> Result<()> {
                 net_map.insert(idx, ip.clone());
                 idx += 1;
             }
-            let client_addr = net_map.get(&(net_map.len()-1)).unwrap();
+            //let client_addr = net_map.get(&(net_map.len()-1)).unwrap();
             exit_tx = Syncer::spawn(net_map, config.client_addr.clone()).unwrap();
         },
         _ =>{

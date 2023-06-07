@@ -238,7 +238,7 @@ class Bench:
         Print.info('Booting primaries...')
         st_time = round(time.time() * 1000) + 60000
         ep = 10
-        delta = 5000
+        delta = 1000
         exp_vals = self.exp_setup(4)
         import numpy as np
         tri = np.max(exp_vals) - np.min(exp_vals)
@@ -346,7 +346,7 @@ class Bench:
         Print.info('Booting primaries...')
         st_time = round(time.time() * 1000) + 60000
         ep = 10
-        delta = 5000
+        delta = 1000
         exp_vals = self.exp_setup(4)
         import numpy as np
         tri = np.max(exp_vals) - np.min(exp_vals)

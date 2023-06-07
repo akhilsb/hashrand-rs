@@ -57,3 +57,8 @@ args:
         long: syncer
         help: IPs for the syncer to connect to
         takes_value: true
+    - frequency:
+        short: f
+        long: frequency
+        help: Frequency of initiating batchwss
+        takes_value: true

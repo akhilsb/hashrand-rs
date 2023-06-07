@@ -1,11 +1,12 @@
 use std::{collections::{HashSet, HashMap}, net::{SocketAddr,SocketAddrV4}, time::{SystemTime, UNIX_EPOCH, Duration}};
 
 use anyhow::{Result, anyhow};
-use appxcon::node::SyncHandler;
+use beacon::node::num_bigint::BigInt;
 use fnv::FnvHashMap;
+use hash_cc::node::SyncHandler;
 use network::{plaintcp::{TcpReceiver, TcpReliableSender, CancelHandler}, Acknowledgement};
 use tokio::sync::{oneshot, mpsc::{unbounded_channel, UnboundedReceiver}};
-use types::{Replica, SyncMsg, SyncState};
+use types::{Replica, SyncMsg, SyncState, beacon::Round};
 
 pub struct Syncer{
     pub num_nodes: usize,
@@ -15,6 +16,8 @@ pub struct Syncer{
     pub net_map: FnvHashMap<Replica,String>,
     pub alive: HashSet<Replica>,
     pub timings:HashMap<Replica,u128>,
+    pub beacon_round_fin:HashMap<Round,HashMap<Replica,u128>>,
+    pub beacon_recon_fin:HashMap<Round,HashMap<usize,HashMap<Replica,(u128,BigInt)>>>,
     pub values: HashMap<Replica,u64>,
     pub cli_addr: SocketAddr,
     pub rx_net: UnboundedReceiver<SyncMsg>,
@@ -54,6 +57,8 @@ impl Syncer{
                 alive:HashSet::default(),
                 values:HashMap::default(),
                 timings:HashMap::default(),
+                beacon_round_fin:HashMap::default(),
+                beacon_recon_fin:HashMap::default(),
                 cli_addr:cli_addr,
                 rx_net:rx_net_to_server,
                 net_send:net_send,
@@ -115,7 +120,7 @@ impl Syncer{
                             .unwrap()
                             .as_millis());
                             self.values.insert(msg.sender,msg.value);
-                            if self.sharing_complete_times.len() == self.num_nodes{
+                            if self.sharing_complete_times.len() == (2*self.num_nodes/3)+1{
                                 // All nodes terminated sharing protocol
                                 let mut vec_times = Vec::new();
                                 for (_rep,time) in self.sharing_complete_times.iter(){
@@ -145,6 +150,77 @@ impl Syncer{
                                 vec_times.sort();
                                 log::info!("All n nodes completed the recon protocol {:?} {:?}",vec_times,self.values);
                                 self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
+                            }
+                        },
+                        SyncState::BeaconFin(round,sender)=>{
+                            log::debug!("Node {} completed the Beacon finish of the protocol for round {}",sender,round);
+                            if !self.beacon_round_fin.contains_key(&round){
+                                let val_map:HashMap<Replica, u128> = HashMap::default();
+                                self.beacon_round_fin.insert(round,val_map);
+                            }
+                            let val_map = self.beacon_round_fin.get_mut(&round).unwrap();
+                            val_map.insert(msg.sender, SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis());
+                            // self.timings.insert(msg.sender, SystemTime::now()
+                            // .duration_since(UNIX_EPOCH)
+                            // .unwrap()
+                            // .as_millis());
+                            if val_map.len() == self.num_nodes{
+                                // All nodes terminated protocol
+                                let mut vec_times = Vec::new();
+                                for (_rep,time) in val_map.iter(){
+                                    vec_times.push(time.clone()-self.start_time);
+                                }
+                                vec_times.sort();
+                                log::info!("All n nodes completed round {:?} {:?}",round,vec_times);
+                                //self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
+                            }
+                        },
+                        SyncState::BeaconRecon(round,sender,index,secret)=>{
+                            let big_int_sec = BigInt::from_signed_bytes_be(secret.as_slice());
+                            //log::info!("Node {} completed the Beacon recon of the protocol for round {} and index {} with secret {:?}",sender,round,index,big_int_sec);
+                            if !self.beacon_recon_fin.contains_key(&round){
+                                let mut val_map:HashMap<usize, HashMap<Replica,(u128,BigInt)>> = HashMap::default();
+                                let mut rep_sec_map = HashMap::default();
+                                rep_sec_map.insert(sender,(SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis(),big_int_sec));
+                                val_map.insert(index,rep_sec_map);
+                                self.beacon_recon_fin.insert(round,val_map);
+                                continue;
+                            }
+                            let val_map = self.beacon_recon_fin.get_mut(&round).unwrap();
+                            if !val_map.contains_key(&index){
+                                let mut rep_sec_map = HashMap::default();
+                                rep_sec_map.insert(sender,(SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis(),big_int_sec));
+                                val_map.insert(index,rep_sec_map);
+                                continue;
+                            }
+                            let time_sec_map = val_map.get_mut(&index).unwrap();
+                            time_sec_map.insert(sender, (SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis(),big_int_sec));
+                            
+                            // self.timings.insert(msg.sender, SystemTime::now()
+                            // .duration_since(UNIX_EPOCH)
+                            // .unwrap()
+                            // .as_millis());
+                            if time_sec_map.len() == self.num_nodes{
+                                // All nodes terminated reconstruction protocol
+                                let mut vec_times = Vec::new();
+                                for (_rep,(time,secret)) in time_sec_map.iter(){
+                                    vec_times.push((time.clone()-self.start_time,secret.to_string()));
+                                }
+                                //vec_times.sort();
+                                log::info!("All n nodes completed reconstruction for round {:?} and index {} with {:?}",round,index,vec_times);
+                                //self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
                             }
                         },
                         SyncState::COMPLETED=>{
