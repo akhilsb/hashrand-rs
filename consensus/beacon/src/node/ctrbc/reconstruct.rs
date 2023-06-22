@@ -44,9 +44,9 @@ impl Context{
                  * b) Check for witnesses: Witness A and Witness B
                  * c) Check for Approximate Consensus messages. 
                  */
-                rbc_state.transform(sec_origin);
+                let beacon_msg = rbc_state.transform(sec_origin);
                 // Disseminate all approximate agreement instances to their respective nodes
-                let beacon_msg = rbc_state.msgs.get(&sec_origin).unwrap().0.clone();
+                //let beacon_msg = rbc_state.msgs.get(&sec_origin).unwrap().0.clone();
                 if rbc_state.terminated_secrets.len() >= self.num_nodes - self.num_faults{
                     if !rbc_state.send_w1{
                         log::info!("Terminated n-f Batch WSSs, sending list of first n-f Batch WSSs to other nodes");

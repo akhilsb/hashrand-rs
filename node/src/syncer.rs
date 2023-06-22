@@ -83,7 +83,7 @@ impl Syncer{
                 // Receive exit handlers
                 exit_val = &mut self.exit_rx => {
                     exit_val.map_err(anyhow::Error::new)?;
-                    log::info!("Termination signal received by the server. Exiting.");
+                    log::error!("Termination signal received by the server. Exiting.");
                     break
                 },
                 msg = self.rx_net.recv() => {
@@ -95,7 +95,7 @@ impl Syncer{
                     )?;
                     match msg.state{
                         SyncState::ALIVE=>{
-                            log::info!("Got ALIVE message from node {}",msg.sender);
+                            log::error!("Got ALIVE message from node {}",msg.sender);
                             self.alive.insert(msg.sender);
                             if self.alive.len() == self.num_nodes{
                                 // sleep before sending message
@@ -112,10 +112,10 @@ impl Syncer{
                             }
                         },
                         SyncState::STARTED=>{
-                            log::info!("Node {} started the protocol",msg.sender);
+                            log::error!("Node {} started the protocol",msg.sender);
                         },
                         SyncState::CompletedSharing=>{
-                            log::info!("Node {} completed the sharing phase of the protocol",msg.sender);
+                            log::error!("Node {} completed the sharing phase of the protocol",msg.sender);
                             self.sharing_complete_times.insert(msg.sender, SystemTime::now().duration_since(UNIX_EPOCH)
                             .unwrap()
                             .as_millis());
@@ -127,7 +127,7 @@ impl Syncer{
                                     vec_times.push(time.clone()-self.start_time);
                                 }
                                 vec_times.sort();
-                                log::info!("All n nodes completed the sharing protocol {:?} {:?}",vec_times,self.values);
+                                log::error!("All n nodes completed the sharing protocol {:?} {:?}",vec_times,self.values);
                                 self.start_time = SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
@@ -136,7 +136,7 @@ impl Syncer{
                             }
                         },
                         SyncState::CompletedRecon=>{
-                            log::info!("Node {} completed the reconstruction phase of the protocol",msg.sender);
+                            log::error!("Node {} completed the reconstruction phase of the protocol",msg.sender);
                             self.timings.insert(msg.sender, SystemTime::now()
                             .duration_since(UNIX_EPOCH)
                             .unwrap()
@@ -148,7 +148,7 @@ impl Syncer{
                                     vec_times.push(time.clone()-self.start_time);
                                 }
                                 vec_times.sort();
-                                log::info!("All n nodes completed the recon protocol {:?} {:?}",vec_times,self.values);
+                                log::error!("All n nodes completed the recon protocol {:?} {:?}",vec_times,self.values);
                                 self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
                             }
                         },
@@ -174,13 +174,13 @@ impl Syncer{
                                     vec_times.push(time.clone()-self.start_time);
                                 }
                                 vec_times.sort();
-                                log::info!("All n nodes completed round {:?} {:?}",round,vec_times);
+                                log::error!("All n nodes completed round {:?} {:?}",round,vec_times);
                                 //self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
                             }
                         },
                         SyncState::BeaconRecon(round,sender,index,secret)=>{
                             let big_int_sec = BigInt::from_signed_bytes_be(secret.as_slice());
-                            //log::info!("Node {} completed the Beacon recon of the protocol for round {} and index {} with secret {:?}",sender,round,index,big_int_sec);
+                            //log::error!("Node {} completed the Beacon recon of the protocol for round {} and index {} with secret {:?}",sender,round,index,big_int_sec);
                             if !self.beacon_recon_fin.contains_key(&round){
                                 let mut val_map:HashMap<usize, HashMap<Replica,(u128,BigInt)>> = HashMap::default();
                                 let mut rep_sec_map = HashMap::default();
@@ -219,12 +219,12 @@ impl Syncer{
                                     vec_times.push((time.clone()-self.start_time,secret.to_string()));
                                 }
                                 //vec_times.sort();
-                                log::info!("All n nodes completed reconstruction for round {:?} and index {} with {:?}",round,index,vec_times);
+                                log::error!("All n nodes completed reconstruction for round {:?} and index {} with {:?}",round,index,vec_times);
                                 //self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
                             }
                         },
                         SyncState::COMPLETED=>{
-                            log::info!("Got COMPLETED message from node {}",msg.sender);
+                            log::error!("Got COMPLETED message from node {}",msg.sender);
                             self.timings.insert(msg.sender, SystemTime::now()
                             .duration_since(UNIX_EPOCH)
                             .unwrap()
@@ -237,7 +237,7 @@ impl Syncer{
                                     vec_times.push(time.clone()-self.start_time);
                                 }
                                 vec_times.sort();
-                                log::info!("All n nodes completed the protocol {:?} with values {:?}",vec_times,self.values);
+                                log::error!("All n nodes completed the protocol {:?} with values {:?}",vec_times,self.values);
                                 self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
                             }
                         }

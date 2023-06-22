@@ -3,12 +3,12 @@ use std::{ time::SystemTime};
 use crypto::hash::{do_hash, Hash};
 use merkle_light::merkle::MerkleTree;
 use num_bigint::{BigInt, RandBigInt};
-use types::{appxcon::{HashingAlg, MerkleProof, get_shards}, beacon::{BatchWSSMsg, CoinMsg, CTRBCMsg, WrapperMsg}, Replica, beacon::{Round, BeaconMsg}};
+use types::{appxcon::{HashingAlg, MerkleProof, get_shards}, beacon::{BatchWSSMsg, CoinMsg, CTRBCMsg, WrapperMsg, Val}, Replica, beacon::{Round, BeaconMsg}};
 
 use crate::node::{Context, ShamirSecretSharing};
 
 impl Context{
-    pub async fn start_new_round(&mut self, round:Round){
+    pub async fn start_new_round(&mut self, round:Round,vec_round_vals:Vec<(Round,Vec<(Replica,Val)>)>){
         let now = SystemTime::now();
         let mut new_round = round+1;
         if round == 20000{
@@ -17,13 +17,8 @@ impl Context{
         else if self.curr_round>round || self.curr_round>self.max_rounds{
             return;
         }
-        let appxcon_vals = self.next_round_vals(round).await;
-        // serialization important. HashMap serialization is problematic.
-        let mut vec_round_vals = Vec::new();
-        for (round,values) in appxcon_vals.into_iter(){
-            vec_round_vals.push((round,values));
-        }
-        log::error!("Protocol started");
+        
+        log::info!("Protocol started");
         let mut beacon_msgs = Vec::new();
         let mut rbc_vec = Vec::new();
         if new_round%self.frequency == 0{
@@ -124,7 +119,7 @@ impl Context{
                 new_round,
                 self.myid
             );
-            log::error!("Mp verification {}",ctrbc_msg.verify_mr_proof());
+            log::info!("Mp verification {}",ctrbc_msg.verify_mr_proof());
             if replica != self.myid{
                 //batch_wss.master_root = master_root.clone();
                 let beacon_init = CoinMsg::CTRBCInit(beacon_msg,ctrbc_msg);

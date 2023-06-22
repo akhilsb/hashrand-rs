@@ -28,6 +28,10 @@ impl Context{
     pub async fn process_secret_shares(self: &mut Context,wss_msgs:Vec<WSSMsg>,share_sender:Replica, coin_num:usize,round:Round){
         let now = SystemTime::now();
         log::info!("Received Coin construct message from node {} with messages {:?} for round {}",share_sender,wss_msgs.clone(),round);
+        if self.recon_round >= round && self.recon_round != 20000{
+            log::info!("Reconstruction done already,skipping secret share");
+            return;
+        }
         if !self.round_state.contains_key(&round){
             let rbc_new_state = CTRBCState::new(self.secret_domain.clone());
             self.round_state.insert(round, rbc_new_state);
@@ -49,7 +53,7 @@ impl Context{
             .unwrap()
             .as_millis();
             rbc_state.add_secret_share(coin_num, wss_msg.origin, share_sender, wss_msg.clone());
-            let secret = rbc_state.reconstruct_secret(wss_msg.clone(), self.num_nodes,self.num_faults);
+            let secret = rbc_state.reconstruct_secret(coin_num,wss_msg.clone(), self.num_nodes,self.num_faults);
             // check if for all appxcon non zero termination instances, whether all secrets have been terminated
             // if yes, just output the random number
             match secret{
@@ -57,7 +61,7 @@ impl Context{
                     continue;
                 },
                 Some(_secret)=>{
-                    let coin_check = rbc_state.coin_check(coin_num, self.num_nodes);
+                    let coin_check = rbc_state.coin_check(round,coin_num, self.num_nodes);
                     match coin_check {
                         None => {
                             // Not enough secrets received
@@ -97,6 +101,10 @@ impl Context{
             self.add_cancel_handler(cancel_handler);
             if coin_num < self.batch_size - 1{
                 self.reconstruct_beacon(round,coin_num+1).await;   
+            }
+            else{
+                self.round_state.remove(&round);
+                self.recon_round = round;
             }
         }
         self.add_benchmark(String::from("process_batchreconstruct"), now.elapsed().unwrap().as_nanos()); 

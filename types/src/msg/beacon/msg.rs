@@ -111,8 +111,8 @@ pub enum CoinMsg{
     CTRBCReconstruct(CTRBCMsg,Hash,Replica),
     GatherEcho(GatherMsg,Replica,Round),
     GatherEcho2(GatherMsg,Replica,Round),
-    BinaryAAEcho(HashMap<Round,Vec<(Replica,Val)>>,Replica,Round),
-    BinaryAAEcho2(HashMap<Round,Vec<(Replica,Val)>>,Replica,Round),
+    BinaryAAEcho(Vec<(Round,Vec<(Replica,Val)>)>,Replica,Round),
+    BinaryAAEcho2(Vec<(Round,Vec<(Replica,Val)>)>,Replica,Round),
     // THe vector of secrets, the source replica, the index in each batch and the round number of Batch Secret Sharing
     BeaconConstruct(Vec<WSSMsg>,Replica,Replica,Round),
 }

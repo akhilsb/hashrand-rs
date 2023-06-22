@@ -138,6 +138,8 @@ dependencies = [
  "num-traits",
  "priority-queue",
  "rand 0.6.5",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
  "reed-solomon-erasure",
  "secp256k1",
  "serde",

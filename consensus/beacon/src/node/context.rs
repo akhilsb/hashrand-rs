@@ -37,8 +37,12 @@ pub struct Context {
     pub rounds_aa: u32,
     pub epsilon: u32,
     pub curr_round:u32,
+    pub recon_round:u32,
     pub num_messages:u32,
     pub max_rounds:u32,
+
+    /// Committee election parameters
+    pub committee_nums: [u32;4],
 
     /// State context
     pub batch_size: usize,
@@ -46,6 +50,8 @@ pub struct Context {
     
     pub round_state:HashMap<Round,CTRBCState>,
     pub bench: HashMap<String,u128>,
+    /// Approximate Agreement
+    pub bin_bun_aa: bool,
     /// Coin invoke
     pub invoke_coin:DelayQueue<Replica>,
     /// Exit protocol
@@ -120,8 +126,11 @@ impl Context {
                     rounds_aa:rounds,
                     epsilon:epsilon,
                     curr_round:0,
+                    recon_round:20000,
                     num_messages:0,
                     max_rounds: 120,
+                    bin_bun_aa: true,
+                    committee_nums:[3,13,41,70],
                     
                     round_state:HashMap::default(),
                     batch_size:batch,
@@ -214,7 +223,7 @@ impl Context {
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
                                 .as_millis());
-                            self.start_new_round(20000).await;
+                            self.start_new_round(20000,Vec::new()).await;
                             let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::STARTED, value:0}).await;
                             self.add_cancel_handler(cancel_handler);
                         },

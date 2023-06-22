@@ -19,7 +19,7 @@ pub struct CTRBCState{
     pub recon_msgs:HashMap<Replica,HashMap<Replica,Vec<u8>>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub comm_vectors:HashMap<Replica,Vec<Hash>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub terminated_secrets: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
-    pub secret_shares: HashMap<Replica,HashMap<Replica,(usize,WSSMsg)>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub secret_shares: HashMap<usize,HashMap<Replica,HashMap<Replica,WSSMsg>>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub reconstructed_secrets:HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>>,
     // Gather protocol related state context
     pub witness1: HashMap<Replica,Vec<Replica>,nohash_hasher::BuildNoHashHasher<Replica>>,
@@ -116,7 +116,7 @@ impl CTRBCState{
         }
     }
     
-    pub fn transform(&mut self, terminated_index:Replica){
+    pub fn transform(&mut self, terminated_index:Replica)->BeaconMsg{
         let beacon_msg = self.msgs.get(&terminated_index).unwrap().0.clone();
         if beacon_msg.appx_con.is_some(){
             let appxcon_vals = beacon_msg.appx_con.clone().unwrap();
@@ -131,16 +131,35 @@ impl CTRBCState{
             self.node_secrets.insert(beacon_msg.origin.clone(), batch_wssmsg.clone());
             self.comm_vectors.insert(terminated_index, beacon_msg.root_vec.unwrap());
         }
+        self.terminated_secrets.insert(terminated_index);
+        // clean up for memory efficiency
+        let beacon_msg = self.msgs.get(&terminated_index).unwrap().0.clone();
+        self.msgs.remove(&terminated_index);
+        self.echos.remove(&terminated_index);
+        self.readys.remove(&terminated_index);
+        self.recon_msgs.remove(&terminated_index);
+        return beacon_msg;
     }
 
     pub fn add_secret_share(&mut self, coin_number:usize, secret_id:usize,share_provider:usize, wss_msg: WSSMsg){
-        if self.secret_shares.contains_key(&secret_id){
-            self.secret_shares.get_mut(&secret_id).unwrap().insert(share_provider, (coin_number,wss_msg.clone()));
+        if self.secret_shares.contains_key(&coin_number){
+            let coin_shares = self.secret_shares.get_mut(&coin_number).unwrap();
+            if coin_shares.contains_key(&secret_id){
+                coin_shares.get_mut(&secret_id).unwrap().insert(share_provider, wss_msg.clone());
+            }
+            else{
+                let mut share_map = HashMap::default();
+                share_map.insert(share_provider, wss_msg.clone());
+                coin_shares.insert(secret_id, share_map);
+            }
+            //self.secret_shares.get_mut(&coin_number).unwrap().insert(share_provider, (coin_number,wss_msg.clone()));
         }
         else{
-            let mut secret_map = HashMap::default();
-            secret_map.insert(share_provider, (coin_number,wss_msg.clone()));
-            self.secret_shares.insert(secret_id, secret_map);
+            let mut coin_shares = HashMap::default();
+            let mut share_map= HashMap::default();
+            share_map.insert(share_provider, wss_msg.clone());
+            coin_shares.insert(secret_id, share_map);
+            self.secret_shares.insert(coin_number, coin_shares);
         }
     }
 
@@ -231,20 +250,20 @@ impl CTRBCState{
         None
     }
 
-    pub fn reconstruct_secret(&mut self, wss_msg: WSSMsg, num_nodes: usize, num_faults:usize)-> Option<BigInt>{
+    pub fn reconstruct_secret(&mut self,coin_number:usize, wss_msg: WSSMsg, _num_nodes: usize, num_faults:usize)-> Option<BigInt>{
         let sec_origin = wss_msg.origin;
-        let sec_map = self.secret_shares.get_mut(&sec_origin).unwrap();
+        let sec_map = self.secret_shares.get_mut(&coin_number).unwrap().get_mut(&wss_msg.origin).unwrap();
         if sec_map.len() == num_faults+1{
             // on having t+1 secret shares, try reconstructing the original secret
             log::info!("Received t+1 shares for secret instantiated by {}, reconstructing secret",wss_msg.origin);
             let secret_shares:Vec<(Replica,BigInt)> = 
                 sec_map.clone().into_iter()
-                .map(|(rep,(_sec_num,wss_msg))| 
+                .map(|(rep,wss_msg)| 
                     (rep+1,BigInt::from_signed_bytes_be(wss_msg.secret.clone().as_slice()))
                 ).collect();
             let shamir_ss = ShamirSecretSharing{
                 threshold:num_faults+1,
-                share_amount:num_nodes,
+                share_amount:3*num_faults+1,
                 prime: self.secret_domain.clone()
             };
             
@@ -319,18 +338,20 @@ impl CTRBCState{
         }
     }
 
-    pub fn coin_check(&mut self, coin_number: usize, num_nodes: usize)->Option<Vec<u8>>{
+    pub fn coin_check(&mut self, round: Round,coin_number: usize, num_nodes: usize)->Option<Vec<u8>>{
         if self.nz_appxcon_rs.len() == self.reconstructed_secrets.len(){
             let mut sum_vars = BigInt::from(0i32);
+            log::error!("Reconstruction for round {} and coin {}",round,coin_number);
             for (_rep,(_appx,_bcons,sec_contrib)) in self.nz_appxcon_rs.clone().into_iter(){
-                sum_vars = sum_vars + sec_contrib;
+                sum_vars = sum_vars + sec_contrib.clone();
+                log::error!("Node's secret: {}, appxcon_term: {}, node {}",sec_contrib.to_string(),_appx.to_string(),_rep);
             }
             let rand_fin = sum_vars.clone() % self.secret_domain.clone();
             let _mod_number = self.secret_domain.clone()/(num_nodes);
             let _leader_elected = rand_fin.clone()/_mod_number;
             // Mark this secret as used, use the next secret from this point on
             self.recon_secret = coin_number+1;
-            self.secret_shares.clear();
+            self.secret_shares.remove(&coin_number);
             self.reconstructed_secrets.clear();
             for (_rep,(_appx_con, processed, _num)) in self.nz_appxcon_rs.iter_mut(){
                 *processed = false;

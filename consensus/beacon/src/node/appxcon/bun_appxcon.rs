@@ -51,7 +51,7 @@ impl Context{
                 }
             }
         }
-        log::error!("Printing values init:{:?} final:{:?}",rbc_state.appxcon_allround_vals,hmap.clone());
+        log::info!("Printing values init:{:?} final:{:?}",rbc_state.appxcon_allround_vals,hmap.clone());
         let mut return_map:HashMap<Round,Vec<(Replica,Vec<u8>)>> = HashMap::default();
         let mut term_rounds = Vec::new();
         for (round_iter,hmap_iter) in hmap.into_iter(){
