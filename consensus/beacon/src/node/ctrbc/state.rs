@@ -19,29 +19,38 @@ pub struct CTRBCState{
     pub recon_msgs:HashMap<Replica,HashMap<Replica,Vec<u8>>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub comm_vectors:HashMap<Replica,Vec<Hash>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub terminated_secrets: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
-    pub secret_shares: HashMap<Replica,HashMap<Replica,(usize,WSSMsg)>,nohash_hasher::BuildNoHashHasher<Replica>>,
-    pub reconstructed_secrets:HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub secret_shares: HashMap<usize,HashMap<Replica,HashMap<Replica,WSSMsg>>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub reconstructed_secrets:HashMap<Replica,HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>>,nohash_hasher::BuildNoHashHasher<Replica>>,
     // Gather protocol related state context
     pub witness1: HashMap<Replica,Vec<Replica>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub witness2: HashMap<Replica,Vec<Replica>,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub appxcon_allround_vals: HashMap<Replica,HashMap<Round,Vec<(Replica,Val)>>>,
     pub appxcon_vals: HashMap<Replica,Vec<Val>>,
+    // Committee
+    pub committee:Vec<Replica>,
     pub appxcon_round: Round,
     pub appxcon_st: Val,
     pub send_w1: bool,
     pub send_w2:bool,
     pub started_baa:bool,
+    pub committee_elected:bool,
     pub accepted_witnesses1: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub accepted_witnesses2: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
-    pub recon_secret:usize,
     pub secret_domain: BigInt,
-    pub nz_appxcon_rs: HashMap<Replica,(BigInt,bool,BigInt),nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub appx_con_term_vals: HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub contribution_map: HashMap<Replica,HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>>>,
+    pub recon_secrets:HashSet<Replica>,
     // Code for binary approximate agreement
     pub round_state: HashMap<Round,RoundState>,
+    pub cleared:bool,
 }
 
 impl CTRBCState{
-    pub fn new(sec_domain:BigInt)-> CTRBCState{
+    pub fn new(sec_domain:BigInt,num_nodes:usize)-> CTRBCState{
+        let mut master_committee = Vec::new();
+        for i in 0..num_nodes{
+            master_committee.push(i);
+        }
         CTRBCState{
             msgs: HashMap::default(),
             node_secrets: HashMap::default(),
@@ -55,19 +64,24 @@ impl CTRBCState{
             witness1:HashMap::default(),
             witness2: HashMap::default(),
             appxcon_allround_vals: HashMap::default(),
+            committee:master_committee,
             appxcon_vals: HashMap::default(),
             appxcon_round: 0,
             appxcon_st: Vec::new(),
             send_w1:false,
             send_w2:false,
             started_baa:false,
+            committee_elected:false,
             terminated_secrets:HashSet::default(),
             accepted_witnesses1:HashSet::default(),
             accepted_witnesses2:HashSet::default(),
-            recon_secret:0,
             secret_domain:sec_domain,
-            nz_appxcon_rs: HashMap::default(),
+
+            appx_con_term_vals:HashMap::default(),
+            contribution_map: HashMap::default(),
+            recon_secrets: HashSet::default(),
             round_state:HashMap::default(),
+            cleared:false,
         }
     }
 
@@ -75,6 +89,10 @@ impl CTRBCState{
         let sec_origin = beacon_msg.origin;
         // Message Validation happens in the method calling this method. 
         self.msgs.insert(sec_origin, (beacon_msg,ctr));
+    }
+
+    pub fn set_committee(&mut self,committee:Vec<Replica>){
+        self.committee = committee.clone();
     }
 
     pub fn add_echo(&mut self, sec_origin: Replica, echo_origin: Replica, ctr:&CTRBCMsg){
@@ -116,7 +134,7 @@ impl CTRBCState{
         }
     }
     
-    pub fn transform(&mut self, terminated_index:Replica){
+    pub fn transform(&mut self, terminated_index:Replica)->BeaconMsg{
         let beacon_msg = self.msgs.get(&terminated_index).unwrap().0.clone();
         if beacon_msg.appx_con.is_some(){
             let appxcon_vals = beacon_msg.appx_con.clone().unwrap();
@@ -131,21 +149,44 @@ impl CTRBCState{
             self.node_secrets.insert(beacon_msg.origin.clone(), batch_wssmsg.clone());
             self.comm_vectors.insert(terminated_index, beacon_msg.root_vec.unwrap());
         }
+        self.terminated_secrets.insert(terminated_index);
+        // clean up for memory efficiency
+        let beacon_msg = self.msgs.get(&terminated_index).unwrap().0.clone();
+        self.msgs.remove(&terminated_index);
+        self.echos.remove(&terminated_index);
+        self.readys.remove(&terminated_index);
+        self.recon_msgs.remove(&terminated_index);
+        return beacon_msg;
     }
 
     pub fn add_secret_share(&mut self, coin_number:usize, secret_id:usize,share_provider:usize, wss_msg: WSSMsg){
-        if self.secret_shares.contains_key(&secret_id){
-            self.secret_shares.get_mut(&secret_id).unwrap().insert(share_provider, (coin_number,wss_msg.clone()));
+        if self.secret_shares.contains_key(&coin_number){
+            let coin_shares = self.secret_shares.get_mut(&coin_number).unwrap();
+            if coin_shares.contains_key(&secret_id){
+                coin_shares.get_mut(&secret_id).unwrap().insert(share_provider, wss_msg.clone());
+            }
+            else{
+                let mut share_map = HashMap::default();
+                share_map.insert(share_provider, wss_msg.clone());
+                coin_shares.insert(secret_id, share_map);
+            }
+            //self.secret_shares.get_mut(&coin_number).unwrap().insert(share_provider, (coin_number,wss_msg.clone()));
         }
         else{
-            let mut secret_map = HashMap::default();
-            secret_map.insert(share_provider, (coin_number,wss_msg.clone()));
-            self.secret_shares.insert(secret_id, secret_map);
+            let mut coin_shares = HashMap::default();
+            let mut share_map= HashMap::default();
+            share_map.insert(share_provider, wss_msg.clone());
+            coin_shares.insert(secret_id, share_map);
+            self.secret_shares.insert(coin_number, coin_shares);
         }
     }
 
     pub fn validate_secret_share(&mut self, wss_msg:WSSMsg, coin_number: usize)-> bool{
         // first validate Merkle proof
+        log::info!("Validating secret, comm_vector: {:?} terminated RBCs: {:?}",self.comm_vectors.keys(),self.terminated_secrets);
+        if !(self.comm_vectors.contains_key(&wss_msg.origin)){
+            return false;
+        }
         let sharing_merkle_root:Hash = self.comm_vectors.get(&wss_msg.origin).unwrap()[coin_number].clone();
         let nonce = BigInt::from_signed_bytes_be( wss_msg.commitment.0.clone().as_slice());
         let secret = BigInt::from_signed_bytes_be(wss_msg.secret.clone().as_slice());
@@ -231,37 +272,65 @@ impl CTRBCState{
         None
     }
 
-    pub fn reconstruct_secret(&mut self, wss_msg: WSSMsg, num_nodes: usize, num_faults:usize)-> Option<BigInt>{
+    pub async fn reconstruct_secret(&mut self,coin_number:usize, wss_msg: WSSMsg, _num_nodes: usize, num_faults:usize)-> Option<BigInt>{
         let sec_origin = wss_msg.origin;
-        let sec_map = self.secret_shares.get_mut(&sec_origin).unwrap();
-        if sec_map.len() == num_faults+1{
+        if coin_number == 0{
+            log::info!("Coin number: {}, secret shares: {:?}",0,self.secret_shares.get(&0).unwrap());
+        }
+        let sec_map = self.secret_shares.get_mut(&coin_number).unwrap().get_mut(&wss_msg.origin).unwrap();
+        if coin_number == 0{
+            log::info!("Sec map: {:?}",sec_map.clone());
+        }
+        let already_constructed = self.reconstructed_secrets.contains_key(&coin_number) && self.reconstructed_secrets.get(&coin_number).unwrap().contains_key(&sec_origin);
+        if sec_map.len() >= num_faults+1 && !already_constructed{
             // on having t+1 secret shares, try reconstructing the original secret
-            log::info!("Received t+1 shares for secret instantiated by {}, reconstructing secret",wss_msg.origin);
-            let secret_shares:Vec<(Replica,BigInt)> = 
+            log::info!("Received t+1 shares for secret instantiated by {}, reconstructing secret for coin_num {}",wss_msg.origin,coin_number);
+            let mut secret_shares:Vec<(Replica,BigInt)> = 
                 sec_map.clone().into_iter()
-                .map(|(rep,(_sec_num,wss_msg))| 
+                .map(|(rep,wss_msg)| 
                     (rep+1,BigInt::from_signed_bytes_be(wss_msg.secret.clone().as_slice()))
                 ).collect();
+            secret_shares.truncate(num_faults+1);
             let shamir_ss = ShamirSecretSharing{
                 threshold:num_faults+1,
-                share_amount:num_nodes,
+                share_amount:3*num_faults+1,
                 prime: self.secret_domain.clone()
             };
             
             // TODO: Recover all shares of the polynomial and verify if the Merkle tree was correctly constructed
             let secret = shamir_ss.recover(&secret_shares);
-            self.reconstructed_secrets.insert(sec_origin, secret.clone());
-            if self.nz_appxcon_rs.contains_key(&sec_origin){
-                let appxcox_var = self.nz_appxcon_rs.get_mut(&sec_origin).unwrap();
-                if !appxcox_var.1{
-                    let sec_contribution = appxcox_var.0.clone()*secret.clone();
-                    appxcox_var.1 = true;
-                    appxcox_var.2 = sec_contribution;
-                }
+            if !self.reconstructed_secrets.contains_key(&coin_number){
+                let secret_share_map:HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>> = HashMap::default();
+                self.reconstructed_secrets.insert(coin_number, secret_share_map);
             }
+            let secret_share_map = self.reconstructed_secrets.get_mut(&coin_number).unwrap();
+            secret_share_map.insert(sec_origin, secret.clone());
+            self.sync_secret_maps().await;
             return Some(secret);
         }
         None
+    }
+
+    pub async fn sync_secret_maps(&mut self){
+        //self.reconstructed_secrets.insert(sec_origin, secret.clone());
+        for (coin_num,recon_sec) in self.reconstructed_secrets.clone().into_iter(){
+            for (rep,sec) in recon_sec.into_iter(){
+                if self.appx_con_term_vals.contains_key(&rep){
+                    let appxcox_var = self.appx_con_term_vals.get_mut(&rep).unwrap();
+                    if !self.contribution_map.contains_key(&coin_num){
+                        let contribution_map_coin:HashMap<Replica, BigInt, nohash_hasher::BuildNoHashHasher<Replica>> = HashMap::default();
+                        self.contribution_map.insert(coin_num, contribution_map_coin);
+                    }
+                    let sec_contrib_map = self.contribution_map.get_mut(&coin_num).unwrap();
+                    sec_contrib_map.insert(rep, appxcox_var.clone()*sec.clone());
+                    // if !appxcox_var.1{
+                    //     let sec_contribution = appxcox_var.0.clone()*secret.clone();
+                    //     appxcox_var.1 = true;
+                    //     appxcox_var.2 = sec_contribution;
+                    // }
+                }
+            }
+        }
     }
 
     pub fn secret_shares(&mut self, coin_number:usize)-> Vec<(Replica,WSSMsg)>{
@@ -319,25 +388,51 @@ impl CTRBCState{
         }
     }
 
-    pub fn coin_check(&mut self, coin_number: usize, num_nodes: usize)->Option<Vec<u8>>{
-        if self.nz_appxcon_rs.len() == self.reconstructed_secrets.len(){
+    pub async fn coin_check(&mut self, round: Round,coin_number: usize, num_nodes: usize)->Option<Vec<u8>>{
+        log::info!("Coin check for round {} coin {}, keys appxcon: {:?}, contrib_map: {:?}",round,coin_number,self.appx_con_term_vals,self.contribution_map);
+        if self.contribution_map.contains_key(&coin_number) && self.appx_con_term_vals.len() == self.contribution_map.get(&coin_number).unwrap().len(){
             let mut sum_vars = BigInt::from(0i32);
-            for (_rep,(_appx,_bcons,sec_contrib)) in self.nz_appxcon_rs.clone().into_iter(){
-                sum_vars = sum_vars + sec_contrib;
+            log::info!("Reconstruction for round {} and coin {}",round,coin_number);
+            for (_rep,sec_contrib) in self.contribution_map.get(&coin_number).unwrap().clone().into_iter(){
+                sum_vars = sum_vars + sec_contrib.clone();
+                log::info!("Node's secret contribution: {}, node {}",sec_contrib.to_string(),_rep);
             }
             let rand_fin = sum_vars.clone() % self.secret_domain.clone();
             let _mod_number = self.secret_domain.clone()/(num_nodes);
             let _leader_elected = rand_fin.clone()/_mod_number;
             // Mark this secret as used, use the next secret from this point on
-            self.recon_secret = coin_number+1;
-            self.secret_shares.clear();
-            self.reconstructed_secrets.clear();
-            for (_rep,(_appx_con, processed, _num)) in self.nz_appxcon_rs.iter_mut(){
-                *processed = false;
-            }
+            self.recon_secrets.insert(coin_number);
+            self.secret_shares.remove(&coin_number);
+            self.reconstructed_secrets.remove(&coin_number);
+            self.contribution_map.remove(&coin_number);
+            // for (_rep,(_appx_con, processed, _num)) in self.contribution_map.iter_mut(){
+            //     *processed = false;
+            // }
             //log::error!("Random leader election terminated random number: sec_origin {} rand_fin{} leader_elected {}, elected leader is node",sum_vars.clone(),rand_fin.clone(),leader_elected.clone());
             return Some(BigInt::to_signed_bytes_be(&rand_fin));
         }
         return None;
+    }
+
+    pub(crate) fn _clear(&mut self) {
+        self.msgs.clear();
+        self.echos.clear();
+        self.readys.clear();
+        self.accepted_witnesses1.clear();
+        self.accepted_witnesses2.clear();
+        self.appx_con_term_vals.clear();
+        self.committee.clear();
+        self.committee_elected = true;
+        self.secret_shares.clear();
+        self.appxcon_vals.clear();
+        self.appxcon_allround_vals.clear();
+        self.recon_msgs.clear();
+        self.comm_vectors.clear();
+        self.contribution_map.clear();
+        self.round_state.clear();
+        self.witness1.clear();
+        self.witness2.clear();
+        self.terminated_secrets.clear();
+        self.cleared = true;
     }
 }

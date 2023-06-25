@@ -35,7 +35,7 @@ impl Context{
         // 1. Check if the protocol reached the round for this node
         log::info!("Received RBC Init from node {} for round {}",ctr.origin,beacon_msg.round);
         if !self.round_state.contains_key(&beacon_msg.round){
-            let rbc_new_state = CTRBCState::new(self.secret_domain.clone());
+            let rbc_new_state = CTRBCState::new(self.secret_domain.clone(),self.num_nodes);
             self.round_state.insert(beacon_msg.round, rbc_new_state);
         }
         let rbc_state = self.round_state.get_mut(&beacon_msg.round).unwrap();
@@ -46,7 +46,7 @@ impl Context{
         rbc_state.add_echo(beacon_msg.origin, self.myid, &ctr);
         rbc_state.add_ready(beacon_msg.origin, self.myid, &ctr);
         // 4. Broadcast echos and benchmark results
-        self.broadcast(CoinMsg::CTRBCEcho(ctr.clone(), ctr.mp.root(),self.myid)).await;
+        self.broadcast(CoinMsg::CTRBCEcho(ctr.clone(), ctr.mp.root(),self.myid),ctr.round).await;
         self.add_benchmark(String::from("process_batchwss_init"), now.elapsed().unwrap().as_nanos());
     }
 }

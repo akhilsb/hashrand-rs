@@ -7,9 +7,9 @@ use crate::node::{Context, CTRBCState};
 
 impl Context{
     pub async fn process_reconstruct(&mut self,ctrbc:CTRBCMsg,master_root:Hash,recon_sender:Replica){
-        let now = SystemTime::now();
+        let _now = SystemTime::now();
         if !self.round_state.contains_key(&ctrbc.round){
-            let rbc_new_state = CTRBCState::new(self.secret_domain.clone());
+            let rbc_new_state = CTRBCState::new(self.secret_domain.clone(),self.num_nodes);
             self.round_state.insert(ctrbc.round, rbc_new_state);
         }
         let round = ctrbc.round.clone();
@@ -44,10 +44,11 @@ impl Context{
                  * b) Check for witnesses: Witness A and Witness B
                  * c) Check for Approximate Consensus messages. 
                  */
-                rbc_state.transform(sec_origin);
+                let beacon_msg = rbc_state.transform(sec_origin);
                 // Disseminate all approximate agreement instances to their respective nodes
-                let beacon_msg = rbc_state.msgs.get(&sec_origin).unwrap().0.clone();
-                if rbc_state.terminated_secrets.len() >= self.num_nodes - self.num_faults{
+                //let beacon_msg = rbc_state.msgs.get(&sec_origin).unwrap().0.clone();
+                let term_secrets = rbc_state.terminated_secrets.len();
+                if term_secrets >= self.num_nodes - self.num_faults{
                     if !rbc_state.send_w1{
                         log::info!("Terminated n-f Batch WSSs, sending list of first n-f Batch WSSs to other nodes");
                         log::info!("Terminated : {:?}",rbc_state.terminated_secrets);
@@ -60,8 +61,7 @@ impl Context{
                         let broadcast_msg = CoinMsg::GatherEcho(GatherMsg{nodes:rbc_state.terminated_secrets.clone().into_iter().collect()}, self.myid,round);
                         msgs_to_be_sent.push(broadcast_msg);
                     }
-                    self.add_benchmark(String::from("process_reconstruct"), now.elapsed().unwrap().as_nanos());
-                    self.witness_check(round).await;
+                    //self.add_benchmark(String::from("process_reconstruct"), now.elapsed().unwrap().as_nanos());
                 }
                 if beacon_msg.appx_con.is_some(){
                     for (round_iter,appx_convals) in beacon_msg.appx_con.clone().unwrap().into_iter(){
@@ -77,10 +77,13 @@ impl Context{
                         }
                     }
                 }
+                if term_secrets.clone() >= self.num_nodes-self.num_faults{
+                    self.witness_check(round).await;
+                }
             }
         }
         for prot_msg in msgs_to_be_sent.iter(){
-            self.broadcast(prot_msg.clone()).await;
+            self.broadcast(prot_msg.clone(),round.clone()).await;
             match prot_msg {
                 CoinMsg::GatherEcho(gather_msg, echo_sender,round) =>{
                     self.process_gatherecho(gather_msg.nodes.clone(), *echo_sender, round.clone()).await;

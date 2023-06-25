@@ -2,10 +2,10 @@
 
 killall {node} &> /dev/null
 rm -rf /tmp/*.db &> /dev/null
-vals=(531336 498474 527599 507272)
+# vals=(531336 498474 527599 507272)
 tri=32862
 
-TESTDIR=${TESTDIR:="testdata/cc_4"}
+TESTDIR=${TESTDIR:="testdata/cc_16"}
 TYPE=${TYPE:="release"}
 EXP=${EXP:-"appxcox_new"}
 W=${W:="10000"}
@@ -27,14 +27,14 @@ echo $st_time
     --batch $4 \
     --frequency $5 > logs/syncer.log &
 
-for((i=0;i<4;i++)); do
+for((i=0;i<16;i++)); do
 ./target/$TYPE/node \
     --config $TESTDIR/nodes-$i.json \
     --ip ip_file \
     --sleep $st_time \
     --epsilon 10 \
     --delta 10 \
-    --val ${vals[$i]} \
+    --val 100 \
     --tri $tri \
     --vsstype $2 \
     --syncer $3 \

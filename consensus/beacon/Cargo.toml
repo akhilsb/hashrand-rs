@@ -25,6 +25,8 @@ priority-queue="1"
 fnv = "1"
 async-recursion = "1.0.0"
 rand = "0.6"
+rand_chacha = "0.3.1"
+rand_core = "0.6.4"
 num-bigint-dig = "0.4"
 num-bigint = {version = "0.2.6", features = ["rand"]}
 num-traits = "0.2.11"

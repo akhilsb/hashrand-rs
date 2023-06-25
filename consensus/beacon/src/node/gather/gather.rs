@@ -1,16 +1,16 @@
-use std::{time::SystemTime};
+use std::{time::SystemTime, collections::HashMap};
 
 use async_recursion::async_recursion;
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive};
-use types::{beacon::{CoinMsg}, Replica, Round, beacon::GatherMsg};
+use types::{beacon::{CoinMsg, Val}, Replica, Round, beacon::GatherMsg};
 
-use crate::node::{Context, CTRBCState};
+use crate::node::{Context, CTRBCState, RoundState};
 impl Context {
     pub async fn process_gatherecho(self: &mut Context,wss_indices:Vec<Replica>, echo_sender:Replica,round: u32){
         let now = SystemTime::now();
         if !self.round_state.contains_key(&round){
-            let rbc_new_state = CTRBCState::new(BigInt::from_u16(0u16).unwrap());
+            let rbc_new_state = CTRBCState::new(BigInt::from_u16(0u16).unwrap(),self.num_nodes);
             self.round_state.insert(round, rbc_new_state);
         }
         let rbc_state = self.round_state.get_mut(&round).unwrap();
@@ -29,7 +29,7 @@ impl Context {
     pub async fn process_gatherecho2(self: &mut Context,wss_indices:Vec<Replica>, echo_sender:Replica,round: u32){
         let now = SystemTime::now();
         if !self.round_state.contains_key(&round){
-            let rbc_new_state = CTRBCState::new(BigInt::from_u16(0u16).unwrap());
+            let rbc_new_state = CTRBCState::new(BigInt::from_u16(0u16).unwrap(),self.num_nodes);
             self.round_state.insert(round, rbc_new_state);
         }
         let rbc_state = self.round_state.get_mut(&round).unwrap();
@@ -55,7 +55,6 @@ impl Context {
                     i = i+1;
                 }
             }
-        
             if i >= self.num_nodes-self.num_faults{
                 // echo2 need to be sent? If the round does not have secret sharing, gather2 is not necessary, can just move forward. 
                 // echo2 only needs to be sent when the round has secret sharing. 
@@ -70,11 +69,12 @@ impl Context {
                     );
                 }
                 else{
-                    if !rbc_state.started_baa{
+                    if !rbc_state.started_baa && self.bin_bun_aa{
+                        rbc_state.started_baa = true;
                         // Begin next round by updating Approximate Consensus values
                         // begin next round
-                        rbc_state.started_baa = true;
-                        self.start_new_round(round).await;
+                        // Bundled Approximate Agreement or Binary Approximate Agreement?
+                        self.check_begin_next_round(round).await;
                     }
                 }
             }
@@ -88,9 +88,25 @@ impl Context {
             }    
             if i >= self.num_nodes-self.num_faults && !rbc_state.started_baa{
                 // Received n-f witness2s. Start approximate agreement from here. 
-                log::info!("Accepted n-f witness2 for node {} with set {:?}",self.myid,rbc_state.terminated_secrets.clone());
+                log::error!("Accepted n-f witness2 for node {} with set {:?}",self.myid,rbc_state.terminated_secrets.clone());
                 rbc_state.started_baa = true;
-                self.start_new_round(round).await;
+                // First beacon should have terminated. 
+                if round >= self.rounds_aa+3{
+                    let closest_finished = round-self.rounds_aa-3;
+                    let fin_freq = (closest_finished/self.frequency)*self.frequency;
+                    log::error!("Requesting beacon for committee election  for round {:?} with coin from round {}",round,fin_freq);
+                    if rbc_state.committee.len()<self.num_nodes{
+                        // If the committee is already elected, no need for beacon reconstruction
+                        self.check_begin_next_round(round).await;
+                    }
+                    else {
+                        self.reconstruct_beacon(fin_freq, 0).await;   
+                    }
+                }
+                else{
+                    self.check_begin_next_round(round).await;
+                }
+
                 // let terminated_secrets = rbc_state.terminated_secrets.clone();
                 // let mut transmit_vector:Vec<(Replica,BigInt)> = Vec::new();
                 // let rounds = self.rounds_aa;
@@ -110,12 +126,43 @@ impl Context {
             }
         }
         for prot_msg in msgs_to_be_sent.iter(){
-            self.broadcast(prot_msg.clone()).await;
+            self.broadcast(prot_msg.clone(),round.clone()).await;
             match prot_msg {
                 CoinMsg::GatherEcho2(gather, echo_sender,round) =>{
                     self.process_gatherecho2(gather.nodes.clone(), echo_sender.clone(), round.clone()).await;
                 },
                 _ => {}
+            }
+        }
+        
+    }
+
+    pub async fn check_begin_next_round(&mut self,round: u32){
+        let appxcon_vals_fin:HashMap<Round,Vec<(Replica,Val)>> = self.next_round_vals(round).await;
+        //appxcon_vals_fin.clone_from();
+        if !appxcon_vals_fin.is_empty(){
+            // Bundled Approximate Agreement
+            if self.bin_bun_aa{
+                //let appxcon_vals = self.next_round_vals(round).await;
+                // serialization important. HashMap serialization is problematic.
+                let mut vec_round_vals = Vec::new();
+                for (round,values) in appxcon_vals_fin.into_iter(){
+                    vec_round_vals.push((round,values));
+                }
+                self.start_new_round(round,vec_round_vals).await;
+            }
+            // Binary Approximate Agreement
+            else{
+                for (round_iter,values) in appxcon_vals_fin.into_iter(){
+                    let rbc_state_iter = self.round_state.get_mut(&round_iter).unwrap();
+                    // Create new roundstate object
+                    let mut round_state = RoundState::new_with_echo(Vec::new(), self.myid);
+                    for (rep,value) in values.into_iter(){
+                        round_state.term_vals.insert(rep, BigInt::from_signed_bytes_be(&value));
+                    }
+                    rbc_state_iter.round_state.insert(round, round_state);
+                }
+                self.next_round_begin(round).await;
             }
         }
     }

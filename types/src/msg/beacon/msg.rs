@@ -1,5 +1,3 @@
-use std::{collections::HashMap};
-
 use crypto::hash::{Hash, do_hash_merkle, do_hash, do_mac};
 use num_bigint::{BigInt};
 use serde::{Serialize, Deserialize};
@@ -111,8 +109,8 @@ pub enum CoinMsg{
     CTRBCReconstruct(CTRBCMsg,Hash,Replica),
     GatherEcho(GatherMsg,Replica,Round),
     GatherEcho2(GatherMsg,Replica,Round),
-    BinaryAAEcho(HashMap<Round,Vec<(Replica,Val)>>,Replica,Round),
-    BinaryAAEcho2(HashMap<Round,Vec<(Replica,Val)>>,Replica,Round),
+    BinaryAAEcho(Vec<(Round,Vec<(Replica,Val)>)>,Replica,Round),
+    BinaryAAEcho2(Vec<(Round,Vec<(Replica,Val)>)>,Replica,Round),
     // THe vector of secrets, the source replica, the index in each batch and the round number of Batch Secret Sharing
     BeaconConstruct(Vec<WSSMsg>,Replica,Replica,Round),
 }
@@ -169,17 +167,19 @@ pub struct WrapperMsg{
     pub protmsg: CoinMsg,
     pub sender:Replica,
     pub mac:Hash,
+    pub round:Round
 }
 
 impl WrapperMsg{
-    pub fn new(msg:CoinMsg,sender:Replica, sk: &[u8]) -> Self{
+    pub fn new(msg:CoinMsg,sender:Replica, sk: &[u8],round:Round) -> Self{
         let new_msg = msg.clone();
         let bytes = bincode::serialize(&new_msg).expect("Failed to serialize protocol message");
         let mac = do_mac(&bytes.as_slice(), sk);
         Self{
             protmsg: new_msg,
             mac: mac,
-            sender:sender
+            sender:sender,
+            round:round
         }
     }
 }

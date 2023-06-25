@@ -37,8 +37,12 @@ pub struct Context {
     pub rounds_aa: u32,
     pub epsilon: u32,
     pub curr_round:u32,
+    pub recon_round:u32,
     pub num_messages:u32,
     pub max_rounds:u32,
+
+    /// Committee election parameters
+    pub committee_size: usize,
 
     /// State context
     pub batch_size: usize,
@@ -46,10 +50,14 @@ pub struct Context {
     
     pub round_state:HashMap<Round,CTRBCState>,
     pub bench: HashMap<String,u128>,
+    /// Approximate Agreement
+    pub bin_bun_aa: bool,
     /// Coin invoke
     pub invoke_coin:DelayQueue<Replica>,
     /// Exit protocol
     exit_rx: oneshot::Receiver<()>,
+    /// Queue for future messages
+    pub wrapper_msg_queue: HashMap<Round,Vec<WrapperMsg>>,
     /// Cancel Handlers
     pub cancel_handlers: HashMap<Round,Vec<CancelHandler<Acknowledgement>>>,
 }
@@ -105,6 +113,7 @@ impl Context {
                 let prime = BigInt::parse_bytes(b"685373784908497",10).unwrap();
                 let epsilon:u32 = ((1024*1024)/(config.num_nodes*config.num_faults)) as u32;
                 let rounds = (50.0 - ((epsilon as f32).log2().ceil())) as u32;
+                log::error!("Appx consensus rounds: {}",rounds);
                 let mut c = Context {
                     net_send:consensus_net,
                     net_recv:rx_net_to_consensus,
@@ -120,8 +129,11 @@ impl Context {
                     rounds_aa:rounds,
                     epsilon:epsilon,
                     curr_round:0,
+                    recon_round:20000,
                     num_messages:0,
-                    max_rounds: 120,
+                    max_rounds: 20000,
+                    bin_bun_aa: false,
+                    committee_size:13,
                     
                     round_state:HashMap::default(),
                     batch_size:batch,
@@ -130,7 +142,9 @@ impl Context {
                     //echos_ss: HashMap::default(),
                     invoke_coin:tokio_util::time::DelayQueue::new(),
                     exit_rx:exit_rx,
-                    cancel_handlers:HashMap::default()
+                    cancel_handlers:HashMap::default(),
+                    
+                    wrapper_msg_queue:HashMap::default(),
                 };
                 for (id, sk_data) in config.sk_map.clone() {
                     c.sec_key_map.insert(id, sk_data.clone());
@@ -157,11 +171,11 @@ impl Context {
         }
     }
 
-    pub async fn broadcast(&mut self, protmsg:CoinMsg){
+    pub async fn broadcast(&mut self, protmsg:CoinMsg,round:Round){
         let sec_key_map = self.sec_key_map.clone();
         for (replica,sec_key) in sec_key_map.into_iter() {
             if replica != self.myid{
-                let wrapper_msg = WrapperMsg::new(protmsg.clone(), self.myid, &sec_key.as_slice());
+                let wrapper_msg = WrapperMsg::new(protmsg.clone(), self.myid, &sec_key.as_slice(),round);
                 let cancel_handler:CancelHandler<Acknowledgement> = self.net_send.send(replica, wrapper_msg).await;
                 self.add_cancel_handler(cancel_handler);
                 // let sent_msg = Arc::new(wrapper_msg);
@@ -214,7 +228,7 @@ impl Context {
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
                                 .as_millis());
-                            self.start_new_round(20000).await;
+                            self.start_new_round(20000,Vec::new()).await;
                             let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::STARTED, value:0}).await;
                             self.add_cancel_handler(cancel_handler);
                         },
