@@ -230,7 +230,11 @@ impl Syncer{
                                     beacons_count +=1;
                                 }
                                 //vec_times.sort();
+<<<<<<< HEAD
                                 //log::error!("All n nodes completed reconstruction for round {:?} and index {} with {:?}",round,index,vec_times);
+=======
+                                log::error!("All n nodes completed reconstruction for round {:?} and index {} with {:?}",round,index,vec_times);
+>>>>>>> b76d74f7fdf108a92fa2827083356515cb85e390
                                 //self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
                             }
                             let current_time = SystemTime::now()
@@ -256,7 +260,11 @@ impl Syncer{
                                     vec_times.push(time.clone()-self.start_time);
                                 }
                                 vec_times.sort();
+<<<<<<< HEAD
                                 //log::error!("All n nodes completed the protocol {:?} with values {:?}",vec_times,self.values);
+=======
+                                log::error!("All n nodes completed the protocol {:?} with values {:?}",vec_times,self.values);
+>>>>>>> b76d74f7fdf108a92fa2827083356515cb85e390
                                 self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
                             }
                         }

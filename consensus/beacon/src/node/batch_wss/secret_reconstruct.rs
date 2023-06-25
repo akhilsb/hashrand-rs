@@ -187,6 +187,10 @@ impl Context{
             if rbc_started_baa{
                 self.check_begin_next_round(round_baa_fin).await;
             }
+            else{
+                self.round_state.remove(&round);
+                self.recon_round = round;
+            }
         }
         else{
             //transmit_vec.append(&mut _random);

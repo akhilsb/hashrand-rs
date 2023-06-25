@@ -45,6 +45,7 @@ impl Context {
         if !self.round_state.contains_key(&round){
             return;
         }
+        let mut appxcon_vals_fin = HashMap::default();
         let rbc_state = self.round_state.get_mut(&round).unwrap();
         let mut i = 0;
         let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
@@ -69,12 +70,20 @@ impl Context {
                     );
                 }
                 else{
+<<<<<<< HEAD
                     if !rbc_state.started_baa && self.bin_bun_aa{
+=======
+                    if !rbc_state.started_baa{
+>>>>>>> b76d74f7fdf108a92fa2827083356515cb85e390
                         rbc_state.started_baa = true;
                         // Begin next round by updating Approximate Consensus values
                         // begin next round
                         // Bundled Approximate Agreement or Binary Approximate Agreement?
+<<<<<<< HEAD
                         self.check_begin_next_round(round).await;
+=======
+                        appxcon_vals_fin.clone_from(&self.next_round_vals(round).await);
+>>>>>>> b76d74f7fdf108a92fa2827083356515cb85e390
                     }
                 }
             }
