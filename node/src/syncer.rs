@@ -226,7 +226,7 @@ impl Syncer{
                                     } 
                                     set_map.insert(secret.clone());
                                 }
-                                if set_map.len() == 1 && vec_times.len() == self.num_nodes {
+                                if set_map.len() == 1 && vec_times.len() == 2*self.num_nodes/3 {
                                     beacons_count +=1;
                                 }
                                 //vec_times.sort();
