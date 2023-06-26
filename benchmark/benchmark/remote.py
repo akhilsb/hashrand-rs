@@ -260,9 +260,10 @@ class Bench:
                 st_time,
                 ep,
                 delta,
-                exp_vals[i],
+                exp_vals[0],
                 tri,
                 100,
+                5,
                 debug=False
             )
             print(cmd)
@@ -360,14 +361,18 @@ class Bench:
                     st_time,
                     debug=False
                 )
+                print(cmd)
+                log_file = PathMaker.syncer_log_file()
+                self._background_run(ip, cmd, log_file)
             cmd = CommandMaker.run_primary(
                 PathMaker.key_file(i),
                 st_time,
                 ep,
                 delta,
-                exp_vals[i],
+                exp_vals[0],
                 tri,
-                100,
+                200,
+                5,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)

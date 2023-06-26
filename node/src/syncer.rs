@@ -215,7 +215,7 @@ impl Syncer{
                             // .duration_since(UNIX_EPOCH)
                             // .unwrap()
                             // .as_millis());
-                            if time_sec_map.len() == self.num_nodes{
+                            if time_sec_map.len() == 2*self.num_nodes/3{
                                 // All nodes terminated reconstruction protocol
                                 let mut vec_times = Vec::new();
                                 let mut set_map:HashSet<BigInt> = HashSet::default();

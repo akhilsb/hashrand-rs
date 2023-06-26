@@ -30,12 +30,12 @@ class CommandMaker:
         return f'./genconfig --blocksize 100 --delay 100 --base_port {bport} --client_base_port {client_bport} --NumNodes {num_nodes} --target . --client_run_port {client_run_port} --local true'
 
     @staticmethod
-    def run_primary(key,delay,ep,delta,val,tri,batch, debug=False):
+    def run_primary(key,delay,ep,delta,val,tri,batch,freq, debug=False):
         assert isinstance(key, str)
         assert isinstance(debug, bool)
         #v = '-vvv' if debug else '-vv'
         return (f'./node --config {key} --ip ip_file '
-                f'--sleep {delay} --vsstype hyb --batch 100 --epsilon {ep} --delta {delta} --val {val} --tri {tri} --syncer syncer')
+                f'--sleep {delay} --vsstype bea --epsilon {ep} --delta {delta} --val {val} --tri {tri} --syncer syncer --batch {batch} --frequency {freq}')
     
     @staticmethod
     def run_syncer(key,delay, debug=False):
@@ -43,7 +43,7 @@ class CommandMaker:
         assert isinstance(debug, bool)
         #v = '-vvv' if debug else '-vv'
         return (f'./node --config {key} --ip ip_file '
-                f'--sleep {delay} --vsstype sync --batch 100 --epsilon 10 --delta 5000 --val 100 --tri 10 --syncer syncer')
+                f'--sleep {delay} --vsstype sync --epsilon 10 --delta 5000 --val 100 --tri 10 --syncer syncer --batch 100 --frequency 100')
 
     @staticmethod
     def run_worker(keys, committee, store, parameters, id, debug=False):
