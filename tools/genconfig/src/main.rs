@@ -1,10 +1,9 @@
 // A tool that builds config files for all the nodes and the clients for the
 // protocol.
 
-use crypto::{ed25519, secp256k1::{self,SecretKey}};
+use crypto::{secret::{SecretKey}};
 use config::{Node, Client};
 use clap::{load_yaml, App};
-use rand::Rng;
 use types::Replica;
 use crypto::Algorithm;
 use std::{error::Error, io::{BufWriter, Write}, fs::File};
@@ -190,7 +189,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut node:Vec<Node> = Vec::with_capacity(num_nodes);
 
-    let mut pk = HashMap::default();
+    let pk = HashMap::default();
     let mut ip = HashMap::default();
     
     //let (cert, privkey) = new_root_cert()?;
@@ -229,15 +228,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         node[i].crypto_alg = t.clone();
         match t {
             Algorithm::ED25519 => {
-                let kp = ed25519::Keypair::generate();
-                pk.insert(i as Replica, kp.public().encode().to_vec());
-                node[i].secret_key_bytes = kp.encode().to_vec();
+                // let kp = ed25519::Keypair::generate();
+                // pk.insert(i as Replica, kp.public().encode().to_vec());
+                // node[i].secret_key_bytes = kp.encode().to_vec();
 
             }
             Algorithm::SECP256K1 => {
-                let kp = secp256k1::Keypair::generate();
-                pk.insert(i as Replica, kp.public().encode().to_vec());
-                node[i].secret_key_bytes = kp.secret().to_bytes().to_vec();
+                // let kp = secret::Keypair::generate();
+                // pk.insert(i as Replica, kp.public().encode().to_vec());
+                // node[i].secret_key_bytes = kp.secret().to_bytes().to_vec();
             }
             Algorithm::NOPKI =>{
                 for j in 0..num_nodes{

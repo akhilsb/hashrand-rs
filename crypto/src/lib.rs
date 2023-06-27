@@ -11,10 +11,5 @@ pub mod hash;
 mod crypto;
 pub use crypto::*;
 
-mod gen;
-pub use gen::*;
-
-pub mod ed25519;
 pub mod error;
-pub mod rsa;
-pub mod secp256k1;
+pub mod secret;

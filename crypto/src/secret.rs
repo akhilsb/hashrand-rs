@@ -23,59 +23,14 @@
 use asn1_der::typed::{DerDecodable, Sequence};
 use rand::RngCore;
 use sha2::{Digest as ShaDigestTrait, Sha256};
-use secp256k1::{Message, Signature};
+use libsecp256k1::{Message, Signature};
 use super::error::{DecodingError, SigningError};
 use zeroize::Zeroize;
 use core::fmt;
 
-/// A Secp256k1 keypair.
-#[derive(Clone)]
-pub struct Keypair {
-    secret: SecretKey,
-    public: PublicKey
-}
-
-impl Keypair {
-    /// Generate a new sec256k1 `Keypair`.
-    pub fn generate() -> Keypair {
-        Keypair::from(SecretKey::generate())
-    }
-
-    /// Get the public key of this keypair.
-    pub fn public(&self) -> &PublicKey {
-        &self.public
-    }
-
-    /// Get the secret key of this keypair.
-    pub fn secret(&self) -> &SecretKey {
-        &self.secret
-    }
-}
-
-impl fmt::Debug for Keypair {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Keypair").field("public", &self.public).finish()
-    }
-}
-
-/// Promote a Secp256k1 secret key into a keypair.
-impl From<SecretKey> for Keypair {
-    fn from(secret: SecretKey) -> Keypair {
-        let public = PublicKey(secp256k1::PublicKey::from_secret_key(&secret.0));
-        Keypair { secret, public }
-    }
-}
-
-/// Demote a Secp256k1 keypair into a secret key.
-impl From<Keypair> for SecretKey {
-    fn from(kp: Keypair) -> SecretKey {
-        kp.secret
-    }
-}
-
 /// A Secp256k1 secret key.
 #[derive(Clone)]
-pub struct SecretKey(secp256k1::SecretKey);
+pub struct SecretKey(libsecp256k1::SecretKey);
 
 impl fmt::Debug for SecretKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -87,12 +42,12 @@ impl SecretKey {
     /// Generate a new Secp256k1 secret key.
     pub fn generate() -> SecretKey {
         let mut r = rand::thread_rng();
-        let mut b = [0; secp256k1::util::SECRET_KEY_SIZE];
+        let mut b = [0; libsecp256k1::util::SECRET_KEY_SIZE];
         // This is how it is done in `secp256k1::SecretKey::random` which
         // we do not use here because it uses `rand::Rng` from rand-0.4.
         loop {
             r.fill_bytes(&mut b);
-            if let Ok(k) = secp256k1::SecretKey::parse(&b) {
+            if let Ok(k) = libsecp256k1::SecretKey::parse(&b) {
                 return SecretKey(k)
             }
         }
@@ -103,7 +58,7 @@ impl SecretKey {
     /// error is returned.
     pub fn from_bytes(mut sk: impl AsMut<[u8]>) -> Result<SecretKey, DecodingError> {
         let sk_bytes = sk.as_mut();
-        let secret = secp256k1::SecretKey::parse_slice(&*sk_bytes)
+        let secret = libsecp256k1::SecretKey::parse_slice(&*sk_bytes)
             .map_err(|_| DecodingError::new("failed to parse secp256k1 secret key"))?;
         sk_bytes.zeroize();
         Ok(SecretKey(secret))
@@ -146,13 +101,13 @@ impl SecretKey {
     pub fn sign_hash(&self, msg: &[u8]) -> Result<Vec<u8>, SigningError> {
         let m = Message::parse_slice(msg)
             .map_err(|_| SigningError::new("failed to parse secp256k1 digest"))?;
-        Ok(secp256k1::sign(&m, &self.0).0.serialize_der().as_ref().into())
+        Ok(libsecp256k1::sign(&m, &self.0).0.serialize_der().as_ref().into())
     }
 }
 
 /// A Secp256k1 public key.
 #[derive(PartialEq, Eq, Clone)]
-pub struct PublicKey(secp256k1::PublicKey);
+pub struct PublicKey(libsecp256k1::PublicKey);
 
 impl fmt::Debug for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -173,7 +128,7 @@ impl PublicKey {
     /// Verify the Secp256k1 DER-encoded signature on a raw 256-bit message using the public key.
     pub fn verify_hash(&self, msg: &[u8], sig: &[u8]) -> bool {
         Message::parse_slice(msg)
-            .and_then(|m| Signature::parse_der(sig).map(|s| secp256k1::verify(&m, &s, &self.0)))
+            .and_then(|m| Signature::parse_der(sig).map(|s| libsecp256k1::verify(&m, &s, &self.0)))
             .unwrap_or(false)
     }
 
@@ -191,7 +146,7 @@ impl PublicKey {
     /// Decode a public key from a byte slice in the the format produced
     /// by `encode`.
     pub fn decode(k: &[u8]) -> Result<PublicKey, DecodingError> {
-        secp256k1::PublicKey::parse_slice(k, Some(secp256k1::PublicKeyFormat::Compressed))
+        libsecp256k1::PublicKey::parse_slice(k, Some(libsecp256k1::PublicKeyFormat::Compressed))
             .map_err(|_| DecodingError::new("failed to parse secp256k1 public key"))
             .map(PublicKey)
     }
