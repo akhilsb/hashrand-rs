@@ -5,9 +5,9 @@ use num_bigint::BigInt;
 use num_traits::{FromPrimitive};
 use types::{beacon::{CoinMsg, Val}, Replica, Round, beacon::GatherMsg};
 
-use crate::node::{Context, CTRBCState, RoundState};
-impl Context {
-    pub async fn process_gatherecho(self: &mut Context,wss_indices:Vec<Replica>, echo_sender:Replica,round: u32){
+use crate::node::{HashRand, CTRBCState, RoundState};
+impl HashRand {
+    pub async fn process_gatherecho(self: &mut HashRand,wss_indices:Vec<Replica>, echo_sender:Replica,round: u32){
         let now = SystemTime::now();
         if !self.round_state.contains_key(&round){
             let rbc_new_state = CTRBCState::new(BigInt::from_u16(0u16).unwrap(),self.num_nodes);
@@ -26,7 +26,7 @@ impl Context {
         }
     }
 
-    pub async fn process_gatherecho2(self: &mut Context,wss_indices:Vec<Replica>, echo_sender:Replica,round: u32){
+    pub async fn process_gatherecho2(self: &mut HashRand,wss_indices:Vec<Replica>, echo_sender:Replica,round: u32){
         let now = SystemTime::now();
         if !self.round_state.contains_key(&round){
             let rbc_new_state = CTRBCState::new(BigInt::from_u16(0u16).unwrap(),self.num_nodes);
@@ -40,7 +40,7 @@ impl Context {
     }
     
     #[async_recursion]
-    pub async fn witness_check(self: &mut Context,round:Round){
+    pub async fn witness_check(self: &mut HashRand,round:Round){
         let _now = SystemTime::now();
         if !self.round_state.contains_key(&round){
             return;

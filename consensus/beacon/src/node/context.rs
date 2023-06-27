@@ -16,7 +16,7 @@ use network::{plaintcp::{TcpReceiver}};
 use tokio::sync::mpsc::unbounded_channel;
 use std::{net::{SocketAddr, SocketAddrV4}};
 
-pub struct Context {
+pub struct HashRand {
     /// Networking context
     pub net_send: TcpReliableSender<Replica,WrapperMsg,Acknowledgement>,
     pub net_recv: UnboundedReceiver<WrapperMsg>,
@@ -62,7 +62,7 @@ pub struct Context {
     pub cancel_handlers: HashMap<Round,Vec<CancelHandler<Acknowledgement>>>,
 }
 
-impl Context {
+impl HashRand {
     pub fn spawn(
         config:Node,
         _sleep:u128,
@@ -114,7 +114,7 @@ impl Context {
                 let epsilon:u32 = ((1024*1024)/(config.num_nodes*config.num_faults)) as u32;
                 let rounds = (50.0 - ((epsilon as f32).log2().ceil())) as u32;
                 log::error!("Appx consensus rounds: {}",rounds);
-                let mut c = Context {
+                let mut c = HashRand {
                     net_send:consensus_net,
                     net_recv:rx_net_to_consensus,
                     sync_send: sync_net,

@@ -82,7 +82,7 @@ async fn main() -> Result<()> {
             exit_tx = hash_cc_baa::node::Context::spawn(config,sleep,batch).unwrap();
         },
         "bea" => {
-            exit_tx = beacon::node::Context::spawn(config,sleep,batch,frequency).unwrap();
+            exit_tx = beacon::node::HashRand::spawn(config,sleep,batch,frequency).unwrap();
         },
         // "appx" => {
         //     exit_tx = appxcon::node::Context::spawn(config, sleep, val_appx,epsilon).unwrap();

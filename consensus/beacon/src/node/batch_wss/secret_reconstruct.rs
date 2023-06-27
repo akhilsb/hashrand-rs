@@ -1,10 +1,10 @@
 use std::{ time::{SystemTime, UNIX_EPOCH}};
 use types::{beacon::{WSSMsg, CoinMsg}, Replica, SyncState, SyncMsg, beacon::Round};
 
-use crate::node::{Context, CTRBCState};
+use crate::node::{HashRand, CTRBCState};
 
-impl Context{
-    pub async fn reconstruct_beacon(self: &mut Context, round:Round,mut coin_number:usize){
+impl HashRand{
+    pub async fn reconstruct_beacon(self: &mut HashRand, round:Round,mut coin_number:usize){
         let now = SystemTime::now();
         let rbc_state = self.round_state.get_mut(&round).unwrap();
         rbc_state.sync_secret_maps().await;
@@ -49,7 +49,7 @@ impl Context{
         }
     }
     
-    pub async fn process_secret_shares(self: &mut Context,wss_msgs:Vec<WSSMsg>,share_sender:Replica, coin_num:usize,round:Round){
+    pub async fn process_secret_shares(self: &mut HashRand,wss_msgs:Vec<WSSMsg>,share_sender:Replica, coin_num:usize,round:Round){
         let now = SystemTime::now();
         log::info!("Received Coin construct message from node {} for coin_num {} for round {} with shares for secrets {:?}",share_sender,coin_num,round,wss_msgs.clone().into_iter().map(|x| x.origin).collect::<Vec<usize>>());
         // if coin_num != 0 && self.recon_round != 20000{

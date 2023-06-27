@@ -5,9 +5,9 @@ use num_bigint::{BigInt};
 use num_traits::pow;
 use types::{Round, beacon::{Replica, Val}, SyncState, SyncMsg};
 
-use crate::node::Context;
+use crate::node::HashRand;
 
-impl Context{
+impl HashRand{
     #[async_recursion]
     pub async fn next_round_vals(&mut self, round:Round)->HashMap<Round,Vec<(Replica,Val)>>{
         //let max_rounds_aa = self.rounds_aa;

@@ -4,11 +4,11 @@ use async_recursion::async_recursion;
 use num_bigint::BigInt;
 use types::{beacon::{ CoinMsg, Round}, Replica, SyncMsg, SyncState};
 
-use crate::node::{Context, CTRBCState, appxcon::RoundState};
+use crate::node::{HashRand, CTRBCState, appxcon::RoundState};
 
-impl Context{
+impl HashRand{
     #[async_recursion]
-    pub async fn process_baa_echo(self: &mut Context, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo_sender:Replica, round:Round){
+    pub async fn process_baa_echo(self: &mut HashRand, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo_sender:Replica, round:Round){
         let now = SystemTime::now();
         let mut send_valmap_echo1:HashMap<u32, Vec<(Replica, Vec<u8>)>> = HashMap::default();
         let mut send_valmap_echo2:HashMap<u32, Vec<(Replica, Vec<u8>)>> = HashMap::default();
@@ -72,7 +72,7 @@ impl Context{
         }
     }
 
-    pub async fn process_baa_echo2(self: &mut Context, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo2_sender:Replica, round:u32){
+    pub async fn process_baa_echo2(self: &mut HashRand, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo2_sender:Replica, round:u32){
         let now = SystemTime::now();
         if round < self.curr_round{
             log::warn!("Older message received, protocol advanced forward, ignoring Binary AA ECHO message");

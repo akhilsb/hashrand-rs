@@ -3,12 +3,12 @@ use std::{time::SystemTime};
 use async_recursion::async_recursion;
 use types::{Replica, beacon::{CoinMsg, CTRBCMsg}};
 
-use crate::node::{Context, CTRBCState};
+use crate::node::{HashRand, CTRBCState};
 use crypto::hash::{Hash};
 
-impl Context{
+impl HashRand{
     #[async_recursion]
-    pub async fn process_echo(self: &mut Context,ctrbc:CTRBCMsg,master_root:Hash ,echo_sender:Replica){
+    pub async fn process_echo(self: &mut HashRand,ctrbc:CTRBCMsg,master_root:Hash ,echo_sender:Replica){
         let now = SystemTime::now();
         if !self.round_state.contains_key(&ctrbc.round){
             let rbc_new_state = CTRBCState::new(self.secret_domain.clone(),self.num_nodes);

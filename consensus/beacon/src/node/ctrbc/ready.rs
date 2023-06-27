@@ -4,11 +4,11 @@ use async_recursion::async_recursion;
 use crypto::hash::Hash;
 use types::beacon::{CTRBCMsg, Replica, CoinMsg};
 
-use crate::node::{Context, CTRBCState};
+use crate::node::{HashRand, CTRBCState};
 
-impl Context{
+impl HashRand{
     #[async_recursion]
-    pub async fn process_ready(self: &mut Context, ctrbc:CTRBCMsg,master_root:Hash,ready_sender:Replica){
+    pub async fn process_ready(self: &mut HashRand, ctrbc:CTRBCMsg,master_root:Hash,ready_sender:Replica){
         let _now = SystemTime::now();
         if !self.round_state.contains_key(&ctrbc.round){
             let rbc_new_state = CTRBCState::new(self.secret_domain.clone(),self.num_nodes);

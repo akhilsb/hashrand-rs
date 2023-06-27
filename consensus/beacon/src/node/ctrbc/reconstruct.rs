@@ -3,9 +3,9 @@ use std::{time::SystemTime, collections::HashMap};
 use crypto::hash::Hash;
 use types::{beacon::CTRBCMsg, beacon::{Replica, CoinMsg, GatherMsg}};
 
-use crate::node::{Context, CTRBCState};
+use crate::node::{HashRand, CTRBCState};
 
-impl Context{
+impl HashRand{
     pub async fn process_reconstruct(&mut self,ctrbc:CTRBCMsg,master_root:Hash,recon_sender:Replica){
         let _now = SystemTime::now();
         if !self.round_state.contains_key(&ctrbc.round){

@@ -2,10 +2,10 @@ use std::time::SystemTime;
 
 use types::{beacon::{BeaconMsg, CoinMsg}, beacon::CTRBCMsg};
 
-use crate::node::{Context, CTRBCState};
+use crate::node::{HashRand, CTRBCState};
 
-impl Context{
-    pub async fn process_rbcinit(self: &mut Context, beacon_msg:BeaconMsg,ctr:CTRBCMsg){
+impl HashRand{
+    pub async fn process_rbcinit(self: &mut HashRand, beacon_msg:BeaconMsg,ctr:CTRBCMsg){
         let now = SystemTime::now();
         if !ctr.verify_mr_proof(){
             log::error!("Invalid Merkle Proof sent by node {} in round {}, abandoning RBC",ctr.origin,ctr.round);
