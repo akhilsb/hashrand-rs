@@ -4,7 +4,6 @@ use anyhow::{Result, Ok,anyhow};
 use network::{plaintcp::{TcpReliableSender, CancelHandler}, Acknowledgement};
 use num_bigint::BigInt;
 use tokio::{sync::{mpsc::UnboundedReceiver, oneshot}};
-use tokio_util::time::DelayQueue;
 use types::{beacon::{WrapperMsg, Replica, CoinMsg}, Round, SyncMsg, SyncState};
 use config::Node;
 use fnv::FnvHashMap as HashMap;
@@ -52,8 +51,6 @@ pub struct HashRand {
     pub bench: HashMap<String,u128>,
     /// Approximate Agreement
     pub bin_bun_aa: bool,
-    /// Coin invoke
-    pub invoke_coin:DelayQueue<Replica>,
     /// Exit protocol
     exit_rx: oneshot::Receiver<()>,
     /// Queue for future messages
@@ -139,8 +136,6 @@ impl HashRand {
                     batch_size:batch,
                     frequency:frequency,
                     bench: HashMap::default(),
-                    //echos_ss: HashMap::default(),
-                    invoke_coin:tokio_util::time::DelayQueue::new(),
                     exit_rx:exit_rx,
                     cancel_handlers:HashMap::default(),
                     
