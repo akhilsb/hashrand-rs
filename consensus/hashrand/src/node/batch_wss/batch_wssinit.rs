@@ -6,9 +6,9 @@ use merkle_light::merkle::MerkleTree;
 use num_bigint::{BigInt, RandBigInt};
 use types::{appxcon::{HashingAlg, MerkleProof, get_shards}, beacon::{BatchWSSMsg, CoinMsg, CTRBCMsg, WrapperMsg, Val}, Replica, beacon::{Round, BeaconMsg}};
 
-use crate::node::{Context, ShamirSecretSharing};
+use crate::node::{HashRand, ShamirSecretSharing};
 
-impl Context{
+impl HashRand{
     #[async_recursion]
     pub async fn start_new_round(&mut self, round:Round,vec_round_vals:Vec<(Round,Vec<(Replica,Val)>)>){
         let now = SystemTime::now();

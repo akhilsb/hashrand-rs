@@ -5,9 +5,9 @@ use num_bigint::{BigInt};
 use num_traits::pow;
 use types::{Round, beacon::{Replica, Val}, SyncState, SyncMsg};
 
-use crate::node::Context;
+use crate::node::HashRand;
 
-impl Context{
+impl HashRand{
     #[async_recursion]
     pub async fn next_round_vals(&mut self, round:Round)->HashMap<Round,Vec<(Replica,Val)>>{
         //let max_rounds_aa = self.rounds_aa;
@@ -109,7 +109,7 @@ impl Context{
                 self.add_cancel_handler(cancel_handler);
                 // Start reconstruction
                 // Set aside first coin for committee election
-                self.reconstruct_beacon(term_round, 1).await;
+                //self.reconstruct_beacon(term_round, 1).await;
             }
         }
         return return_map;

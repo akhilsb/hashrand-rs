@@ -3,9 +3,9 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{SeedableRng, RngCore};
 use types::beacon::Replica;
 
-use crate::node::Context;
+use crate::node::HashRand;
 
-impl Context{
+impl HashRand{
     pub async fn elect_committee(&self, rng_string:Vec<u8>)->Vec<Replica>{
         let mut rng = ChaCha20Rng::from_seed(do_hash(rng_string.as_slice()));
         let mut all_nodes = Vec::new();

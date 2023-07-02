@@ -3,7 +3,7 @@ use std::{sync::Arc};
 use crypto::hash::{verf_mac};
 use types::{beacon::{WrapperMsg, CoinMsg}};
 
-use super::Context;
+use super::HashRand;
 //use async_recursion::async_recursion;
 
 
@@ -14,8 +14,8 @@ use super::Context;
     Using the terminated shares, the nodes run a Bundled Approximate Agreement (BAA) protocol on n inputs. 
     Each node's input i is either 0 or 1 depending on whether the node terminated i's VSS protocol. 
 */
-impl Context{
-    pub fn check_proposal(self:&Context,wrapper_msg: Arc<WrapperMsg>) -> bool {
+impl HashRand{
+    pub fn check_proposal(self:&HashRand,wrapper_msg: Arc<WrapperMsg>) -> bool {
         // validate MAC
         let byte_val = bincode::serialize(&wrapper_msg.protmsg).expect("Failed to serialize object");
         let sec_key = match self.sec_key_map.get(&wrapper_msg.clone().sender) {
@@ -29,7 +29,7 @@ impl Context{
         true
     }
     
-    pub(crate) async fn process_msg(self: &mut Context, wrapper_msg: WrapperMsg){
+    pub(crate) async fn process_msg(self: &mut HashRand, wrapper_msg: WrapperMsg){
         log::debug!("Received protocol msg: {:?}",wrapper_msg);
         let msg = Arc::new(wrapper_msg.clone());
         if self.check_proposal(msg){
@@ -67,7 +67,7 @@ impl Context{
         }
     }
 
-    pub(crate) async fn choose_fn(self: &mut Context, wrapper_msg: WrapperMsg){
+    pub(crate) async fn choose_fn(self: &mut HashRand, wrapper_msg: WrapperMsg){
         match wrapper_msg.clone().protmsg {
             CoinMsg::CTRBCInit(beaconmsg,ctr ) =>{
                 // need to handle rbc init first or change everything to Cachin Tessaro broadcast?

@@ -14,6 +14,7 @@ members = [
     "node",
     #"consensus/ct_rbc",
     "consensus/beacon",
+    "consensus/hashrand",
     "consensus/hash_cc",
     "consensus/hash_cc_baa",
     "consensus/pedavss_cc",

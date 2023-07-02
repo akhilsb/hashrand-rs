@@ -785,6 +785,42 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
+name = "hashrand"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-recursion",
+ "async-trait",
+ "bincode",
+ "bytes",
+ "config",
+ "consensus",
+ "crypto",
+ "fnv",
+ "futures",
+ "futures-util",
+ "log",
+ "merkle_light",
+ "network",
+ "nohash-hasher",
+ "num-bigint",
+ "num-bigint-dig",
+ "num-integer",
+ "num-traits",
+ "priority-queue",
+ "rand 0.6.5",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "reed-solomon-erasure",
+ "serde",
+ "sha2 0.9.9",
+ "tokio",
+ "tokio-stream",
+ "tokio-util 0.6.10",
+ "types",
+]
+
+[[package]]
 name = "heapless"
 version = "0.7.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1067,6 +1103,7 @@ dependencies = [
  "futures",
  "hash_cc",
  "hash_cc_baa",
+ "hashrand",
  "log",
  "network",
  "pedavss_cc",

@@ -4,11 +4,11 @@ use async_recursion::async_recursion;
 use num_bigint::BigInt;
 use types::{beacon::{ CoinMsg, Round}, Replica, SyncMsg, SyncState};
 
-use crate::node::{Context, CTRBCState, appxcon::RoundState};
+use crate::node::{HashRand, CTRBCState, appxcon::RoundState};
 
-impl Context{
+impl HashRand{
     #[async_recursion]
-    pub async fn process_baa_echo(self: &mut Context, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo_sender:Replica, round:Round){
+    pub async fn process_baa_echo(self: &mut HashRand, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo_sender:Replica, round:Round){
         let now = SystemTime::now();
         let mut send_valmap_echo1:HashMap<u32, Vec<(Replica, Vec<u8>)>> = HashMap::default();
         let mut send_valmap_echo2:HashMap<u32, Vec<(Replica, Vec<u8>)>> = HashMap::default();
@@ -30,7 +30,7 @@ impl Context{
                     log::info!("All instances of Binary AA terminated for round {}, checking for termination related to round {}",round,round_iter);
                     if self.check_termination(round){
                         // Begin next round
-                        self.next_round_begin(round).await;
+                        self.next_round_begin(round,true).await;
                     }
                     //let _vec_vals:Vec<(Replica,Vec<u8>)> = rnd_state.term_vals.clone().into_iter().map(|(rep,val)| (rep,BigInt::to_signed_bytes_be(&val))).collect();
                     // start directly from here
@@ -72,7 +72,7 @@ impl Context{
         }
     }
 
-    pub async fn process_baa_echo2(self: &mut Context, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo2_sender:Replica, round:u32){
+    pub async fn process_baa_echo2(self: &mut HashRand, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo2_sender:Replica, round:u32){
         let now = SystemTime::now();
         if round < self.curr_round{
             log::warn!("Older message received, protocol advanced forward, ignoring Binary AA ECHO message");
@@ -93,7 +93,7 @@ impl Context{
                     self.add_benchmark(String::from("process_baa_echo2"), now.elapsed().unwrap().as_nanos());
                     if self.check_termination(round){
                         // Begin next round
-                        self.next_round_begin(round).await;
+                        self.next_round_begin(round,true).await;
                     }
                 }
             }
@@ -135,7 +135,7 @@ impl Context{
     }
 
     #[async_recursion]
-    pub async fn next_round_begin(&mut self,round:Round){
+    pub async fn next_round_begin(&mut self,round:Round,call_flag:bool){
         let round_begin;
         if self.curr_round > round{
             return;
@@ -184,12 +184,16 @@ impl Context{
             let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::BeaconFin(round_begin-1, self.myid), value:0}).await;
             self.add_cancel_handler(cancel_handler);
             // Start reconstruction
-            self.reconstruct_beacon(round_begin-1, 1).await;
-            
+            if call_flag{
+                self.manage_beacon_request(false, 0, true).await;
+            }
+            //self.reconstruct_beacon(round_begin-1, 1).await;
         }
         if (round+1) % self.frequency == 0{
             // Start next round with batch secret sharing
-            self.start_new_round(round, vec_newround_vals).await;
+            if (round+1) < self.tmp_stop_round{
+                self.start_new_round(round, vec_newround_vals).await;
+            }
         }
         else{
             // continue binary approximate agreement from here

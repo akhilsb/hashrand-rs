@@ -1,10 +1,11 @@
 use std::{ time::{SystemTime, UNIX_EPOCH}};
+use num_bigint::BigInt;
 use types::{beacon::{WSSMsg, CoinMsg}, Replica, SyncState, SyncMsg, beacon::Round};
 
-use crate::node::{Context, CTRBCState};
+use crate::node::{HashRand, CTRBCState};
 
-impl Context{
-    pub async fn reconstruct_beacon(self: &mut Context, round:Round,mut coin_number:usize){
+impl HashRand{
+    pub async fn reconstruct_beacon(self: &mut HashRand, round:Round,mut coin_number:usize){
         let now = SystemTime::now();
         let rbc_state = self.round_state.get_mut(&round).unwrap();
         rbc_state.sync_secret_maps().await;
@@ -49,7 +50,7 @@ impl Context{
         }
     }
     
-    pub async fn process_secret_shares(self: &mut Context,wss_msgs:Vec<WSSMsg>,share_sender:Replica, coin_num:usize,round:Round){
+    pub async fn process_secret_shares(self: &mut HashRand,wss_msgs:Vec<WSSMsg>,share_sender:Replica, coin_num:usize,round:Round){
         let now = SystemTime::now();
         log::info!("Received Coin construct message from node {} for coin_num {} for round {} with shares for secrets {:?}",share_sender,coin_num,round,wss_msgs.clone().into_iter().map(|x| x.origin).collect::<Vec<usize>>());
         // if coin_num != 0 && self.recon_round != 20000{
@@ -104,9 +105,9 @@ impl Context{
                         },
                         Some(mut _random)=>{
                             self.self_coin_check_transmit(round, coin_num, _random).await;
-                            if coin_num < self.batch_size - 1 && coin_num != 0{
-                                self.reconstruct_beacon(round,coin_num+1).await;   
-                            }
+                            // if coin_num < self.batch_size - 1 && coin_num != 0{
+                            //     self.reconstruct_beacon(round,coin_num+1).await;   
+                            // }
                             // //log::error!("Leader elected: {:?}",leader);
                             // if coin_num == 0{
                             //     rbc_state.committee_elected = true;
@@ -161,10 +162,34 @@ impl Context{
     pub async fn self_coin_check_transmit(&mut self,round:Round,coin_num:usize,number:Vec<u8>){
         let rbc_state = self.round_state.get_mut(&round).unwrap();
         let recon_secrets_size = rbc_state.recon_secrets.len().clone();
-        
+        let id = rbc_state.alloted_secrets.get(&coin_num).clone();
+        //self.add_cancel_handler(cancel_handler);
+        let convert_u128:u128 = BigInt::from_signed_bytes_be(number.clone().as_slice()).to_string().parse().unwrap();
+        match id {
+            Some(id)=>{
+                if let Err(e) = self.coin_send_channel.send((*id,convert_u128)).await {
+                    log::warn!(
+                        "Failed to beacon {} to the consensus: {}",
+                        id, e
+                    );
+                }
+            },
+            None =>{
+                if coin_num != 0{
+                    let id = ((round/self.frequency)-1)*self.frequency*((self.batch_size as u32)-1) + coin_num as u32;
+                    if let Err(e) = self.coin_send_channel.send((id,convert_u128)).await {
+                        log::warn!(
+                            "Failed to beacon {} to the consensus: {}",
+                            id, e
+                        );
+                    }
+                }
+            }
+        }
         if recon_secrets_size == self.batch_size {
-            log::error!("Terminated all secrets of round {}, eliminating state",round);
             rbc_state._clear();
+            log::error!("Terminated all secrets of round {}, eliminating state",round);
+            self.recon_round = round;
         }
         if coin_num == 0{
             rbc_state.committee_elected = true;
@@ -184,7 +209,6 @@ impl Context{
             }
             // Start next round only after gather has terminated
             let rbc_started_baa = self.round_state.get(&round_baa_fin).unwrap().started_baa;
-            log::error!("Round state fin: {}, started_baa {}",round_baa_fin,rbc_started_baa);
             if rbc_started_baa{
                 self.check_begin_next_round(round_baa_fin).await;
             }

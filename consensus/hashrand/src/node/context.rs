@@ -1,9 +1,9 @@
-use std::{time::{SystemTime, UNIX_EPOCH}};
+use std::{time::{SystemTime, UNIX_EPOCH}, collections::VecDeque};
 
 use anyhow::{Result, Ok,anyhow};
 use network::{plaintcp::{TcpReliableSender, CancelHandler}, Acknowledgement};
 use num_bigint::BigInt;
-use tokio::{sync::{mpsc::UnboundedReceiver, oneshot}};
+use tokio::{sync::{mpsc::{UnboundedReceiver, Sender, Receiver}, oneshot}};
 use types::{beacon::{WrapperMsg, Replica, CoinMsg}, Round, SyncMsg, SyncState};
 use config::Node;
 use fnv::FnvHashMap as HashMap;
@@ -15,7 +15,7 @@ use network::{plaintcp::{TcpReceiver}};
 use tokio::sync::mpsc::unbounded_channel;
 use std::{net::{SocketAddr, SocketAddrV4}};
 
-pub struct Context {
+pub struct HashRand {
     /// Networking context
     pub net_send: TcpReliableSender<Replica,WrapperMsg,Acknowledgement>,
     pub net_recv: UnboundedReceiver<WrapperMsg>,
@@ -39,6 +39,7 @@ pub struct Context {
     pub recon_round:u32,
     pub num_messages:u32,
     pub max_rounds:u32,
+    pub tmp_stop_round:Round,
 
     /// Committee election parameters
     pub committee_size: usize,
@@ -49,7 +50,7 @@ pub struct Context {
     
     pub round_state:HashMap<Round,CTRBCState>,
     pub bench: HashMap<String,u128>,
-    /// Approximate Agreement
+    /// Approximate Agreement Bundled or Binary Approximate Agreement
     pub bin_bun_aa: bool,
     /// Exit protocol
     exit_rx: oneshot::Receiver<()>,
@@ -57,14 +58,22 @@ pub struct Context {
     pub wrapper_msg_queue: HashMap<Round,Vec<WrapperMsg>>,
     /// Cancel Handlers
     pub cancel_handlers: HashMap<Round,Vec<CancelHandler<Acknowledgement>>>,
+    /// External interface for the beacon
+    pub coin_construction: Receiver<Round>,
+    pub coin_send_channel: Sender<(u32,u128)>,
+    pub coin_queue: VecDeque<Round>,
 }
 
-impl Context {
+impl HashRand {
     pub fn spawn(
         config:Node,
         _sleep:u128,
         batch:usize,
-        frequency:Round
+        frequency:Round,
+        // construct coin when there is an element in this queue
+        construct_coin: Receiver<u32>,
+        // beacon_send channel
+        coin_channel: Sender<(u32,u128)>,
     )->anyhow::Result<oneshot::Sender<()>>{
         let prot_payload = &config.prot_payload;
         let v:Vec<&str> = prot_payload.split(',').collect();
@@ -111,7 +120,7 @@ impl Context {
                 let epsilon:u32 = ((1024*1024)/(config.num_nodes*config.num_faults)) as u32;
                 let rounds = (50.0 - ((epsilon as f32).log2().ceil())) as u32;
                 log::error!("Appx consensus rounds: {}",rounds);
-                let mut c = Context {
+                let mut c = HashRand {
                     net_send:consensus_net,
                     net_recv:rx_net_to_consensus,
                     sync_send: sync_net,
@@ -129,6 +138,7 @@ impl Context {
                     recon_round:20000,
                     num_messages:0,
                     max_rounds: 20000,
+                    tmp_stop_round: 200,
                     bin_bun_aa: false,
                     committee_size:4,
                     
@@ -140,6 +150,10 @@ impl Context {
                     cancel_handlers:HashMap::default(),
                     
                     wrapper_msg_queue:HashMap::default(),
+
+                    coin_construction: construct_coin,
+                    coin_send_channel: coin_channel,
+                    coin_queue: VecDeque::default(),
                 };
                 for (id, sk_data) in config.sk_map.clone() {
                     c.sec_key_map.insert(id, sk_data.clone());
@@ -212,6 +226,14 @@ impl Context {
                         anyhow!("Networking layer has closed")
                     )?;
                     self.process_msg( msg).await;
+                },
+                coin_recon = self.coin_construction.recv() => {
+                    log::error!("Got request to reconstruct coin: {:?}", coin_recon);
+                    let round = coin_recon.ok_or_else(||
+                        anyhow!("Networking layer has closed")
+                    )?;
+                    self.manage_beacon_request(true, round, false).await;
+                    //self.reconstruct_beacon( msg,self.recon_round).await;
                 },
                 sync_msg = self.sync_recv.recv() =>{
                     let sync_msg = sync_msg.ok_or_else(||
