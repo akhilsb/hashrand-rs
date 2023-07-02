@@ -1,6 +1,6 @@
 use std::{ time::{SystemTime, UNIX_EPOCH}};
 use num_bigint::BigInt;
-use types::{beacon::{WSSMsg, CoinMsg}, Replica, SyncState, SyncMsg, beacon::Round};
+use types::{beacon::{WSSMsg, CoinMsg}, Replica, beacon::Round};
 
 use crate::node::{HashRand, CTRBCState};
 
@@ -227,7 +227,7 @@ impl HashRand{
                 log::info!("Number of messages passed between nodes: {}",self.num_messages);
             }
         }
-        let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::BeaconRecon(round, self.myid, coin_num, number), value:0}).await;
-        self.add_cancel_handler(cancel_handler);
+        // let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::BeaconRecon(round, self.myid, coin_num, number), value:0}).await;
+        // self.add_cancel_handler(cancel_handler);
     }
 }

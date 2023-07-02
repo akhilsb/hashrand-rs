@@ -4,11 +4,11 @@ use anyhow::{Result, Ok,anyhow};
 use network::{plaintcp::{TcpReliableSender, CancelHandler}, Acknowledgement};
 use num_bigint::BigInt;
 use tokio::{sync::{mpsc::{UnboundedReceiver, Sender, Receiver}, oneshot}};
-use types::{beacon::{WrapperMsg, Replica, CoinMsg}, Round, SyncMsg, SyncState};
+use types::{beacon::{WrapperMsg, Replica, CoinMsg}, Round};
 use config::Node;
 use fnv::FnvHashMap as HashMap;
 
-use super::{Handler, SyncHandler, CTRBCState};
+use super::{Handler, CTRBCState};
 
 use fnv::FnvHashMap;
 use network::{plaintcp::{TcpReceiver}};
@@ -19,8 +19,8 @@ pub struct HashRand {
     /// Networking context
     pub net_send: TcpReliableSender<Replica,WrapperMsg,Acknowledgement>,
     pub net_recv: UnboundedReceiver<WrapperMsg>,
-    pub sync_send:TcpReliableSender<Replica,SyncMsg,Acknowledgement>,
-    pub sync_recv: UnboundedReceiver<SyncMsg>,
+    //pub sync_send:TcpReliableSender<Replica,SyncMsg,Acknowledgement>,
+    //pub sync_recv: UnboundedReceiver<SyncMsg>,
     /// Data context
     pub num_nodes: usize,
     pub myid: usize,
@@ -99,19 +99,19 @@ impl HashRand {
             my_address,
             Handler::new(tx_net_to_consensus),
         );
-        let syncer_listen_port = config.client_port;
-        let syncer_l_address = to_socket_address("0.0.0.0", syncer_listen_port);
-        // The server must listen to the client's messages on some port that is not being used to listen to other servers
-        let (tx_net_to_client,rx_net_from_client) = unbounded_channel();
-        TcpReceiver::<Acknowledgement,SyncMsg,_>::spawn(
-            syncer_l_address, 
-            SyncHandler::new(tx_net_to_client)
-        );
+        // let syncer_listen_port = config.client_port;
+        // let syncer_l_address = to_socket_address("0.0.0.0", syncer_listen_port);
+        // // The server must listen to the client's messages on some port that is not being used to listen to other servers
+        // let (tx_net_to_client,rx_net_from_client) = unbounded_channel();
+        // TcpReceiver::<Acknowledgement,SyncMsg,_>::spawn(
+        //     syncer_l_address, 
+        //     SyncHandler::new(tx_net_to_client)
+        // );
         let consensus_net = TcpReliableSender::<Replica,WrapperMsg,Acknowledgement>::with_peers(
             consensus_addrs.clone()
         );
         
-        let sync_net = TcpReliableSender::<Replica,SyncMsg,Acknowledgement>::with_peers(syncer_map);
+        //let sync_net = TcpReliableSender::<Replica,SyncMsg,Acknowledgement>::with_peers(syncer_map);
         if v[0] == "cc" {
             let (exit_tx, exit_rx) = oneshot::channel();
             tokio::spawn(async move {
@@ -123,8 +123,6 @@ impl HashRand {
                 let mut c = HashRand {
                     net_send:consensus_net,
                     net_recv:rx_net_to_consensus,
-                    sync_send: sync_net,
-                    sync_recv: rx_net_from_client,
                     num_nodes: config.num_nodes,
                     sec_key_map: HashMap::default(),
                     myid: config.id,
@@ -206,11 +204,11 @@ impl HashRand {
     }
 
     pub async fn run(&mut self)-> Result<()>{
-        let cancel_handler = self.sync_send.send(
-        0,
-            SyncMsg { sender: self.myid, state: SyncState::ALIVE,value:0}
-        ).await;
-        self.add_cancel_handler(cancel_handler);
+        // let cancel_handler = self.sync_send.send(
+        // 0,
+        //     SyncMsg { sender: self.myid, state: SyncState::ALIVE,value:0}
+        // ).await;
+        // self.add_cancel_handler(cancel_handler);
         loop {
             tokio::select! {
                 // Receive exit handlers
@@ -232,41 +230,52 @@ impl HashRand {
                     let round = coin_recon.ok_or_else(||
                         anyhow!("Networking layer has closed")
                     )?;
-                    self.manage_beacon_request(true, round, false).await;
+                    if round == 0{
+                        log::error!("Consensus Start time: {:?}", SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis());
+                        self.start_new_round(20000,Vec::new()).await;
+                        // let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::STARTED, value:0}).await;
+                        // self.add_cancel_handler(cancel_handler);
+                    }
+                    else{
+                        self.manage_beacon_request(true, round, false).await;
+                    }
                     //self.reconstruct_beacon( msg,self.recon_round).await;
                 },
-                sync_msg = self.sync_recv.recv() =>{
-                    let sync_msg = sync_msg.ok_or_else(||
-                        anyhow!("Networking layer has closed")
-                    )?;
-                    match sync_msg.state {
-                        SyncState::START =>{
-                            log::error!("Consensus Start time: {:?}", SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis());
-                            self.start_new_round(20000,Vec::new()).await;
-                            let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::STARTED, value:0}).await;
-                            self.add_cancel_handler(cancel_handler);
-                        },
-                        SyncState::StartRecon =>{
-                            log::error!("Reconstruction Start time: {:?}", SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis());
-                            self.reconstruct_beacon(0,0).await;
-                        },
-                        SyncState::STOP =>{
-                            log::error!("Consensus Stop time: {:?}", SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis());
-                            log::info!("Termination signal received by the server. Exiting.");
-                            break
-                        },
-                        _=>{}
-                    }
-                },
+                // sync_msg = self.sync_recv.recv() =>{
+                //     let sync_msg = sync_msg.ok_or_else(||
+                //         anyhow!("Networking layer has closed")
+                //     )?;
+                //     match sync_msg.state {
+                //         SyncState::START =>{
+                //             log::error!("Consensus Start time: {:?}", SystemTime::now()
+                //                 .duration_since(UNIX_EPOCH)
+                //                 .unwrap()
+                //                 .as_millis());
+                //             self.start_new_round(20000,Vec::new()).await;
+                //             let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::STARTED, value:0}).await;
+                //             self.add_cancel_handler(cancel_handler);
+                //         },
+                //         SyncState::StartRecon =>{
+                //             log::error!("Reconstruction Start time: {:?}", SystemTime::now()
+                //                 .duration_since(UNIX_EPOCH)
+                //                 .unwrap()
+                //                 .as_millis());
+                //             self.reconstruct_beacon(0,0).await;
+                //         },
+                //         SyncState::STOP =>{
+                //             log::error!("Consensus Stop time: {:?}", SystemTime::now()
+                //                 .duration_since(UNIX_EPOCH)
+                //                 .unwrap()
+                //                 .as_millis());
+                //             log::info!("Termination signal received by the server. Exiting.");
+                //             break
+                //         },
+                //         _=>{}
+                //     }
+                // },
                 // b_opt = self.invoke_coin.next(), if !self.invoke_coin.is_empty() => {
                 //     // Got something from the timer
                 //     match b_opt {

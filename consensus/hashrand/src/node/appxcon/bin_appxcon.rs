@@ -2,7 +2,7 @@ use std::{time::{SystemTime}, collections::HashMap};
 
 use async_recursion::async_recursion;
 use num_bigint::BigInt;
-use types::{beacon::{ CoinMsg, Round}, Replica, SyncMsg, SyncState};
+use types::{beacon::{ CoinMsg, Round}, Replica};
 
 use crate::node::{HashRand, CTRBCState, appxcon::RoundState};
 
@@ -181,8 +181,8 @@ impl HashRand{
             }
             log::error!("Terminated beacon for round {} with committee {:?} and appxcon_vals: {:?}, term_secrets {:?}, comm_vector {:?}", round_begin-1,rbc_state.committee,rbc_state.appx_con_term_vals,rbc_state.terminated_secrets,rbc_state.comm_vectors.keys());
             log::info!("Terminated round {}, sending message to syncer",(round_begin-1).clone());
-            let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::BeaconFin(round_begin-1, self.myid), value:0}).await;
-            self.add_cancel_handler(cancel_handler);
+            //let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::BeaconFin(round_begin-1, self.myid), value:0}).await;
+            //self.add_cancel_handler(cancel_handler);
             // Start reconstruction
             if call_flag{
                 self.manage_beacon_request(false, 0, true).await;

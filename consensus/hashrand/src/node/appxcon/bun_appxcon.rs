@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use async_recursion::async_recursion;
 use num_bigint::{BigInt};
 use num_traits::pow;
-use types::{Round, beacon::{Replica, Val}, SyncState, SyncMsg};
+use types::{Round, beacon::{Replica, Val}};
 
 use crate::node::HashRand;
 
@@ -105,8 +105,8 @@ impl HashRand{
                 }
                 rbc_iter_state.sync_secret_maps().await;
                 log::info!("Terminated round {}, sending message to syncer",term_round.clone());
-                let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::BeaconFin(term_round, self.myid), value:0}).await;
-                self.add_cancel_handler(cancel_handler);
+                //let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::BeaconFin(term_round, self.myid), value:0}).await;
+                //self.add_cancel_handler(cancel_handler);
                 // Start reconstruction
                 // Set aside first coin for committee election
                 //self.reconstruct_beacon(term_round, 1).await;
