@@ -185,7 +185,7 @@ impl CTRBCState{
 
     pub fn validate_secret_share(&mut self, wss_msg:WSSMsg, coin_number: usize)-> bool{
         // first validate Merkle proof
-        log::info!("Validating secret, comm_vector: {:?} terminated RBCs: {:?}",self.comm_vectors.keys(),self.terminated_secrets);
+        log::debug!("Validating secret, comm_vector: {:?} terminated RBCs: {:?}",self.comm_vectors.keys(),self.terminated_secrets);
         if !(self.comm_vectors.contains_key(&wss_msg.origin)){
             return false;
         }
@@ -264,7 +264,7 @@ impl CTRBCState{
                     return None;
                 }
                 Some(_vec)=>{
-                    log::info!("Successfully reconstructed message for Batch WSS, checking validity of root for secret {}",sec_origin);
+                    log::debug!("Successfully reconstructed message for Batch WSS, checking validity of root for secret {}",sec_origin);
                     self.terminated_secrets.insert(sec_origin);
                     // Initiate next phase of the protocol here
                     return res_root;
@@ -277,16 +277,16 @@ impl CTRBCState{
     pub async fn reconstruct_secret(&mut self,coin_number:usize, wss_msg: WSSMsg, _num_nodes: usize, num_faults:usize)-> Option<BigInt>{
         let sec_origin = wss_msg.origin;
         if coin_number == 0{
-            log::info!("Coin number: {}, secret shares: {:?}",0,self.secret_shares.get(&0).unwrap());
+            log::debug!("Coin number: {}, secret shares: {:?}",0,self.secret_shares.get(&0).unwrap());
         }
         let sec_map = self.secret_shares.get_mut(&coin_number).unwrap().get_mut(&wss_msg.origin).unwrap();
         if coin_number == 0{
-            log::info!("Sec map: {:?}",sec_map.clone());
+            log::debug!("Sec map: {:?}",sec_map.clone());
         }
         let already_constructed = self.reconstructed_secrets.contains_key(&coin_number) && self.reconstructed_secrets.get(&coin_number).unwrap().contains_key(&sec_origin);
         if sec_map.len() >= num_faults+1 && !already_constructed{
             // on having t+1 secret shares, try reconstructing the original secret
-            log::info!("Received t+1 shares for secret instantiated by {}, reconstructing secret for coin_num {}",wss_msg.origin,coin_number);
+            log::debug!("Received t+1 shares for secret instantiated by {}, reconstructing secret for coin_num {}",wss_msg.origin,coin_number);
             let mut secret_shares:Vec<(Replica,BigInt)> = 
                 sec_map.clone().into_iter()
                 .map(|(rep,wss_msg)| 
@@ -391,13 +391,13 @@ impl CTRBCState{
     }
 
     pub async fn coin_check(&mut self, round: Round,coin_number: usize, num_nodes: usize)->Option<Vec<u8>>{
-        log::info!("Coin check for round {} coin {}, keys appxcon: {:?}, contrib_map: {:?}",round,coin_number,self.appx_con_term_vals,self.contribution_map);
+        log::debug!("Coin check for round {} coin {}, keys appxcon: {:?}, contrib_map: {:?}",round,coin_number,self.appx_con_term_vals,self.contribution_map);
         if self.contribution_map.contains_key(&coin_number) && self.appx_con_term_vals.len() == self.contribution_map.get(&coin_number).unwrap().len(){
             let mut sum_vars = BigInt::from(0i32);
-            log::info!("Reconstruction for round {} and coin {}",round,coin_number);
+            log::debug!("Reconstruction for round {} and coin {}",round,coin_number);
             for (_rep,sec_contrib) in self.contribution_map.get(&coin_number).unwrap().clone().into_iter(){
                 sum_vars = sum_vars + sec_contrib.clone();
-                log::info!("Node's secret contribution: {}, node {}",sec_contrib.to_string(),_rep);
+                log::debug!("Node's secret contribution: {}, node {}",sec_contrib.to_string(),_rep);
             }
             let rand_fin = sum_vars.clone() % self.secret_domain.clone();
             let _mod_number = self.secret_domain.clone()/(num_nodes);

@@ -52,7 +52,7 @@ impl HashRand{
     
     pub async fn process_secret_shares(self: &mut HashRand,wss_msgs:Vec<WSSMsg>,share_sender:Replica, coin_num:usize,round:Round){
         let now = SystemTime::now();
-        log::info!("Received Coin construct message from node {} for coin_num {} for round {} with shares for secrets {:?}",share_sender,coin_num,round,wss_msgs.clone().into_iter().map(|x| x.origin).collect::<Vec<usize>>());
+        log::debug!("Received Coin construct message from node {} for coin_num {} for round {} with shares for secrets {:?}",share_sender,coin_num,round,wss_msgs.clone().into_iter().map(|x| x.origin).collect::<Vec<usize>>());
         // if coin_num != 0 && self.recon_round != 20000{
         //     log::info!("Reconstruction done already,skipping secret share");
         //     return;
@@ -167,6 +167,7 @@ impl HashRand{
         let convert_u128:u128 = BigInt::from_signed_bytes_be(number.clone().as_slice()).to_string().parse().unwrap();
         match id {
             Some(id)=>{
+                log::info!("Sending beacon {:?} to consensus",(*id,convert_u128));
                 if let Err(e) = self.coin_send_channel.send((*id,convert_u128)).await {
                     log::warn!(
                         "Failed to beacon {} to the consensus: {}",
@@ -176,7 +177,8 @@ impl HashRand{
             },
             None =>{
                 if coin_num != 0{
-                    let id = ((round/self.frequency)-1)*self.frequency*((self.batch_size as u32)-1) + coin_num as u32;
+                    let id = ((round/self.frequency)-1)*((self.batch_size as u32)-1) + (coin_num+2) as u32;
+                    log::info!("Sending beacon {:?} to consensus",(id,convert_u128));
                     if let Err(e) = self.coin_send_channel.send((id,convert_u128)).await {
                         log::warn!(
                             "Failed to beacon {} to the consensus: {}",
