@@ -18,4 +18,6 @@ members = [
     "consensus/hash_cc",
     "consensus/hash_cc_baa",
     "consensus/pedavss_cc",
+    "consensus/glow_dvrf",
+    "consensus/glow_lib"
 ]

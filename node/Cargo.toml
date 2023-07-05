@@ -15,6 +15,8 @@ hash_cc = {package = "hash_cc",path="../consensus/hash_cc"}
 hash_cc_baa = {package = "hash_cc_baa",path="../consensus/hash_cc_baa"}
 pedavss_cc = {package = "pedavss_cc",path="../consensus/pedavss_cc"}
 hashrand = {package="hashrand",path="../consensus/hashrand"}
+glow = {package="glow_dvrf",path="../consensus/glow_dvrf"}
+glow_lib = {package="glow_lib",path="../consensus/glow_lib"}
 consensus = { package = "consensus", path="../consensus"}
 util = { package = "util", path="../util"}
 anyhow = "1"

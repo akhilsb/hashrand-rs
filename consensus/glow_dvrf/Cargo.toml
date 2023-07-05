@@ -1,0 +1,68 @@
+[package]
+name = "glow_dvrf"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+consensus = { package = "consensus", path="../"}
+crypto = { package="crypto" , path = "../../crypto"}
+types = { package = "types", path="../../types"}
+sha2="0.9.2"
+config = { package = "config", path="../../config"}
+tokio = { version = "1.0", features = ["full"] }
+futures = "^0.3"
+bincode = "1"
+bytes = "1.0"
+tokio-util = "0.6"
+tokio-stream = "0.1"
+serde = "1.0.70"
+log="*"
+priority-queue="1"
+fnv = "1"
+async-recursion = "1.0.0"
+serde_derive = "1.0"
+zeroize = "1"
+rand = "0.7.3"
+pairing-plus = "0.19"
+ff-zeroize = "0.6.3"
+round-based = { version = "0.1.0", features = [] }
+thiserror = "1.0.23"
+anyhow = "1"
+async-trait = "0"
+futures-util = "0"
+network = { package = "network", git = "https://github.com/libdist-rs/libnet-rs.git" }
+#bls = {package = "bls", git = "https://github.com/ZenGo-X/multi-party-bls.git"}
+nohash-hasher = "0.2.0"
+tonic = "0.4"
+prost = "0.7"
+async-stream = "0.3.0"
+tracing = "0.1.22"
+tracing-subscriber = "0.2.15"
+serde_json = "1.0"
+structopt = "0.3.21"
+hex = "0.4.2"
+
+[dependencies.curv]
+git = "https://github.com/ZenGo-X/curv"
+tag = "v0.6.2"
+default-features = false
+
+[dev-dependencies]
+criterion = "0.3.3"
+bls_sigs_ref = "0.3.0"
+sha2 = "0.8.0"
+round-based = { version = "0.1.0", features = ["dev"] }
+
+
+[build-dependencies]
+tonic-build = "0.4.2"
+
+[lib]
+crate-type = ["lib"]
+
+[features]
+default = ["curv/rust-gmp-kzen"]
+# Internally used feature for testing purposes. You normally don't want to use it.
+dev = []

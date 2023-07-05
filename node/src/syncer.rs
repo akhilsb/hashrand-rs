@@ -183,7 +183,6 @@ impl Syncer{
                         },
                         SyncState::BeaconRecon(round,sender,index,secret)=>{
                             let big_int_sec = BigInt::from_signed_bytes_be(secret.as_slice());
-                            //log::error!("Node {} completed the Beacon recon of the protocol for round {} and index {} with secret {:?}",sender,round,index,big_int_sec);
                             if !self.beacon_recon_fin.contains_key(&round){
                                 let mut val_map:HashMap<usize, HashMap<Replica,(u128,BigInt)>> = HashMap::default();
                                 let mut rep_sec_map = HashMap::default();
@@ -230,7 +229,7 @@ impl Syncer{
                                     beacons_count +=1;
                                 }
                                 //vec_times.sort();
-                                //log::error!("All n nodes completed reconstruction for round {:?} and index {} with {:?}",round,index,vec_times);
+                                log::error!("All n nodes completed reconstruction for round {:?} and index {} with {:?}",round,index,vec_times);
                                 //self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
                             }
                             let current_time = SystemTime::now()

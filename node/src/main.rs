@@ -38,8 +38,8 @@ async fn main() -> Result<()> {
         .expect("Unable to parse syncer ip file");
     let frequency = m.value_of("frequency")
         .expect("Unable to parse frequency").parse::<u32>().unwrap();
-    let conf_file = std::path::Path::new(conf_str);
-    let str = String::from(conf_str);
+    let conf_file = std::path::Path::new(conf_str.clone());
+    let str = String::from(conf_str.clone());
     let mut config = match conf_file
         .extension()
         .expect("Unable to get file extension")
@@ -84,6 +84,49 @@ async fn main() -> Result<()> {
         },
         "bea" => {
             exit_tx = beacon::node::Context::spawn(config,sleep,batch,frequency).unwrap();
+        },
+        "glow" => {
+            let mut arr_strsplit:Vec<&str> = conf_str.split("/").collect();
+            let id_str = ((config.id +1)).to_string();
+            let key_str = "key".to_string();
+            let concat_str = key_str + &id_str;
+            let _last_elem = arr_strsplit.pop();
+            arr_strsplit.push(concat_str.as_str());
+            exit_tx = glow::node::GlowDVRF::spawn(config, arr_strsplit.join("/").as_str()).unwrap();
+        },
+        "glowlib" => {
+            let mut arr_strsplit:Vec<&str> = conf_str.split("/").collect();
+            let id_str = ((config.id +1)).to_string();
+            let key_str = "key".to_string();
+            let concat_str = key_str + &id_str;
+            let _last_elem = arr_strsplit.pop();
+            arr_strsplit.push(concat_str.as_str());
+            let (coin_construct,coin_const_recv) = channel(1000);
+            let (coin_send, mut coin_recv) = channel(1000);
+            exit_tx = glow_lib::node::GlowLib::spawn(config, arr_strsplit.join("/").as_str(),coin_const_recv,coin_send).unwrap();
+            for i in 0..2000{
+                if let Err(e) = coin_construct.send(i).await {
+                    log::warn!(
+                        "Failed to beacon request {} to the consensus {}",
+                        i,e
+                    );
+                }
+            }
+            let mut j = 0;
+            loop {
+                tokio::select! {
+                    msg = coin_recv.recv() =>{
+                        let msg = msg.ok_or_else(||
+                            anyhow!("Networking layer has closed")
+                        )?;
+                        log::error!("Received {:?} from beacon GlowLib",msg);
+                        j+=1;
+                        if j > 1990{
+                            break;
+                        }
+                    }
+                }
+            }
         },
         "hrnd" => {
             let (coin_construct,coin_const_recv) = channel(1000);

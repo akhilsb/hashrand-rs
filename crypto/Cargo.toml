@@ -20,8 +20,8 @@ lazy_static = "1"
 zeroize = "1"
 ring = { version = "0.16", features = ["alloc", "std"], default-features = false }
 
-[dependencies.ed25519-dalek]
-version = "1"
+#[dependencies.ed25519-dalek]
+#version = "1"
 # features = ["serde"]
 # util = {package = "util", path = "../util"}
 
