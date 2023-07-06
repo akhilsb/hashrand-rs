@@ -1,3 +1,6 @@
 [submodule "vsss-rs"]
 	path = vsss-rs
 	url = git@github.com:akhilsb/vsss-rs.git
+[submodule "bls/bls-eth-rust"]
+	path = bls/bls-eth-rust
+	url = https://github.com/herumi/bls-eth-rust
