@@ -197,7 +197,7 @@ impl Context{
             let prot_msg = CoinMsg::BinaryAAEcho(vec_newround_vals.clone(), self.myid, round+1);
             self.broadcast(prot_msg.clone(),round+1).await;
             self.process_baa_echo(vec_newround_vals, self.myid, round+1).await;
-            self.increment_round().await;
+            self.increment_round(round).await;
             log::error!("Started round {} with Binary AA",round+1);
         }
     }

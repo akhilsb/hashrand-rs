@@ -121,6 +121,7 @@ pub struct BatchWSSMsg{
     pub origin: Replica,
     pub commitments: Vec<(Val,Hash)>,
     pub mps: Vec<MerkleProof>,
+    pub empty: bool
 }
 
 impl BatchWSSMsg {
@@ -130,6 +131,16 @@ impl BatchWSSMsg {
             origin:origin,
             commitments:commitments,
             mps:mps,
+            empty:false
+        }
+    }
+    pub fn empty()->BatchWSSMsg{
+        BatchWSSMsg{
+            secrets:Vec::new(),
+            origin:0,
+            commitments:Vec::new(),
+            mps:Vec::new(),
+            empty:false
         }
     }
 }

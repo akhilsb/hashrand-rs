@@ -103,20 +103,26 @@ impl Context{
         }
     }
 
-    pub(crate) async fn increment_round(&mut self){
-        let new_round = self.curr_round.clone()+1;
-        self.curr_round = new_round;
-        if self.wrapper_msg_queue.contains_key(&new_round){
-            let queued_msgs = self.wrapper_msg_queue.get(&new_round).unwrap().clone();
-            for wrapper_msg in queued_msgs.into_iter(){
-                self.choose_fn(wrapper_msg).await;
-            }
+    pub(crate) async fn increment_round(&mut self,round:u32){
+        if round>=self.curr_round{
+            self.curr_round = round+1;
         }
-        if self.wrapper_msg_queue.contains_key(&30000){
-            let queued_msgs = self.wrapper_msg_queue.get(&30000).unwrap().clone();
-            for wrapper_msg in queued_msgs.into_iter(){
-                self.choose_fn(wrapper_msg).await;
-            }
+        else{
+            return;
         }
+        // let new_round = self.curr_round.clone()+1;
+        // self.curr_round = new_round;
+        // if self.wrapper_msg_queue.contains_key(&new_round){
+        //     let queued_msgs = self.wrapper_msg_queue.get(&new_round).unwrap().clone();
+        //     for wrapper_msg in queued_msgs.into_iter(){
+        //         self.choose_fn(wrapper_msg).await;
+        //     }
+        // }
+        // if self.wrapper_msg_queue.contains_key(&30000){
+        //     let queued_msgs = self.wrapper_msg_queue.get(&30000).unwrap().clone();
+        //     for wrapper_msg in queued_msgs.into_iter(){
+        //         self.choose_fn(wrapper_msg).await;
+        //     }
+        // }
     }
 }

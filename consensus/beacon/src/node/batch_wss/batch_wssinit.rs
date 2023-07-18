@@ -133,7 +133,7 @@ impl Context{
             }
         }
         if new_round > 0{
-            self.increment_round().await;
+            self.increment_round(round).await;
         }
         self.add_benchmark(String::from("start_batchwss"), now.elapsed().unwrap().as_nanos());
     }

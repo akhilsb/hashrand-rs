@@ -372,8 +372,8 @@ class Bench:
                 delta,
                 exp_vals[0],
                 tri,
-                500,
-                10,
+                400,
+                5,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)
@@ -454,8 +454,8 @@ class Bench:
                     local=PathMaker.syncer_log_file()
                 )
             c.get(
-                PathMaker.client_log_file(i, 0), 
-                local=PathMaker.client_log_file(i, 0)
+               PathMaker.client_log_file(i, 0), 
+               local=PathMaker.client_log_file(i, 0)
             )
             # c.get(
             #     PathMaker.worker_log_file(i, id),     
