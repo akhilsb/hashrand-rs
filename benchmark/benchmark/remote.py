@@ -62,6 +62,7 @@ class Bench:
             # The following dependencies prevent the error: [error: linker `cc` not found].
             'sudo apt-get -y install build-essential',
             'sudo apt-get -y install cmake',
+            'sudo apt-get -y install libgmp-dev',
 
             # Install rust (non-interactive).
             'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
@@ -371,8 +372,8 @@ class Bench:
                 delta,
                 exp_vals[0],
                 tri,
-                200,
-                5,
+                500,
+                10,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)
