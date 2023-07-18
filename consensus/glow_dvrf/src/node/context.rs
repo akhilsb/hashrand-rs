@@ -1,13 +1,16 @@
-use std::{net::{SocketAddr, SocketAddrV4}, collections::HashMap, time::{UNIX_EPOCH, SystemTime}, path::PathBuf};
+use std::{net::{SocketAddr, SocketAddrV4}, collections::HashMap, time::{UNIX_EPOCH, SystemTime}};
+use std::{fs::File, io::{Read}};
 
-use anyhow::{Result, anyhow, Context};
+use anyhow::{Result, anyhow};
 use config::Node;
+use crypto_blstrs::threshold_sig::{BlstrsSecretKey, BlstrsPublicKey, Partial, PartialBlstrsSignature};
 use fnv::FnvHashMap;
 use network::{plaintcp::{TcpReliableSender, TcpReceiver, CancelHandler}, Acknowledgement};
+//use tbls::{poly::Poly, curve::bls12377::{G1, Scalar}, sig::Share};
 use tokio::sync::{mpsc::{UnboundedReceiver, unbounded_channel}, oneshot};
 use types::{beacon::{Replica}, SyncMsg, Round, SyncState};
 
-use super::{Handler, SyncHandler, state_machine::{sign::{Sign, ProtocolMessage}, keygen::LocalKey}, WrapperMsg};
+use super::{Handler, SyncHandler, state_machine::{sign::{Sign, ProtocolMessage}}, WrapperMsg};
 
 pub struct GlowDVRF{
     pub net_send: TcpReliableSender<Replica,WrapperMsg,Acknowledgement>,
@@ -26,7 +29,12 @@ pub struct GlowDVRF{
     pub curr_round: u32,
 
     pub state: HashMap<Round,Sign>,
-    pub secret: LocalKey,
+    pub thresh_state: HashMap<Round,Vec<PartialBlstrsSignature>>,
+    //pub secret: LocalKey,
+    /// Threshold setup parameters
+    pub tpub_key: BlstrsPublicKey,
+    pub tpubkey_share: HashMap<u16,Partial<BlstrsPublicKey>>,
+    pub secret_key: Partial<BlstrsSecretKey>,
     pub sign_msg: String,
     /// Exit protocol
     exit_rx: oneshot::Receiver<()>,
@@ -35,7 +43,10 @@ pub struct GlowDVRF{
 impl GlowDVRF {
     pub fn spawn(
         config:Node,
-        secret_loc:&str
+        secret_loc:&str,
+        pkey_vec: Vec<String>,
+        tpub_poly: &str,
+        thresh_pub: &str
     )->anyhow::Result<oneshot::Sender<()>>{
         let mut consensus_addrs :FnvHashMap<Replica,SocketAddr>= FnvHashMap::default();
         for (replica,address) in config.net_map.iter(){
@@ -75,11 +86,46 @@ impl GlowDVRF {
         let (exit_tx, exit_rx) = oneshot::channel();
 
         // Secret key
-        let secret_key:PathBuf = PathBuf::from(secret_loc.clone());
-        log::info!("Secret key file path {}",secret_loc.clone());
-        let secret:Vec<u8> = std::fs::read(secret_key)
-        .context("read file with local secret key")?;
-        let secret = serde_json::from_slice(&secret).context("deserialize local secret key")?;
+        //let secret_key:PathBuf = PathBuf::from(secret_loc.clone());
+        log::info!("Secret key file path {} {:?} {} {}",secret_loc.clone(),pkey_vec.clone(),tpub_poly.clone(),thresh_pub.clone());
+        //let secret:Vec<u8> = std::fs::read(secret_key)
+        //.context("read file with local secret key")?;
+        //let secret = serde_json::from_slice(&secret).context("deserialize local secret key")?;
+
+        let mut pubkey_poly_buffer = Vec::new();
+        File::open(thresh_pub)
+                    .expect("Unable to open polypub file")
+                    .read_to_end(&mut pubkey_poly_buffer)
+                    .expect("Unable to read polydata");
+        let publickey_vec = pkey_vec.into_iter().map(|pkey_loc| {
+            let mut thresh_pubkey_buffer = Vec::new();
+            File::open(pkey_loc.as_str())
+                        .expect("Unable to open polypub file")
+                        .read_to_end(&mut thresh_pubkey_buffer)
+                        .expect("Unable to read polydata");
+            let thresh_pubkey:BlstrsPublicKey = bincode::deserialize(thresh_pubkey_buffer.as_slice()).expect("Unable to deserialize pubkey data");
+            thresh_pubkey
+        }).collect::<Vec<_>>();
+        let mut pkey_map = HashMap::default();
+        let mut i:u16 = 1;
+        for pkey in publickey_vec.into_iter(){
+            pkey_map.insert(i, Partial{
+                idx: i as usize,
+                data:pkey
+            });
+            i+=1;
+        }
+        let mut secret_key_buffer = Vec::new();
+        File::open(secret_loc)
+                    .expect("Unable to open threshold secret key")
+                    .read_to_end(&mut secret_key_buffer)
+                    .expect("Unable to read threshold secret key");
+        let pubkey_poly:BlstrsPublicKey = bincode::deserialize(pubkey_poly_buffer.as_slice()).expect("Unable to deserialize pubkey poly data");
+        let secret_key:BlstrsSecretKey = bincode::deserialize(secret_key_buffer.as_slice()).expect("Unable to deserialize threshold secret key");
+        let secret_share:Partial<BlstrsSecretKey> = Partial { 
+            idx: config.id+1, 
+            data: secret_key 
+        };
         tokio::spawn(async move {
             // The modulus of the secret is set for probability of coin success = 1- 5*10^{-9}
             let mut c = GlowDVRF {
@@ -95,8 +141,13 @@ impl GlowDVRF {
                 curr_round: 0,
                 exit_rx:exit_rx,
                 state:HashMap::default(),
-                secret:secret,
+                //secret:secret,
                 sign_msg: "beacon".to_string(),
+
+                thresh_state: HashMap::default(),
+                tpub_key:pubkey_poly,
+                tpubkey_share:pkey_map,
+                secret_key:secret_share
             };
             for (id, sk_data) in config.sk_map.clone() {
                 c.sec_key_map.insert(id.try_into().unwrap(), sk_data.clone());
@@ -114,6 +165,19 @@ impl GlowDVRF {
         for (replica,sec_key) in sec_key_map.into_iter() {
             if replica != self.myid{
                 let wrapper_msg = WrapperMsg::new(protmsg.clone(), self.myid, &sec_key.as_slice(),round);
+                let cancel_handler:CancelHandler<Acknowledgement> = self.net_send.send(replica as usize, wrapper_msg).await;
+                self.add_cancel_handler(cancel_handler);
+                // let sent_msg = Arc::new(wrapper_msg);
+                // self.c_send(replica, sent_msg).await;
+            }
+        }
+    }
+
+    pub async fn broadcast_tsig(&mut self, data:Vec<u8>,round:Round){
+        let sec_key_map = self.sec_key_map.clone();
+        for (replica,sec_key) in sec_key_map.into_iter() {
+            if replica != self.myid{
+                let wrapper_msg = WrapperMsg::new_with_data( self.myid, &sec_key.as_slice(),round,data.clone());
                 let cancel_handler:CancelHandler<Acknowledgement> = self.net_send.send(replica as usize, wrapper_msg).await;
                 self.add_cancel_handler(cancel_handler);
                 // let sent_msg = Arc::new(wrapper_msg);
@@ -163,7 +227,7 @@ impl GlowDVRF {
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
                                 .as_millis());
-                            self.start_round(0).await;
+                            self.start_round_agg(0).await;
                             let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid as usize, state: SyncState::STARTED, value:0}).await;
                             self.add_cancel_handler(cancel_handler);
                         },

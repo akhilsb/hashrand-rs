@@ -5,6 +5,7 @@ members = [
     "types",
     "config",
     "crypto",
+    "crypto_blstrs",
     "tools/genconfig",
     "consensus",
     # "comm", (WIP: Do not enable unless testing)
@@ -19,5 +20,5 @@ members = [
     "consensus/hash_cc_baa",
     "consensus/pedavss_cc",
     "consensus/glow_dvrf",
-    "consensus/glow_lib"
+    "consensus/glow_lib",
 ]
