@@ -32,7 +32,6 @@ pub struct GlowDVRF{
     pub thresh_state: HashMap<Round,Vec<PartialBlstrsSignature>>,
     //pub secret: LocalKey,
     /// Threshold setup parameters
-    pub tpub_key: BlstrsPublicKey,
     pub tpubkey_share: HashMap<u16,Partial<BlstrsPublicKey>>,
     pub secret_key: Partial<BlstrsSecretKey>,
     pub sign_msg: String,
@@ -45,8 +44,6 @@ impl GlowDVRF {
         config:Node,
         secret_loc:&str,
         pkey_vec: Vec<String>,
-        tpub_poly: &str,
-        thresh_pub: &str
     )->anyhow::Result<oneshot::Sender<()>>{
         let mut consensus_addrs :FnvHashMap<Replica,SocketAddr>= FnvHashMap::default();
         for (replica,address) in config.net_map.iter(){
@@ -87,16 +84,16 @@ impl GlowDVRF {
 
         // Secret key
         //let secret_key:PathBuf = PathBuf::from(secret_loc.clone());
-        log::info!("Secret key file path {} {:?} {} {}",secret_loc.clone(),pkey_vec.clone(),tpub_poly.clone(),thresh_pub.clone());
+        log::info!("Secret key file path {} {:?}",secret_loc.clone(),pkey_vec.clone());
         //let secret:Vec<u8> = std::fs::read(secret_key)
         //.context("read file with local secret key")?;
         //let secret = serde_json::from_slice(&secret).context("deserialize local secret key")?;
 
-        let mut pubkey_poly_buffer = Vec::new();
-        File::open(thresh_pub)
-                    .expect("Unable to open polypub file")
-                    .read_to_end(&mut pubkey_poly_buffer)
-                    .expect("Unable to read polydata");
+        // let mut pubkey_poly_buffer = Vec::new();
+        // File::open(thresh_pub)
+        //             .expect("Unable to open polypub file")
+        //             .read_to_end(&mut pubkey_poly_buffer)
+        //             .expect("Unable to read polydata");
         let publickey_vec = pkey_vec.into_iter().map(|pkey_loc| {
             let mut thresh_pubkey_buffer = Vec::new();
             File::open(pkey_loc.as_str())
@@ -120,7 +117,7 @@ impl GlowDVRF {
                     .expect("Unable to open threshold secret key")
                     .read_to_end(&mut secret_key_buffer)
                     .expect("Unable to read threshold secret key");
-        let pubkey_poly:BlstrsPublicKey = bincode::deserialize(pubkey_poly_buffer.as_slice()).expect("Unable to deserialize pubkey poly data");
+        //let pubkey_poly:BlstrsPublicKey = bincode::deserialize(pubkey_poly_buffer.as_slice()).expect("Unable to deserialize pubkey poly data");
         let secret_key:BlstrsSecretKey = bincode::deserialize(secret_key_buffer.as_slice()).expect("Unable to deserialize threshold secret key");
         let secret_share:Partial<BlstrsSecretKey> = Partial { 
             idx: config.id+1, 
@@ -145,7 +142,6 @@ impl GlowDVRF {
                 sign_msg: "beacon".to_string(),
 
                 thresh_state: HashMap::default(),
-                tpub_key:pubkey_poly,
                 tpubkey_share:pkey_map,
                 secret_key:secret_share
             };

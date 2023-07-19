@@ -102,18 +102,16 @@ async fn main() -> Result<()> {
                 tpub.push(iter_str.as_str());
                 vec_native.push(tpub.join("/"));
             }
-            let mut polypub = arr_strsplit.clone();
-            polypub.push("polypub");
-            let mut tpub = arr_strsplit.clone();
-            tpub.push("pub");
+            // let mut polypub = arr_strsplit.clone();
+            // polypub.push("polypub");
+            // let mut tpub = arr_strsplit.clone();
+            // tpub.push("pub");
             arr_strsplit.push(concat_str.as_str());
-            println!("{:?} {:?} {:?} {:?}", arr_strsplit.join("/").as_str(), vec_native,polypub.join("/").as_str(),tpub.join("/").as_str());
+            println!("{:?} {:?}", arr_strsplit.join("/").as_str(), vec_native);
             exit_tx = glow::node::GlowDVRF::spawn(
                 config, 
                 arr_strsplit.join("/").as_str(),
                 vec_native,
-                polypub.join("/").as_str(),
-                tpub.join("/").as_str(),
             ).unwrap();
         },
         "glowlib" => {

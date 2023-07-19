@@ -234,6 +234,10 @@ class Bench:
                 print('Node 0: writing syncer')
                 c.put(PathMaker.syncer(),'.')
             c.put(PathMaker.key_file(i), '.')
+            c.put(PathMaker.t_key_secfile(i+1),'.')
+            for j in range(len(hosts)):
+                print('Writing public key of tpubkey {}',PathMaker.t_key_pubfile(j+1))
+                c.put(PathMaker.t_key_pubfile(j+1),'.')
             c.put("ip_file",'.')
             #c.put(PathMaker.parameters_file(), '.')
         Print.info('Booting primaries...')
@@ -372,8 +376,8 @@ class Bench:
                 delta,
                 exp_vals[0],
                 tri,
-                400,
-                5,
+                650,
+                15,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)

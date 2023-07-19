@@ -36,6 +36,16 @@ class PathMaker:
         return f'nodes-{i}.json'
 
     @staticmethod
+    def t_key_pubfile(i):
+        assert isinstance(i, int) and i >= 0
+        return f'thresh_keys/pub{i}'
+
+    @staticmethod
+    def t_key_secfile(i):
+        assert isinstance(i, int) and i >= 0
+        return f'thresh_keys/sec{i}'
+
+    @staticmethod
     def db_path(i, j=None):
         assert isinstance(i, int) and i >= 0
         assert (isinstance(j, int) and i >= 0) or j is None
