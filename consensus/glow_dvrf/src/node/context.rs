@@ -121,7 +121,7 @@ impl GlowDVRF {
         let secret_key:BlstrsSecretKey = bincode::deserialize(secret_key_buffer.as_slice()).expect("Unable to deserialize threshold secret key");
         let secret_share:Partial<BlstrsSecretKey> = Partial { 
             idx: config.id+1, 
-            data: secret_key 
+            data: secret_key
         };
         tokio::spawn(async move {
             // The modulus of the secret is set for probability of coin success = 1- 5*10^{-9}
