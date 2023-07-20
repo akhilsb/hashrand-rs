@@ -234,7 +234,7 @@ class Bench:
                 print('Node 0: writing syncer')
                 c.put(PathMaker.syncer(),'.')
             c.put(PathMaker.key_file(i), '.')
-            #c.put(PathMaker.t_key_secfile(i+1),'.')
+            c.put(PathMaker.t_key_file(),'.')
             #for j in range(len(hosts)):
             #    print('Writing public key of tpubkey {}',PathMaker.t_key_pubfile(j+1))
             #    c.put(PathMaker.t_key_pubfile(j+1),'.')
@@ -267,10 +267,13 @@ class Bench:
                 delta,
                 exp_vals[0],
                 tri,
-                100,
+                50,
                 5,
                 debug=False
             )
+            unzip_cmd = CommandMaker.unzip_tkeys('tkeys.tar.gz','thresh_keys')
+            print(unzip_cmd)
+            self._background_run(ip,unzip_cmd,"unzip.log")
             print(cmd)
             log_file = PathMaker.primary_log_file(i)
             self._background_run(ip, cmd, log_file)
@@ -376,8 +379,8 @@ class Bench:
                 delta,
                 exp_vals[0],
                 tri,
-                50,
-                5,
+                250,
+                35,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)

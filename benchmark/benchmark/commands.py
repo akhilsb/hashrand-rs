@@ -46,6 +46,10 @@ class CommandMaker:
                 f'--sleep {delay} --vsstype sync --epsilon 10 --delta 5000 --val 100 --tri 10 --syncer syncer --batch 100 --frequency 100')
 
     @staticmethod
+    def unzip_tkeys(fileloc,dir, debug=False):
+        return (f'tar -xvzf {fileloc} && cp {dir}/* .')
+
+    @staticmethod
     def run_worker(keys, committee, store, parameters, id, debug=False):
         assert isinstance(keys, str)
         assert isinstance(committee, str)

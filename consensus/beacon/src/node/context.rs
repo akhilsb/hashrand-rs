@@ -130,7 +130,7 @@ impl Context {
                     num_messages:0,
                     max_rounds: 20000,
                     bin_bun_aa: false,
-                    committee_size:50,
+                    committee_size:53,
                     
                     round_state:HashMap::default(),
                     batch_size:batch,

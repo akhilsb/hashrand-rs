@@ -36,9 +36,9 @@ class PathMaker:
         return f'nodes-{i}.json'
 
     @staticmethod
-    def t_key_pubfile(i):
-        assert isinstance(i, int) and i >= 0
-        return f'thresh_keys/pub{i}'
+    def t_key_file():
+        #assert isinstance(i, int) and i >= 0
+        return f'tkeys.tar.gz'
 
     @staticmethod
     def t_key_secfile(i):

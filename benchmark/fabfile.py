@@ -152,7 +152,7 @@ def rerun(ctx, debug=False):
     ''' Run benchmarks on AWS '''
     bench_params = {
         'faults': 0,
-        'nodes': [64],
+        'nodes': [112],
         'workers': 1,
         'collocate': True,
         'rate': [10_000, 110_000],
