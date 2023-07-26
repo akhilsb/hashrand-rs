@@ -100,6 +100,7 @@ impl Context{
                 log::debug!("Received Beacon Construct message from node {} for coin number {} in round {}",share_sender,coin_num,round);
                 self.process_secret_shares(shares, share_sender, coin_num, round).await;
             },
+            _ => {}
         }
     }
 

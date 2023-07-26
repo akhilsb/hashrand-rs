@@ -17,11 +17,11 @@ impl HashRand{
         for _i in 0..comm_size{
             let rand_num = usize::try_from(rng.next_u64()).unwrap();
             let node_in_comm = rand_num % all_nodes.len();
-            log::error!("{} {} {}",rand_num,all_nodes.len(),node_in_comm);
+            log::debug!("{} {} {}",rand_num,all_nodes.len(),node_in_comm);
             committee.push(all_nodes.remove(node_in_comm.clone()).clone());
         }
         committee.sort();
-        log::error!("Committee elected: {:?}",committee);
+        log::debug!("Committee elected: {:?}",committee);
         return committee;
     }
 }

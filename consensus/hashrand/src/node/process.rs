@@ -1,4 +1,4 @@
-use std::{sync::Arc};
+use std::{sync::Arc, collections::HashSet};
 
 use crypto::hash::{verf_mac};
 use types::{beacon::{WrapperMsg, CoinMsg}, Round};
@@ -100,6 +100,27 @@ impl HashRand{
                 log::debug!("Received Beacon Construct message from node {} for coin number {} in round {}",share_sender,coin_num,round);
                 self.process_secret_shares(shares, share_sender, coin_num, round).await;
             },
+            CoinMsg::BeaconValue(asking_index,sender, beacon_val)=>{
+                log::debug!("Received beacon value {} from node {} for index {}",beacon_val,sender,asking_index);
+                if self.coin_request_mapping.contains_key(&asking_index){
+                    let asking_index_state = self.coin_request_mapping.get_mut(&asking_index).unwrap();
+                    asking_index_state.1.insert(sender);
+                    if asking_index_state.1.len() == self.num_faults + 1{
+                        // This request has been reconstructed already, return value
+                        if let Err(e) = self.coin_send_channel.send((asking_index,beacon_val)).await {
+                            log::warn!(
+                                "Failed to beacon {} to the consensus: {}",
+                                asking_index, e
+                            );
+                        }
+                    }
+                }
+                else{
+                    let mut rep_index_set = HashSet::default();
+                    rep_index_set.insert(sender);
+                    self.coin_request_mapping.insert(asking_index, (beacon_val,rep_index_set));
+                }
+            }
         }
     }
 

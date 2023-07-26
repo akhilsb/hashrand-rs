@@ -18,10 +18,10 @@ impl HashRand{
         //let vss_state = &mut self.batchvss_state;
         let sec_origin = ctrbc.origin;
         // Highly unlikely that the node will get an echo before rbc_init message
-        log::info!("Received ECHO message from {} for secret from {} in round {}",echo_sender,ctrbc.origin,ctrbc.round);
+        log::debug!("Received ECHO message from {} for secret from {} in round {}",echo_sender,ctrbc.origin,ctrbc.round);
         // If RBC already terminated, do not consider this RBC
         if rbc_state.terminated_secrets.contains(&sec_origin){
-            log::info!("Terminated secretsharing of instance {} already, skipping this echo",sec_origin);
+            log::debug!("Terminated secretsharing of instance {} already, skipping this echo",sec_origin);
             return;
         }
         match rbc_state.msgs.get(&sec_origin){

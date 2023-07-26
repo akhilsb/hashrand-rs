@@ -12,6 +12,19 @@ impl HashRand {
         let mut reconstruct_beacon = false;
         // If it is a beacon is requested, push it into the queue
         if request{
+            if self.coin_request_mapping.contains_key(&request_round){
+                let num_responses = self.coin_request_mapping.get(&request_round).unwrap();
+                if num_responses.1.len() >= self.num_faults + 1{
+                    // This request has been reconstructed already, return value
+                    if let Err(e) = self.coin_send_channel.send((request_round,num_responses.0)).await {
+                        log::warn!(
+                            "Failed to beacon {} to the consensus: {}",
+                            request_round, e
+                        );
+                    }
+                    return;
+                }
+            }
             // Check whether there are enough coins to reconstruct at all. If not, push it to the queue.
             self.coin_queue.push_back(request_round);    
             // find closest multiple of self.curr_round that terminated approximate agreement.
@@ -35,7 +48,7 @@ impl HashRand {
                     self.service_req_queue(next_completed_round, last_completed_round).await;
                 }
             }
-            log::error!("Next round check: tmp_stop_round: {},curr_round: {}, coin_comp: {},rec_round: {}, last_comp_round: {}",self.tmp_stop_round,self.curr_round,coin_completed,rec_round,last_completed_round);
+            log::debug!("Next round check: tmp_stop_round: {},curr_round: {}, coin_comp: {},rec_round: {}, last_comp_round: {}",self.tmp_stop_round,self.curr_round,coin_completed,rec_round,last_completed_round);
             if coin_completed && self.tmp_stop_round-self.curr_round <= self.frequency && last_completed_round - rec_round < 200 {
                 self.tmp_stop_round += 200;
                 if self.tmp_stop_round-self.curr_round == 1{

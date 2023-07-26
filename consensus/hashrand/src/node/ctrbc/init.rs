@@ -33,7 +33,7 @@ impl HashRand{
         // }
         // clone and validate message here before participating in reliable broadcast. 
         // 1. Check if the protocol reached the round for this node
-        log::info!("Received RBC Init from node {} for round {}",ctr.origin,beacon_msg.round);
+        log::debug!("Received RBC Init from node {} for round {}",ctr.origin,beacon_msg.round);
         if !self.round_state.contains_key(&beacon_msg.round){
             let rbc_new_state = CTRBCState::new(self.secret_domain.clone(),self.num_nodes);
             self.round_state.insert(beacon_msg.round, rbc_new_state);

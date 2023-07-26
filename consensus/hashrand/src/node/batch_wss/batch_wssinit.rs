@@ -120,7 +120,7 @@ impl HashRand{
                 new_round,
                 self.myid
             );
-            log::info!("Mp verification {}",ctrbc_msg.verify_mr_proof());
+            log::debug!("Mp verification {}",ctrbc_msg.verify_mr_proof());
             if replica != self.myid{
                 //batch_wss.master_root = master_root.clone();
                 let beacon_init = CoinMsg::CTRBCInit(beacon_msg,ctrbc_msg);

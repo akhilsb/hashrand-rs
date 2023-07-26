@@ -89,13 +89,13 @@ impl HashRand {
             }    
             if i >= self.num_nodes-self.num_faults && !rbc_state.started_baa{
                 // Received n-f witness2s. Start approximate agreement from here. 
-                log::error!("Accepted n-f witness2 for node {} with set {:?}",self.myid,rbc_state.terminated_secrets.clone());
+                log::debug!("Accepted n-f witness2 for node {} with set {:?}",self.myid,rbc_state.terminated_secrets.clone());
                 rbc_state.started_baa = true;
                 // First beacon should have terminated. 
                 if round >= self.rounds_aa+3{
                     let closest_finished = round-self.rounds_aa-3;
                     let fin_freq = (closest_finished/self.frequency)*self.frequency;
-                    log::error!("Requesting beacon for committee election  for round {:?} with coin from round {}",round,fin_freq);
+                    log::debug!("Requesting beacon for committee election  for round {:?} with coin from round {}",round,fin_freq);
                     if rbc_state.committee.len()<self.num_nodes{
                         // If the committee is already elected, no need for beacon reconstruction
                         self.check_begin_next_round(round).await;

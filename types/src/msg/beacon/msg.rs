@@ -113,6 +113,7 @@ pub enum CoinMsg{
     BinaryAAEcho2(Vec<(Round,Vec<(Replica,Val)>)>,Replica,Round),
     // THe vector of secrets, the source replica, the index in each batch and the round number of Batch Secret Sharing
     BeaconConstruct(Vec<WSSMsg>,Replica,Replica,Round),
+    BeaconValue(Round,Replica,u128),
 }
 
 #[derive(Debug,Serialize,Deserialize,Clone)]

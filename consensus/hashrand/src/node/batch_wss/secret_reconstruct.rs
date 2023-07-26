@@ -1,4 +1,4 @@
-use std::{ time::{SystemTime, UNIX_EPOCH}};
+use std::{ time::{SystemTime, UNIX_EPOCH}, collections::HashSet};
 use num_bigint::BigInt;
 use types::{beacon::{WSSMsg, CoinMsg}, Replica, beacon::Round};
 
@@ -23,7 +23,7 @@ impl HashRand{
             }
         }
         if !vector_coins.is_empty() && coin_number != 0{
-            log::error!("Enough information available to reconstruct coins until batch {}, moving forward to coin_num {}",vector_coins.last().unwrap().clone().0,vector_coins.last().unwrap().clone().0+1);
+            log::debug!("Enough information available to reconstruct coins until batch {}, moving forward to coin_num {}",vector_coins.last().unwrap().clone().0,vector_coins.last().unwrap().clone().0+1);
             coin_number = vector_coins.last().unwrap().0 + 1;
         }
         if coin_number > self.batch_size-1{
@@ -76,7 +76,7 @@ impl HashRand{
             let sec_origin = wss_msg.origin.clone();
             // coin 0 is set for committee election
             if rbc_state.recon_secrets.contains(&coin_num){
-                log::info!("Older secret share received from node {}, not processing share for coin_num {}", sec_origin,coin_num);
+                log::warn!("Older secret share received from node {}, not processing share for coin_num {}", sec_origin,coin_num);
                 return;
             }
             rbc_state.add_secret_share(coin_num, wss_msg.origin, share_sender, wss_msg.clone());
@@ -160,73 +160,118 @@ impl HashRand{
     }
 
     pub async fn self_coin_check_transmit(&mut self,round:Round,coin_num:usize,number:Vec<u8>){
-        let rbc_state = self.round_state.get_mut(&round).unwrap();
-        let recon_secrets_size = rbc_state.recon_secrets.len().clone();
-        let id = rbc_state.alloted_secrets.get(&coin_num).clone();
-        //self.add_cancel_handler(cancel_handler);
-        let convert_u128:u128 = BigInt::from_signed_bytes_be(number.clone().as_slice()).to_string().parse().unwrap();
-        match id {
-            Some(id)=>{
-                log::info!("Sending beacon {:?} to consensus",(*id,convert_u128));
-                if let Err(e) = self.coin_send_channel.send((*id,convert_u128)).await {
-                    log::warn!(
-                        "Failed to beacon {} to the consensus: {}",
-                        id, e
-                    );
-                }
-            },
-            None =>{
-                if coin_num != 0{
-                    let id = ((round/self.frequency)-1)*((self.batch_size as u32)-1) + (coin_num+2) as u32;
-                    log::info!("Sending beacon {:?} to consensus",(id,convert_u128));
-                    if let Err(e) = self.coin_send_channel.send((id,convert_u128)).await {
+        {
+            let rbc_state = self.round_state.get_mut(&round).unwrap();
+            let recon_secrets_size = rbc_state.recon_secrets.len().clone();
+            let id = rbc_state.alloted_secrets.get(&coin_num).clone();
+            //self.add_cancel_handler(cancel_handler);
+            let convert_u128:u128 = BigInt::from_signed_bytes_be(number.clone().as_slice()).to_string().parse().unwrap();
+            match id {
+                Some(id)=>{
+                    log::info!("Sending beacon {:?} to consensus",(*id,convert_u128));
+                    if let Err(e) = self.coin_send_channel.send((*id,convert_u128)).await {
                         log::warn!(
                             "Failed to beacon {} to the consensus: {}",
                             id, e
                         );
                     }
+                    if self.coin_request_mapping.contains_key(id){
+                        let coin_value_state = self.coin_request_mapping.get_mut(id).unwrap();
+                        for _rep in 0..self.num_faults+4{
+                            // Fill up this array now that coin is constructed
+                            coin_value_state.1.insert(_rep);
+                        }
+                    }
+                    else{
+                        let mut coin_rep_map = HashSet::default();
+                        for _rep in 0..self.num_faults+4{
+                            // Fill up this array now that coin is constructed
+                            coin_rep_map.insert(_rep);
+                        }
+                        self.coin_request_mapping.insert(id.clone(), (convert_u128,coin_rep_map));
+                    }
+                },
+                None =>{
+                    if coin_num != 0{
+                        let id = ((round/self.frequency)-1)*((self.batch_size as u32)-1) + (coin_num+2) as u32;
+                        log::info!("Sending beacon {:?} to consensus",(id,convert_u128));
+                        if let Err(e) = self.coin_send_channel.send((id,convert_u128)).await {
+                            log::warn!(
+                                "Failed to beacon {} to the consensus: {}",
+                                id, e
+                            );
+                        }
+                        if self.coin_request_mapping.contains_key(&id){
+                            let coin_value_state = self.coin_request_mapping.get_mut(&id).unwrap();
+                            for _rep in 0..self.num_faults+4{
+                                // Fill up this array now that coin is constructed
+                                coin_value_state.1.insert(_rep);
+                            }
+                        }
+                        else{
+                            let mut coin_rep_map = HashSet::default();
+                            for _rep in 0..self.num_faults+4{
+                                // Fill up this array now that coin is constructed
+                                coin_rep_map.insert(_rep);
+                            }
+                            self.coin_request_mapping.insert(id.clone(), (convert_u128,coin_rep_map));
+                        }
+                    }
+                }
+            }
+            if recon_secrets_size == self.batch_size {
+                rbc_state._clear();
+                log::info!("Terminated all secrets of round {}, eliminating state",round);
+                self.recon_round = round;
+            }
+            if coin_num == 0{
+                rbc_state.committee_elected = true;
+                // This coin is for committee election
+                let committee = self.elect_committee(number.clone()).await;
+                let round_baa = round+self.rounds_aa+3;
+                // identify closest multiple of self.frequency to round_baa
+                let round_baa_fin:Round;
+                if round_baa%self.frequency == 0{
+                    round_baa_fin = round_baa;
+                }
+                else{
+                    round_baa_fin = ((round_baa/self.frequency)+1)*self.frequency;
+                }
+                if self.round_state.contains_key(&round_baa_fin){
+                    self.round_state.get_mut(&round_baa_fin).unwrap().set_committee(committee);
+                }
+                // Start next round only after gather has terminated
+                let rbc_started_baa = self.round_state.get(&round_baa_fin).unwrap().started_baa;
+                if rbc_started_baa{
+                    self.check_begin_next_round(round_baa_fin).await;
+                }
+                // else{
+                //     self.round_state.remove(&round);
+                //     self.recon_round = round;
+                // }
+            }
+            else{
+                //transmit_vec.append(&mut _random);
+                if rbc_state.recon_secrets.contains(&(self.batch_size - 1)){
+                    log::debug!("Reconstruction ended for round {} at time {:?}",round,SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis());
+                    log::debug!("Number of messages passed between nodes: {}",self.num_messages);
                 }
             }
         }
-        if recon_secrets_size == self.batch_size {
-            rbc_state._clear();
-            log::error!("Terminated all secrets of round {}, eliminating state",round);
-            self.recon_round = round;
-        }
-        if coin_num == 0{
-            rbc_state.committee_elected = true;
-            // This coin is for committee election
-            let committee = self.elect_committee(number.clone()).await;
-            let round_baa = round+self.rounds_aa+3;
-            // identify closest multiple of self.frequency to round_baa
-            let round_baa_fin:Round;
-            if round_baa%self.frequency == 0{
-                round_baa_fin = round_baa;
-            }
-            else{
-                round_baa_fin = ((round_baa/self.frequency)+1)*self.frequency;
-            }
-            if self.round_state.contains_key(&round_baa_fin){
-                self.round_state.get_mut(&round_baa_fin).unwrap().set_committee(committee);
-            }
-            // Start next round only after gather has terminated
-            let rbc_started_baa = self.round_state.get(&round_baa_fin).unwrap().started_baa;
-            if rbc_started_baa{
-                self.check_begin_next_round(round_baa_fin).await;
-            }
-            // else{
-            //     self.round_state.remove(&round);
-            //     self.recon_round = round;
-            // }
-        }
-        else{
-            //transmit_vec.append(&mut _random);
-            if rbc_state.recon_secrets.contains(&(self.batch_size - 1)){
-                log::info!("Reconstruction ended for round {} at time {:?}",round,SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis());
-                log::info!("Number of messages passed between nodes: {}",self.num_messages);
+        let rbc_state = self.round_state.get_mut(&round).unwrap().clone();
+        let id = rbc_state.alloted_secrets.get(&coin_num).clone();
+        //self.add_cancel_handler(cancel_handler);
+        let convert_u128:u128 = BigInt::from_signed_bytes_be(number.clone().as_slice()).to_string().parse().unwrap();
+        match id {
+            Some(id)=>{
+                self.broadcast(CoinMsg::BeaconValue(*id, self.myid,convert_u128), round).await;
+            },
+            None =>{
+                let id = ((round/self.frequency)-1)*((self.batch_size as u32)-1) + (coin_num+2) as u32;
+                self.broadcast(CoinMsg::BeaconValue(id, self.myid,convert_u128), round).await;
             }
         }
         // let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::BeaconRecon(round, self.myid, coin_num, number), value:0}).await;

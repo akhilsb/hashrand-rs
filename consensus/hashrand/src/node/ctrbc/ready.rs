@@ -16,12 +16,12 @@ impl HashRand{
         }
         let rbc_state = self.round_state.get_mut(&ctrbc.round).unwrap();
         let sec_origin = ctrbc.origin;
-        log::info!("Received READY message from {} for secret from {} in round {}",ready_sender,ctrbc.origin,ctrbc.round);
+        log::debug!("Received READY message from {} for secret from {} in round {}",ready_sender,ctrbc.origin,ctrbc.round);
         // Highly unlikely that the node will get an echo before rbc_init message
         // If RBC already terminated, do not consider this RBC
         if rbc_state.terminated_secrets.contains(&sec_origin){
             //log::info!("RBC State {:?}",rbc_state);
-            log::info!("Terminated secretsharing of instance {} already, skipping this echo",sec_origin);
+            log::debug!("Terminated secretsharing of instance {} already, skipping this echo",sec_origin);
             return;
         }
         match rbc_state.msgs.get(&sec_origin){

@@ -160,10 +160,10 @@ impl HashRand{
             }
         }
         if round_begin > 1{
-            log::info!("Round_Begin : {}, round state keys: {:?}, keys : {:?}",round_begin,self.round_state.keys(),self.round_state.get(&0).unwrap().round_state.keys());
+            log::debug!("Round_Begin : {}, round state keys: {:?}, keys : {:?}",round_begin,self.round_state.keys(),self.round_state.get(&0).unwrap().round_state.keys());
         }
         else{
-            log::info!("Round_Begin : {}, round state keys: {:?},  keys : {:?}",round_begin,self.round_state.keys(),self.round_state.get(&0).unwrap().round_state.keys());
+            log::debug!("Round_Begin : {}, round state keys: {:?},  keys : {:?}",round_begin,self.round_state.keys(),self.round_state.get(&0).unwrap().round_state.keys());
         }
         if round_begin >= 1 && self.round_state.contains_key(&(round_begin-1)) && self.round_state.get(&(round_begin-1)).unwrap().round_state.contains_key(&(round-1)){
             // terminate round_begin and add values to nz_appxcon
@@ -179,8 +179,8 @@ impl HashRand{
                 rbc_state.appx_con_term_vals.insert(rep, val);
                 //rbc_state.contribution_map.insert(rep, (val,false,BigInt::from(0i32)));
             }
-            log::error!("Terminated beacon for round {} with committee {:?} and appxcon_vals: {:?}, term_secrets {:?}, comm_vector {:?}", round_begin-1,rbc_state.committee,rbc_state.appx_con_term_vals,rbc_state.terminated_secrets,rbc_state.comm_vectors.keys());
-            log::info!("Terminated round {}, sending message to syncer",(round_begin-1).clone());
+            log::debug!("Terminated beacon for round {} with committee {:?} and appxcon_vals: {:?}, term_secrets {:?}, comm_vector {:?}", round_begin-1,rbc_state.committee,rbc_state.appx_con_term_vals,rbc_state.terminated_secrets,rbc_state.comm_vectors.keys());
+            log::debug!("Terminated round {}, sending message to syncer",(round_begin-1).clone());
             //let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::BeaconFin(round_begin-1, self.myid), value:0}).await;
             //self.add_cancel_handler(cancel_handler);
             // Start reconstruction
@@ -202,7 +202,7 @@ impl HashRand{
             self.broadcast(prot_msg.clone(),round+1).await;
             self.process_baa_echo(vec_newround_vals, self.myid, round+1).await;
             self.increment_round(round).await;
-            log::error!("Started round {} with Binary AA",round+1);
+            log::debug!("Started round {} with Binary AA",round+1);
         }
     }
 }

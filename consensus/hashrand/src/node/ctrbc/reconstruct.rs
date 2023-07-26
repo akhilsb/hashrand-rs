@@ -16,9 +16,9 @@ impl HashRand{
         let rbc_state = self.round_state.get_mut(&ctrbc.round).unwrap();
         let sec_origin = ctrbc.origin;
         let mut msgs_to_be_sent:Vec<CoinMsg> = Vec::new();
-        log::info!("Received RECON message from {} for secret from {} in round {}",recon_sender,ctrbc.origin,ctrbc.round);
+        log::debug!("Received RECON message from {} for secret from {} in round {}",recon_sender,ctrbc.origin,ctrbc.round);
         if rbc_state.terminated_secrets.contains(&sec_origin){
-            log::info!("Batch secret instance from node {} already terminated",sec_origin);
+            log::debug!("Batch secret instance from node {} already terminated",sec_origin);
             return;
         }
         if !rbc_state.msgs.contains_key(&sec_origin){

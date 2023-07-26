@@ -1,4 +1,4 @@
-use std::{time::{SystemTime, UNIX_EPOCH}, collections::VecDeque};
+use std::{time::{SystemTime, UNIX_EPOCH}, collections::{VecDeque, HashMap, HashSet}};
 
 use anyhow::{Result, Ok,anyhow};
 use network::{plaintcp::{TcpReliableSender, CancelHandler}, Acknowledgement};
@@ -6,7 +6,6 @@ use num_bigint::BigInt;
 use tokio::{sync::{mpsc::{UnboundedReceiver, Sender, Receiver}, oneshot}};
 use types::{beacon::{WrapperMsg, Replica, CoinMsg}, Round};
 use config::Node;
-use fnv::FnvHashMap as HashMap;
 
 use super::{Handler, CTRBCState};
 
@@ -62,6 +61,7 @@ pub struct HashRand {
     pub coin_construction: Receiver<Round>,
     pub coin_send_channel: Sender<(u32,u128)>,
     pub coin_queue: VecDeque<Round>,
+    pub coin_request_mapping: HashMap<u32,(u128,HashSet<Replica>)>
 }
 
 impl HashRand {
@@ -152,6 +152,7 @@ impl HashRand {
                     coin_construction: construct_coin,
                     coin_send_channel: coin_channel,
                     coin_queue: VecDeque::default(),
+                    coin_request_mapping: HashMap::default()
                 };
                 for (id, sk_data) in config.sk_map.clone() {
                     c.sec_key_map.insert(id, sk_data.clone());
@@ -226,12 +227,12 @@ impl HashRand {
                     self.process_msg( msg).await;
                 },
                 coin_recon = self.coin_construction.recv() => {
-                    log::error!("Got request to reconstruct coin: {:?}", coin_recon);
+                    log::info!("Got request to reconstruct coin: {:?}", coin_recon);
                     let round = coin_recon.ok_or_else(||
                         anyhow!("Networking layer has closed")
                     )?;
                     if round == 0{
-                        log::error!("Consensus Start time: {:?}", SystemTime::now()
+                        log::info!("Consensus Start time: {:?}", SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
                                 .as_millis());

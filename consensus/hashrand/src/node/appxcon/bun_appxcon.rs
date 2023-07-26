@@ -53,11 +53,11 @@ impl HashRand{
                 }
             }
         }
-        log::info!("Printing values init:{:?} final:{:?}",rbc_state.appxcon_allround_vals,hmap.clone());
+        log::debug!("Printing values init:{:?} final:{:?}",rbc_state.appxcon_allround_vals,hmap.clone());
         let mut return_map:HashMap<Round,Vec<(Replica,Vec<u8>)>> = HashMap::default();
         let mut term_rounds = Vec::new();
         for (round_iter,hmap_iter) in hmap.clone().into_iter(){
-            log::info!("Appxcon indices for round {} in round {} are {:?} and values {:?}",round_iter,round,hmap_iter.keys(),hmap_iter);
+            log::debug!("Appxcon indices for round {} in round {} are {:?} and values {:?}",round_iter,round,hmap_iter.keys(),hmap_iter);
             let mut index_returnval_vector = Vec::new();
             for (index,mut values) in hmap_iter.into_iter(){
                 values.sort();
@@ -93,7 +93,7 @@ impl HashRand{
                 return_map.remove(&term_round);
                 let rbc_iter_state = self.round_state.get_mut(&term_round).unwrap();
                 let appxcon_map = &mut rbc_iter_state.appx_con_term_vals;
-                log::info!("Approximate Agreement Protocol terminated with values {:?}",round_vecs.clone());
+                log::debug!("Approximate Agreement Protocol terminated with values {:?}",round_vecs.clone());
                 // Reconstruct values
                 let mapped_rvecs:Vec<(Replica,BigInt)> = 
                     round_vecs.clone().into_iter()
@@ -104,7 +104,7 @@ impl HashRand{
                     appxcon_map.insert(rep, val);
                 }
                 rbc_iter_state.sync_secret_maps().await;
-                log::info!("Terminated round {}, sending message to syncer",term_round.clone());
+                log::debug!("Terminated round {}, sending message to syncer",term_round.clone());
                 //let cancel_handler = self.sync_send.send(0, SyncMsg { sender: self.myid, state: SyncState::BeaconFin(term_round, self.myid), value:0}).await;
                 //self.add_cancel_handler(cancel_handler);
                 // Start reconstruction
