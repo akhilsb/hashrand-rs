@@ -168,7 +168,7 @@ impl HashRand{
             let convert_u128:u128 = BigInt::from_signed_bytes_be(number.clone().as_slice()).to_string().parse().unwrap();
             match id {
                 Some(id)=>{
-                    log::info!("Sending beacon {:?} to consensus",(*id,convert_u128));
+                    log::error!("Sending beacon {:?} to consensus",(*id,convert_u128));
                     if let Err(e) = self.coin_send_channel.send((*id,convert_u128)).await {
                         log::warn!(
                             "Failed to beacon {} to the consensus: {}",
@@ -194,7 +194,7 @@ impl HashRand{
                 None =>{
                     if coin_num != 0{
                         let id = ((round/self.frequency)-1)*((self.batch_size as u32)-1) + (coin_num+2) as u32;
-                        log::info!("Sending beacon {:?} to consensus",(id,convert_u128));
+                        log::error!("Sending beacon {:?} to consensus",(id,convert_u128));
                         if let Err(e) = self.coin_send_channel.send((id,convert_u128)).await {
                             log::warn!(
                                 "Failed to beacon {} to the consensus: {}",
