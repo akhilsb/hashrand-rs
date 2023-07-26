@@ -61,6 +61,9 @@ impl HashRand{
             let mut index_returnval_vector = Vec::new();
             for (index,mut values) in hmap_iter.into_iter(){
                 values.sort();
+                if values.len() <= high_threshold{
+                    continue;
+                }
                 let index_val:BigInt = (values[min_threshold].clone()+ values[high_threshold].clone())/2;
                 index_returnval_vector.push((index,BigInt::to_signed_bytes_be(&index_val)));
             }
