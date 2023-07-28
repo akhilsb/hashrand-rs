@@ -8,10 +8,10 @@ use super::state_machine::sign::ProtocolMessage;
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct WrapperMsg{
-    pub protmsg: ProtocolMessage,
     pub sender:u16,
     pub mac:Hash,
-    pub round:Round
+    pub round:Round,
+    pub data:Vec<u8>
 }
 
 impl WrapperMsg{
@@ -20,10 +20,21 @@ impl WrapperMsg{
         let bytes = bincode::serialize(&new_msg).expect("Failed to serialize protocol message");
         let mac = do_mac(&bytes.as_slice(), sk);
         Self{
-            protmsg: new_msg,
             mac: mac,
             sender:sender,
-            round:round
+            round:round,
+            data: Vec::new()
+        }
+    }
+    pub fn new_with_data(sender:u16, sk: &[u8],round:Round,data:Vec<u8>) -> Self{
+        //let new_msg = msg.clone();
+        let bytes = bincode::serialize(&data).expect("Failed to serialize protocol message");
+        let mac = do_mac(&bytes.as_slice(), sk);
+        Self{
+            mac: mac,
+            sender:sender,
+            round:round,
+            data: data
         }
     }
 }

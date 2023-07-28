@@ -1,13 +1,14 @@
-use std::{net::{SocketAddr, SocketAddrV4}, collections::{HashMap, VecDeque}, path::PathBuf};
+use std::{net::{SocketAddr, SocketAddrV4}, collections::{HashMap, VecDeque}, fs::File, io::Read};
 
-use anyhow::{Result, anyhow, Context};
+use anyhow::{Result, anyhow};
 use config::Node;
+use crypto_blstrs::threshold_sig::{PartialBlstrsSignature, BlstrsPublicKey, Partial, BlstrsSecretKey};
 use fnv::FnvHashMap;
 use network::{plaintcp::{TcpReliableSender, TcpReceiver, CancelHandler}, Acknowledgement};
 use tokio::sync::{mpsc::{UnboundedReceiver, unbounded_channel, Receiver, Sender}, oneshot};
 use types::{beacon::{Replica}, Round};
 
-use super::{Handler, state_machine::{sign::{Sign, ProtocolMessage}, keygen::LocalKey}, WrapperMsg};
+use super::{Handler, state_machine::{sign::{Sign, ProtocolMessage}}, WrapperMsg};
 
 pub struct GlowLib{
     pub net_send: TcpReliableSender<Replica,WrapperMsg,Acknowledgement>,
@@ -22,9 +23,12 @@ pub struct GlowLib{
     /// Cancel Handlers
     pub cancel_handlers: HashMap<Round,Vec<CancelHandler<Acknowledgement>>>,
     pub curr_round: u32,
-
     pub state: HashMap<Round,Sign>,
-    pub secret: LocalKey,
+    pub thresh_state: HashMap<Round,Vec<PartialBlstrsSignature>>,
+    //pub secret: LocalKey,
+    /// Threshold setup parameters
+    pub tpubkey_share: HashMap<u16,Partial<BlstrsPublicKey>>,
+    pub secret_key: Partial<BlstrsSecretKey>,
     pub sign_msg: String,
     /// Exit protocol
     exit_rx: oneshot::Receiver<()>,
@@ -32,12 +36,14 @@ pub struct GlowLib{
     pub coin_construction: Receiver<Round>,
     pub coin_send_channel: Sender<(u32,u128)>,
     pub coin_queue: VecDeque<Round>,
+    pub beac_state: HashMap<Round,u128>
 }
 
 impl GlowLib {
     pub fn spawn(
         config:Node,
         secret_loc:&str,
+        pkey_vec: Vec<String>,
         // construct coin when there is an element in this queue
         construct_coin: Receiver<u32>,
         // beacon_send channel
@@ -70,12 +76,46 @@ impl GlowLib {
         );
         let (exit_tx, exit_rx) = oneshot::channel();
 
-        // Secret key
-        let secret_key:PathBuf = PathBuf::from(secret_loc.clone());
-        log::info!("Secret key file path {}",secret_loc.clone());
-        let secret:Vec<u8> = std::fs::read(secret_key)
-        .context("read file with local secret key")?;
-        let secret = serde_json::from_slice(&secret).context("deserialize local secret key")?;
+        //let secret_key:PathBuf = PathBuf::from(secret_loc.clone());
+        log::info!("Secret key file path {} {:?}",secret_loc.clone(),pkey_vec.clone());
+        //let secret:Vec<u8> = std::fs::read(secret_key)
+        //.context("read file with local secret key")?;
+        //let secret = serde_json::from_slice(&secret).context("deserialize local secret key")?;
+
+        // let mut pubkey_poly_buffer = Vec::new();
+        // File::open(thresh_pub)
+        //             .expect("Unable to open polypub file")
+        //             .read_to_end(&mut pubkey_poly_buffer)
+        //             .expect("Unable to read polydata");
+        let publickey_vec = pkey_vec.into_iter().map(|pkey_loc| {
+            let mut thresh_pubkey_buffer = Vec::new();
+            File::open(pkey_loc.as_str())
+                        .expect("Unable to open polypub file")
+                        .read_to_end(&mut thresh_pubkey_buffer)
+                        .expect("Unable to read polydata");
+            let thresh_pubkey:BlstrsPublicKey = bincode::deserialize(thresh_pubkey_buffer.as_slice()).expect("Unable to deserialize pubkey data");
+            thresh_pubkey
+        }).collect::<Vec<_>>();
+        let mut pkey_map = HashMap::default();
+        let mut i:u16 = 1;
+        for pkey in publickey_vec.into_iter(){
+            pkey_map.insert(i, Partial{
+                idx: i as usize,
+                data:pkey
+            });
+            i+=1;
+        }
+        let mut secret_key_buffer = Vec::new();
+        File::open(secret_loc)
+                    .expect("Unable to open threshold secret key")
+                    .read_to_end(&mut secret_key_buffer)
+                    .expect("Unable to read threshold secret key");
+        //let pubkey_poly:BlstrsPublicKey = bincode::deserialize(pubkey_poly_buffer.as_slice()).expect("Unable to deserialize pubkey poly data");
+        let secret_key:BlstrsSecretKey = bincode::deserialize(secret_key_buffer.as_slice()).expect("Unable to deserialize threshold secret key");
+        let secret_share:Partial<BlstrsSecretKey> = Partial { 
+            idx: config.id+1, 
+            data: secret_key
+        };
         tokio::spawn(async move {
             // The modulus of the secret is set for probability of coin success = 1- 5*10^{-9}
             let mut c = GlowLib {
@@ -89,11 +129,15 @@ impl GlowLib {
                 curr_round: 0,
                 exit_rx:exit_rx,
                 state:HashMap::default(),
-                secret:secret,
                 sign_msg: "beacon".to_string(),
+                thresh_state: HashMap::default(),
+                tpubkey_share:pkey_map,
+                secret_key:secret_share,
                 coin_construction:construct_coin,
                 coin_send_channel:coin_channel,
-                coin_queue:VecDeque::new()
+                coin_queue:VecDeque::new(),
+                beac_state: HashMap::default()
+
             };
             for (id, sk_data) in config.sk_map.clone() {
                 c.sec_key_map.insert(id.try_into().unwrap(), sk_data.clone());
@@ -111,6 +155,19 @@ impl GlowLib {
         for (replica,sec_key) in sec_key_map.into_iter() {
             if replica != self.myid{
                 let wrapper_msg = WrapperMsg::new(protmsg.clone(), self.myid, &sec_key.as_slice(),round);
+                let cancel_handler:CancelHandler<Acknowledgement> = self.net_send.send(replica as usize, wrapper_msg).await;
+                self.add_cancel_handler(cancel_handler);
+                // let sent_msg = Arc::new(wrapper_msg);
+                // self.c_send(replica, sent_msg).await;
+            }
+        }
+    }
+
+    pub async fn broadcast_tsig(&mut self, data:Vec<u8>,round:Round){
+        let sec_key_map = self.sec_key_map.clone();
+        for (replica,sec_key) in sec_key_map.into_iter() {
+            if replica != self.myid{
+                let wrapper_msg = WrapperMsg::new_with_data( self.myid, &sec_key.as_slice(),round,data.clone());
                 let cancel_handler:CancelHandler<Acknowledgement> = self.net_send.send(replica as usize, wrapper_msg).await;
                 self.add_cancel_handler(cancel_handler);
                 // let sent_msg = Arc::new(wrapper_msg);
@@ -153,7 +210,18 @@ impl GlowLib {
                     let round = coin_recon.ok_or_else(||
                         anyhow!("Networking layer has closed")
                     )?;
-                    self.start_round(round).await;
+                    if self.beac_state.contains_key(&round){
+                        let u128_fit = self.beac_state.get(&round).unwrap();
+                        if let Err(e) = self.coin_send_channel.send((round,*u128_fit)).await {
+                            log::warn!(
+                                "Failed to beacon {} to the consensus: {}",
+                                round, e
+                            );
+                        };
+                    }
+                    else{
+                        self.start_round_agg(round).await;
+                    }
                     //self.reconstruct_beacon( msg,self.recon_round).await;
                 },
                 // sync_msg = self.sync_recv.recv() =>{

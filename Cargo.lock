@@ -1543,6 +1543,7 @@ dependencies = [
  "consensus",
  "criterion",
  "crypto",
+ "crypto_blstrs",
  "curv",
  "ff-zeroize",
  "fnv",

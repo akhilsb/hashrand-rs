@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 consensus = { package = "consensus", path="../"}
 crypto = { package="crypto" , path = "../../crypto"}
+crypto_blstrs = {package = "crypto_blstrs", path = "../../crypto_blstrs"}
 types = { package = "types", path="../../types"}
 sha2="0.9.2"
 config = { package = "config", path="../../config"}

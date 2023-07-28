@@ -117,13 +117,24 @@ async fn main() -> Result<()> {
         "glowlib" => {
             let mut arr_strsplit:Vec<&str> = conf_str.split("/").collect();
             let id_str = ((config.id +1)).to_string();
-            let key_str = "key".to_string();
+            //let id_str_1  = ((config.id)).to_string();
+            let key_str = "sec".to_string();
+            
             let concat_str = key_str + &id_str;
             let _last_elem = arr_strsplit.pop();
+
+            let mut vec_native = Vec::new();
+            for i in 1..config.num_nodes+1{
+                let pkey_str = "pub".to_string();
+                let mut tpub = arr_strsplit.clone();
+                let iter_str = pkey_str.clone()+ &(i.to_string());
+                tpub.push(iter_str.as_str());
+                vec_native.push(tpub.join("/"));
+            }
             arr_strsplit.push(concat_str.as_str());
             let (coin_construct,coin_const_recv) = channel(1000);
             let (coin_send, mut coin_recv) = channel(1000);
-            exit_tx = glow_lib::node::GlowLib::spawn(config, arr_strsplit.join("/").as_str(),coin_const_recv,coin_send).unwrap();
+            exit_tx = glow_lib::node::GlowLib::spawn(config, arr_strsplit.join("/").as_str(),vec_native,coin_const_recv,coin_send).unwrap();
             for i in 0..2000{
                 if let Err(e) = coin_construct.send(i).await {
                     log::warn!(
