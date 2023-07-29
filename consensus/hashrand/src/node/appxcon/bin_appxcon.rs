@@ -13,7 +13,7 @@ impl HashRand{
         let mut send_valmap_echo1:HashMap<u32, Vec<(Replica, Vec<u8>)>> = HashMap::default();
         let mut send_valmap_echo2:HashMap<u32, Vec<(Replica, Vec<u8>)>> = HashMap::default();
         if round < self.curr_round{
-            log::warn!("Older message received, protocol advanced forward, ignoring Binary AA ECHO message");
+            log::warn!("Older message received, protocol advanced forward, ignoring Binary AA ECHO message for round {}, current round {}",round,self.curr_round);
             return;
         }
         log::debug!("Received ECHO1 message from node {} with content {:?} for round {}",echo_sender,msgs,round);
@@ -75,7 +75,7 @@ impl HashRand{
     pub async fn process_baa_echo2(self: &mut HashRand, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo2_sender:Replica, round:u32){
         let now = SystemTime::now();
         if round < self.curr_round{
-            log::warn!("Older message received, protocol advanced forward, ignoring Binary AA ECHO message");
+            log::warn!("Older message received, protocol advanced forward, ignoring Binary AA ECHO2 message for round {}, current_round:{}",round,self.curr_round);
             return;
         }
         for (round_iter,vals) in msgs.into_iter(){
@@ -88,7 +88,7 @@ impl HashRand{
                 let rnd_state = rbc_state.round_state.get_mut(&round).unwrap();
                 rnd_state.add_echo2(vals, echo2_sender, self.num_nodes, self.num_faults);
                 if rnd_state.term_vals.len() == rbc_state.committee.len() {
-                    log::debug!("All n instances of Binary AA terminated for round {} related to WSSInit {}",round,round_iter);
+                    log::info!("All n instances of Binary AA terminated for round {} related to WSSInit {}",round,round_iter);
                     //let vec_vals:Vec<(Replica,Vec<u8>)> = rnd_state.term_vals.clone().into_iter().map(|(rep,val)| (rep,BigInt::to_signed_bytes_be(&val))).collect();
                     self.add_benchmark(String::from("process_baa_echo2"), now.elapsed().unwrap().as_nanos());
                     if self.check_termination(round){
@@ -121,12 +121,12 @@ impl HashRand{
                 let rbc_state = self.round_state.get(&round_iter).unwrap();
                 if rbc_state.round_state.contains_key(&round){
                     if rbc_state.round_state.get(&round).unwrap().term_vals.len() < rbc_state.committee.len(){
-                        log::debug!("Cannot begin next BinAA round because BinAA of RBC in round {} did not terminate round {}, term vals: {:?}",round_iter,round,rbc_state.round_state.get(&round).unwrap().term_vals);
+                        log::info!("Cannot begin next BinAA round because BinAA of RBC in round {} did not terminate round {}, term vals: {:?}",round_iter,round,rbc_state.round_state.get(&round).unwrap().term_vals);
                         can_begin_next_round = false;
                     }
                 }
                 else {
-                    log::debug!("Cannot begin next BinAA round because BinAA of RBC in round {} does not have state for round {}",round_iter,round);
+                    log::info!("Cannot begin next BinAA round because BinAA of RBC in round {} does not have state for round {}",round_iter,round);
                     can_begin_next_round = false;
                 }
             }

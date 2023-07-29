@@ -64,19 +64,20 @@ impl RoundState{
                     // check whether an echo has been sent out for this value in this instance
                     //log::info!("Processing values: {:?} inst: {} echo count: {}",arr_vec[0].clone(),rep, arr_vec[0].1.len());
                     if arr_vec[0].1.len() >= num_faults+1 && !arr_vec[0].3{
-                        log::info!("Got t+1 ECHO messages for BAA inst {} sending ECHO",rep.clone());
+                        log::debug!("Got t+1 ECHO messages for BAA inst {} sending ECHO",rep.clone(),);
                         echo1_msgs.push((rep,msg.clone()));
                         arr_vec[0].3 = true;
                     }
                     // check for 2t+1 votes: if it has 2t+1 votes, send out echo2 message
                     else if arr_vec[0].1.len() >= num_nodes-num_faults && !arr_vec[0].4{
-                        log::info!("Got 2t+1 ECHO messages for BAA inst {} sending ECHO2",rep.clone());
+                        log::debug!("Got 2t+1 ECHO messages for BAA inst {} sending ECHO2",rep.clone());
                         echo2_msgs.push((rep,msg.clone()));
                         arr_tup.1.insert(parsed_bigint);
                         if arr_tup.1.len() == 2{
                             // terminate protocol for instance &rep
                             let vec_arr:Vec<BigInt> = arr_tup.1.clone().into_iter().map(|x| x).collect();
                             let next_round_val = (vec_arr[0].clone()+vec_arr[1].clone())/2;
+                            log::info!("Terminated approx agreement of rep {} with value {}",rep,next_round_val);
                             self.term_vals.insert(rep, next_round_val);
                         }
                         arr_vec[0].4 = true;
@@ -103,6 +104,7 @@ impl RoundState{
                                 // terminate protocol for instance &rep
                                 let vec_arr:Vec<BigInt> = arr_tup.1.clone().into_iter().map(|x| x).collect();
                                 let next_round_val = (vec_arr[0].clone()+vec_arr[1].clone())/2;
+                                log::info!("Terminated approx agreement of rep {} with value {}",rep,next_round_val);
                                 self.term_vals.insert(rep, next_round_val);
                             }
                             arr_vec[1].4 = true;
@@ -133,6 +135,7 @@ impl RoundState{
                     // check for 2t+1 votes: if it has 2t+1 votes, send out echo2 message
                     if arr_vec[0].2.len() >= num_nodes-num_faults{
                         arr_tup.2.push(parsed_bigint);
+                        log::info!("Terminated approx agreement of rep {} with value {}",rep,arr_vec[0].0.clone());
                         self.term_vals.insert(rep, arr_vec[0].0.clone());
                     }
                 }
@@ -146,7 +149,7 @@ impl RoundState{
                     else{
                         arr_vec[1].2.insert(echo2_sender);
                         if arr_vec[1].2.len() >= num_nodes-num_faults{
-                            log::info!("Value {:?} received n-f echo2s for instance {}",arr_vec[1].0.clone(),rep);
+                            log::info!("Terminated approx agreement of rep {} with value {}",rep,arr_vec[1].0.clone());
                             arr_tup.2.push(parsed_bigint);
                             self.term_vals.insert(rep, arr_vec[1].0.clone());
                         }

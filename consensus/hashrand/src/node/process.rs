@@ -30,7 +30,7 @@ impl HashRand{
     }
     
     pub(crate) async fn process_msg(self: &mut HashRand, wrapper_msg: WrapperMsg){
-        log::debug!("Received protocol msg: {:?}",wrapper_msg);
+        log::trace!("Received protocol msg: {:?}",wrapper_msg);
         let msg = Arc::new(wrapper_msg.clone());
         if self.check_proposal(msg){
             self.num_messages += 1;

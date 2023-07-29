@@ -136,6 +136,7 @@ impl CTRBCState{
         }
     }
     
+    // Every message BeaconMsg contains two types of messages: Approximate Consensus messages for the last x rounds and RBC state for Batch AWVSS.
     pub fn transform(&mut self, terminated_index:Replica)->BeaconMsg{
         let beacon_msg = self.msgs.get(&terminated_index).unwrap().0.clone();
         if beacon_msg.appx_con.is_some(){

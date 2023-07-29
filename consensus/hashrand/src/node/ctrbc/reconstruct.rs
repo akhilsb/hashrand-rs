@@ -50,9 +50,9 @@ impl HashRand{
                 let term_secrets = rbc_state.terminated_secrets.len();
                 if term_secrets >= self.num_nodes - self.num_faults{
                     if !rbc_state.send_w1{
-                        log::info!("Terminated n-f Batch WSSs, sending list of first n-f Batch WSSs to other nodes");
-                        log::info!("Terminated : {:?}",rbc_state.terminated_secrets);
-                        log::info!("Terminated n-f wss instances. Sending echo2 message to everyone");
+                        log::info!("Terminated n-f Batch WSSs, sending list of first n-f Batch WSSs to other nodes for round {}",round);
+                        log::info!("Terminated : {:?} for round {}",rbc_state.terminated_secrets,round);
+                        log::info!("Terminated n-f wss instances. Sending echo2 message to everyone for round {}",round);
                         rbc_state.send_w1 = true;
                         // Conditions to check before beginning round r+1.
                         // a) Check if n-f RBCs of round r are terminated 
