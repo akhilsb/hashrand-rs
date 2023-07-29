@@ -16,7 +16,7 @@ impl HashRand{
             log::warn!("Older message received, protocol advanced forward, ignoring Binary AA ECHO message for round {}, current round {}",round,self.curr_round);
             return;
         }
-        log::info!("Received ECHO1 message from node {} with content {:?} for round {}",echo_sender,msgs,round);
+        log::debug!("Received ECHO1 message from node {} with content {:?} for round {}",echo_sender,msgs,round);
         for (round_iter,values) in msgs.into_iter(){
             if !self.round_state.contains_key(&round_iter){
                 let rbc_new_state = CTRBCState::new(self.secret_domain.clone(),self.num_nodes);
@@ -74,7 +74,7 @@ impl HashRand{
 
     pub async fn process_baa_echo2(self: &mut HashRand, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo2_sender:Replica, round:u32){
         let now = SystemTime::now();
-        log::info!("Received ECHO2 message from node {} with content {:?} for round {}",echo2_sender,msgs,round);
+        log::debug!("Received ECHO2 message from node {} with content {:?} for round {}",echo2_sender,msgs,round);
         if round < self.curr_round{
             log::warn!("Older message received, protocol advanced forward, ignoring Binary AA ECHO2 message for round {}, current_round:{}",round,self.curr_round);
             return;

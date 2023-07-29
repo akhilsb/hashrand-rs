@@ -135,7 +135,7 @@ impl RoundState{
                     arr_vec[0].2.insert(echo2_sender);
                     // check for 2t+1 votes: if it has 2t+1 votes, send out echo2 message
                     if arr_vec[0].2.len() >= num_nodes-num_faults{
-                        log::info!("Processing values: {:?} inst: {} echo count: {}",arr_vec[0].clone(),rep, arr_vec[0].1.len());
+                        log::debug!("Processing values: {:?} inst: {} echo count: {}",arr_vec[0].clone(),rep, arr_vec[0].1.len());
                         arr_tup.2.push(parsed_bigint);
                         log::info!("Terminated approx agreement of rep {} with value {}",rep,arr_vec[0].0.clone());
                         self.term_vals.insert(rep, arr_vec[0].0.clone());
