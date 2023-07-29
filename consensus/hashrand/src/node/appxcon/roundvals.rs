@@ -64,13 +64,13 @@ impl RoundState{
                     // check whether an echo has been sent out for this value in this instance
                     log::info!("Processing values: {:?} inst: {} echo count: {}",arr_vec[0].clone(),rep, arr_vec[0].1.len());
                     if arr_vec[0].1.len() >= num_faults+1 && !arr_vec[0].3{
-                        log::debug!("Got t+1 ECHO messages for BAA inst {} sending ECHO",rep.clone(),);
+                        log::info!("Got t+1 ECHO messages for BAA inst {} sending ECHO",rep.clone(),);
                         echo1_msgs.push((rep,msg.clone()));
                         arr_vec[0].3 = true;
                     }
                     // check for 2t+1 votes: if it has 2t+1 votes, send out echo2 message
                     else if arr_vec[0].1.len() >= num_nodes-num_faults && !arr_vec[0].4{
-                        log::debug!("Got 2t+1 ECHO messages for BAA inst {} sending ECHO2",rep.clone());
+                        log::info!("Got 2t+1 ECHO messages for BAA inst {} sending ECHO2",rep.clone());
                         echo2_msgs.push((rep,msg.clone()));
                         arr_tup.1.insert(parsed_bigint);
                         if arr_tup.1.len() == 2{

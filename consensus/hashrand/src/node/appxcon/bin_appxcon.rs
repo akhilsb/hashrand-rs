@@ -24,7 +24,6 @@ impl HashRand{
             }
             let rbc_state = self.round_state.get_mut(&round_iter).unwrap();
             if rbc_state.round_state.contains_key(&round){
-                log::info!("Round state for RBC inited {} before receiving echos: {:?}",round_iter, rbc_state.round_state.get(&round).unwrap());
                 let rnd_state = rbc_state.round_state.get_mut(&round).unwrap();
                 let (echo1_msgs,echo2_msgs) = rnd_state.add_echo(values, echo_sender, self.num_nodes, self.num_faults);
                 if rnd_state.term_vals.len() == rbc_state.committee.len() {
@@ -53,7 +52,6 @@ impl HashRand{
                 let rnd_state  = RoundState::new_with_echo(values,echo_sender);
                 rbc_state.round_state.insert(round, rnd_state);
             }
-            log::info!("Round state for RBC inited {} after receiving echos: {:?}",round_iter, rbc_state.round_state.get(&round).unwrap());
             self.add_benchmark(String::from("process_baa_echo"), now.elapsed().unwrap().as_nanos());
         }
         if send_valmap_echo1.len() > 0{
