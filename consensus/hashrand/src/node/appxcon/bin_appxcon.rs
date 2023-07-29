@@ -16,7 +16,7 @@ impl HashRand{
             log::warn!("Older message received, protocol advanced forward, ignoring Binary AA ECHO message for round {}, current round {}",round,self.curr_round);
             return;
         }
-        log::debug!("Received ECHO1 message from node {} with content {:?} for round {}",echo_sender,msgs,round);
+        log::info!("Received ECHO1 message from node {} with content {:?} for round {}",echo_sender,msgs,round);
         for (round_iter,values) in msgs.into_iter(){
             if !self.round_state.contains_key(&round_iter){
                 let rbc_new_state = CTRBCState::new(self.secret_domain.clone(),self.num_nodes);
@@ -27,7 +27,7 @@ impl HashRand{
                 let rnd_state = rbc_state.round_state.get_mut(&round).unwrap();
                 let (echo1_msgs,echo2_msgs) = rnd_state.add_echo(values, echo_sender, self.num_nodes, self.num_faults);
                 if rnd_state.term_vals.len() == rbc_state.committee.len() {
-                    log::debug!("All instances of Binary AA terminated for round {}, checking for termination related to round {}",round,round_iter);
+                    log::info!("All instances of Binary AA terminated for round {}, checking for termination related to round {}",round,round_iter);
                     if self.check_termination(round){
                         // Begin next round
                         self.next_round_begin(round,true).await;
@@ -74,6 +74,7 @@ impl HashRand{
 
     pub async fn process_baa_echo2(self: &mut HashRand, msgs: Vec<(Round,Vec<(Replica,Vec<u8>)>)>, echo2_sender:Replica, round:u32){
         let now = SystemTime::now();
+        log::info!("Received ECHO2 message from node {} with content {:?} for round {}",echo2_sender,msgs,round);
         if round < self.curr_round{
             log::warn!("Older message received, protocol advanced forward, ignoring Binary AA ECHO2 message for round {}, current_round:{}",round,self.curr_round);
             return;
@@ -200,8 +201,8 @@ impl HashRand{
             //self.curr_round = round + 1;
             let prot_msg = CoinMsg::BinaryAAEcho(vec_newround_vals.clone(), self.myid, round+1);
             self.broadcast(prot_msg.clone(),round+1).await;
-            self.process_baa_echo(vec_newround_vals, self.myid, round+1).await;
             self.increment_round(round).await;
+            self.process_baa_echo(vec_newround_vals, self.myid, round+1).await;
             log::error!("Started round {} with Binary AA",round+1);
         }
     }
