@@ -1,6 +1,6 @@
 use std::collections::{HashSet, HashMap};
 
-use num_bigint::{BigInt, Sign};
+use num_bigint::{BigInt};
 use types::appxcon::{Replica};
 
 #[derive(Debug,Clone)]
@@ -17,7 +17,7 @@ impl RoundState{
             term_vals:HashMap::default(),
         };
         for (rep,msg) in msgs.clone().into_iter(){
-            let parsed_bigint = BigInt::from_bytes_be(Sign::Plus,msg.as_slice());
+            let parsed_bigint = BigInt::from_signed_bytes_be(msg.as_slice());
             let mut arr_state:Vec<(BigInt,HashSet<Replica>,HashSet<Replica>,bool,bool)> = Vec::new();
             let mut echo1_set = HashSet::new();
             echo1_set.insert(echo_sender);
@@ -34,7 +34,7 @@ impl RoundState{
             term_vals:HashMap::default(),
         };
         for (rep,msg) in msgs.clone().into_iter(){
-            let parsed_bigint = BigInt::from_bytes_be(Sign::Plus,msg.as_slice());
+            let parsed_bigint = BigInt::from_signed_bytes_be(msg.as_slice());
             let mut arr_state:Vec<(BigInt,HashSet<Replica>,HashSet<Replica>,bool,bool)> = Vec::new();
             let mut echo2_set = HashSet::new();
             echo2_set.insert(echo_sender);
@@ -53,7 +53,7 @@ impl RoundState{
             if self.term_vals.contains_key(&rep){
                 continue;
             }
-            let parsed_bigint = BigInt::from_bytes_be(Sign::Plus, msg.clone().as_slice());
+            let parsed_bigint = BigInt::from_signed_bytes_be(msg.clone().as_slice());
             if self.state.contains_key(&rep){
                 let arr_tup = self.state.get_mut(&rep).unwrap();
                 let arr_vec = &mut arr_tup.0;
@@ -125,7 +125,7 @@ impl RoundState{
 
     pub fn add_echo2(&mut self,msgs: Vec<(Replica,Vec<u8>)>, echo2_sender:Replica,num_nodes: usize,num_faults:usize){
         for (rep,msg) in msgs.into_iter(){
-            let parsed_bigint = BigInt::from_bytes_be(Sign::Plus, msg.clone().as_slice());
+            let parsed_bigint = BigInt::from_signed_bytes_be(msg.clone().as_slice());
             if self.state.contains_key(&rep){
                 let arr_tup = self.state.get_mut(&rep).unwrap();
                 // this vector can only contain two elements, if the echo corresponds to the first element, the first if block is executed
