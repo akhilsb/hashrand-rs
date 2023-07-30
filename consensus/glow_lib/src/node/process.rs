@@ -3,7 +3,7 @@ use std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}};
 use async_recursion::async_recursion;
 use crypto::hash::verf_mac;
 use crypto_blstrs::{crypto::threshold_sig::{SecretKey, CombinableSignature, PublicKey}, threshold_sig::{PartialBlstrsSignature, BlstrsSignature}};
-use num_bigint::{BigInt, BigUint};
+use num_bigint::{BigUint};
 use types::{Round};
 
 //use tbls::{schemes::bls12_377::G1Scheme as SigScheme, sig::ThresholdScheme};
@@ -25,7 +25,7 @@ impl GlowLib{
         true
     }
     pub async fn process(&mut self,wrapper: WrapperMsg){
-        log::info!("Received protocol msg: {:?}",wrapper);
+        log::debug!("Received protocol msg: {:?}",wrapper);
         let msg = Arc::new(wrapper.clone());
         if self.check_proposal(msg){
             self.handle_incoming_agg(wrapper.round, wrapper).await;
@@ -72,53 +72,42 @@ impl GlowLib{
 
     #[async_recursion]
     pub async fn start_round_agg(&mut self,round:Round){
-        if !self.state.contains_key(&round){
-            let unix_time = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos();
-            let mut beacon_msg = self.sign_msg.clone();
-            beacon_msg.push_str(round.to_string().as_str());
-            let dst = "Test";
-            //let partial_sig = SigScheme::partial_sign(&self.secret_key, beacon_msg.as_bytes()).expect("Partial Signature generation failed");
-            let psig = self.secret_key.sign(&beacon_msg, &dst);
-            log::info!("Signing string {:?} time: {}",beacon_msg,SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()-unix_time);
-            // Send outgoing messages
-            let mut partial_sigs:Vec<PartialBlstrsSignature> = Vec::new();
-            partial_sigs.push(psig.clone());
-            self.thresh_state.insert(round, partial_sigs);
-            let sig_data = bincode::serialize(&psig).expect("Serialization error");
-            self.broadcast_tsig(sig_data, round).await;
-            //self.empty_queue_and_proceed(round).await;
-        }
+        let unix_time = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+        let mut beacon_msg = self.sign_msg.clone();
+        beacon_msg.push_str(round.to_string().as_str());
+        let dst = "Test";
+        //let partial_sig = SigScheme::partial_sign(&self.secret_key, beacon_msg.as_bytes()).expect("Partial Signature generation failed");
+        let psig = self.secret_key.sign(&beacon_msg, &dst);
+        log::debug!("Signing string {:?} time: {}",beacon_msg,SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos()-unix_time);
+        // Send outgoing messages
+        let mut partial_sigs:Vec<PartialBlstrsSignature> = Vec::new();
+        partial_sigs.push(psig.clone());
+        self.thresh_state.insert(round, partial_sigs);
+        let sig_data = bincode::serialize(&psig).expect("Serialization error");
+        self.broadcast_tsig(sig_data, round).await;
+        //self.empty_queue_and_proceed(round).await;
     }
 
     pub async fn handle_incoming_agg(&mut self,round:Round, wrapper_msg: WrapperMsg){
         if !self.thresh_state.contains_key(&round){
             self.start_round_agg(round).await;
         }
-        // First verify partial signature
-        let unix_time = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos();
         let mut beacon_msg = self.sign_msg.clone();
         beacon_msg.push_str(round.to_string().as_str());
         let signature = wrapper_msg.data.clone();
         let psig:PartialBlstrsSignature = bincode::deserialize(signature.as_slice()).expect("Deserialization error");
         //let res_verif = SigScheme::partial_verify(&self.pub_poly_key, &beacon_msg.as_bytes()[..], &signature);
-        log::info!("Verified sig with time: {}",SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()-unix_time);
         //match res_verif {
         //    Ok(_)=>{
-                // Add signature to state
+        // Add signature to state
         let sig_vec = self.thresh_state.get_mut(&round).unwrap();
-        if sig_vec.len() > ((self.num_faults + 1) as usize){
+        if sig_vec.len() >= ((self.num_faults + 1) as usize){
             return;
         }
         else{
@@ -132,23 +121,24 @@ impl GlowLib{
             }
             else {
                 log::error!("Signature verification unsuccessful");
+                return;
             }
             if sig_vec.len() == (self.num_faults+1) as usize{
                 let unix_time = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_millis();
-                log::info!("Aggregating signatures for round {}",round);
+                log::debug!("Aggregating signatures for round {}",round);
                 //let threshold_sig = SigScheme::aggregate(self.num_faults as usize, &sig_vec).unwrap();
                 let sig = BlstrsSignature::combine((self.num_faults+1) as usize, sig_vec.clone()).expect("Unable to combine threshold sigs");
-                log::info!("Result obtained, the following is the signature: {:?} with agg time: {}",sig,SystemTime::now()
+                log::debug!("Result obtained, the following is the signature: {:?} with agg time: {}",sig,SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_millis()-unix_time);
                 let sig_bytes = bincode::serialize(&sig).expect("Serialization error");
                 let bigint_num = BigUint::from_bytes_be(&sig_bytes.as_slice());
                 let bigint_mod = bigint_num % u128::MAX;
-                log::error!("{:?}",bigint_mod);
+                log::debug!("{:?}",bigint_mod);
                 let u128_fit:u128 = bigint_mod.to_string().parse().unwrap();
                 log::info!("Sending beacon {:?} to consensus",(round,u128_fit));
                 if let Err(e) = self.coin_send_channel.send((round,u128_fit)).await {

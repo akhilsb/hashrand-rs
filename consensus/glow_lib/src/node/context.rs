@@ -8,7 +8,7 @@ use network::{plaintcp::{TcpReliableSender, TcpReceiver, CancelHandler}, Acknowl
 use tokio::sync::{mpsc::{UnboundedReceiver, unbounded_channel, Receiver, Sender}, oneshot};
 use types::{beacon::{Replica}, Round};
 
-use super::{Handler, state_machine::{sign::{Sign, ProtocolMessage}}, WrapperMsg};
+use super::{Handler, state_machine::{sign::{ProtocolMessage}}, WrapperMsg};
 
 pub struct GlowLib{
     pub net_send: TcpReliableSender<Replica,WrapperMsg,Acknowledgement>,
@@ -23,7 +23,6 @@ pub struct GlowLib{
     /// Cancel Handlers
     pub cancel_handlers: HashMap<Round,Vec<CancelHandler<Acknowledgement>>>,
     pub curr_round: u32,
-    pub state: HashMap<Round,Sign>,
     pub thresh_state: HashMap<Round,Vec<PartialBlstrsSignature>>,
     //pub secret: LocalKey,
     /// Threshold setup parameters
@@ -128,7 +127,6 @@ impl GlowLib {
                 cancel_handlers:HashMap::default(),
                 curr_round: 0,
                 exit_rx:exit_rx,
-                state:HashMap::default(),
                 sign_msg: "beacon".to_string(),
                 thresh_state: HashMap::default(),
                 tpubkey_share:pkey_map,
