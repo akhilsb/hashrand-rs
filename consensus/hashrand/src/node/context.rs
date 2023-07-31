@@ -138,7 +138,7 @@ impl HashRand {
                     max_rounds: 20000,
                     tmp_stop_round: 200,
                     bin_bun_aa: false,
-                    committee_size:43,
+                    committee_size:27,
                     
                     round_state:HashMap::default(),
                     batch_size:batch,
