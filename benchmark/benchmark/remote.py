@@ -268,7 +268,7 @@ class Bench:
                 exp_vals[0],
                 tri,
                 50,
-                5,
+                1,
                 debug=False
             )
             unzip_cmd = CommandMaker.unzip_tkeys('tkeys.tar.gz','thresh_keys')
@@ -379,8 +379,8 @@ class Bench:
                 delta,
                 exp_vals[0],
                 tri,
-                400,
-                15,
+                200,
+                1,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)
@@ -454,16 +454,16 @@ class Bench:
         #workers_addresses = committee.workers_addresses(faults)
         progress = progress_bar(hosts, prefix='Downloading workers logs:')
         for i, address in enumerate(progress):
-            c = Connection(address, user='ubuntu', connect_kwargs=self.connect)
             if i==0:
+                c = Connection(address, user='ubuntu', connect_kwargs=self.connect)
                 c.get(
                     PathMaker.syncer_log_file(),
                     local=PathMaker.syncer_log_file()
                 )
-            c.get(
-               PathMaker.client_log_file(i, 0), 
-               local=PathMaker.client_log_file(i, 0)
-            )
+            # c.get(
+            #    PathMaker.client_log_file(i, 0), 
+            #    local=PathMaker.client_log_file(i, 0)
+            # )
             # c.get(
             #     PathMaker.worker_log_file(i, id),     
             #     local=PathMaker.worker_log_file(i, id)

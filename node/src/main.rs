@@ -119,7 +119,6 @@ async fn main() -> Result<()> {
             let id_str = ((config.id +1)).to_string();
             //let id_str_1  = ((config.id)).to_string();
             let key_str = "sec".to_string();
-            
             let concat_str = key_str + &id_str;
             let _last_elem = arr_strsplit.pop();
 
