@@ -84,7 +84,7 @@ impl Context{
                 self.round_state.insert(round_iter, rbc_new_state);
             }
             let rbc_state = self.round_state.get_mut(&round_iter).unwrap();
-            if rbc_state.round_state.contains_key(&round_iter){
+            if rbc_state.round_state.contains_key(&round){
                 let rnd_state = rbc_state.round_state.get_mut(&round).unwrap();
                 rnd_state.add_echo2(vals, echo2_sender, self.num_nodes, self.num_faults);
                 if rnd_state.term_vals.len() == rbc_state.committee.len() {

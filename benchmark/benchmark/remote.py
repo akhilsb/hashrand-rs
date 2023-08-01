@@ -379,8 +379,8 @@ class Bench:
                 delta,
                 exp_vals[0],
                 tri,
-                100,
-                40,
+                400,
+                15,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)
