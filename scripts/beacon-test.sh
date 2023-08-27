@@ -14,6 +14,7 @@ sleep=$1
 st_time=$((curr_date+sleep))
 echo $st_time
 # Run the syncer now
+# ./scripts/beacon-test.sh 10 bea testdata/cc_16/syncer 200 10
 ./target/$TYPE/node \
     --config $TESTDIR/nodes-0.json \
     --ip ip_file \

@@ -35,7 +35,7 @@ class CommandMaker:
         assert isinstance(debug, bool)
         #v = '-vvv' if debug else '-vv'
         return (f'./node --config {key} --ip ip_file '
-                f'--sleep {delay} --vsstype glow --epsilon {ep} --delta {delta} --val {val} --tri {tri} --syncer syncer --batch {batch} --frequency {freq}')
+                f'--sleep {delay} --vsstype bea --epsilon {ep} --delta {delta} --val {val} --tri {tri} --syncer syncer --batch {batch} --frequency {freq}')
     
     @staticmethod
     def run_syncer(key,delay, debug=False):

@@ -31,31 +31,43 @@ impl Context{
             let secret_num = self.batch_size;
             let low_r = BigInt::from(0);
             let prime = self.secret_domain.clone();
+            let nonce_prime = self.nonce_domain.clone();
             //let mut rng = rand::thread_rng();
-            
-            let mut secrets_samp:Vec<BigInt> =Vec::new();
+
             let mut secret_shares:Vec<Vec<(Replica,BigInt)>> = Vec::new();
+            let mut nonce_shares:Vec<Vec<(Replica,BigInt)>> = Vec::new();
             for _i in 0..secret_num{
                 let secret = rand::thread_rng().gen_bigint_range(&low_r, &prime.clone());
-                secrets_samp.push(secret.clone());
+                let nonce = rand::thread_rng().gen_bigint_range(&low_r, &nonce_prime.clone());
                 let shamir_ss = ShamirSecretSharing{
                     threshold:faults+1,
                     share_amount:3*faults+1,
                     prime: prime.clone()
                 };
+                let nonce_ss = ShamirSecretSharing{
+                    threshold:faults+1,
+                    share_amount:3*faults+1,
+                    prime: nonce_prime.clone(),
+                };
                 secret_shares.push(shamir_ss.split(secret));
+                nonce_shares.push(nonce_ss.split(nonce));
             }
+
             let mut hashes_ms:Vec<Vec<Hash>> = Vec::new();
             // (Replica, Secret, Random Nonce, One-way commitment)
-            let share_comm_hash:Vec<Vec<(usize,Vec<u8>,Vec<u8>,Hash)>> = secret_shares.clone().into_iter().map(|y| {
+            let share_comm_hash:Vec<Vec<(usize,Vec<u8>,Vec<u8>,Hash)>> = secret_shares.clone().iter().zip(nonce_shares.iter()).into_iter().map(|(y,nonce)| {
                 let mut hashes:Vec<Hash> = Vec::new();
-                let acc_secs:Vec<(usize, Vec<u8>, Vec<u8>, Hash)> = y.into_iter().map(|x| {
-                    let rand = rand::thread_rng().gen_bigint_range(&low_r, &prime.clone());
-                    let added_secret = rand.clone()+x.1.clone();
-                    let vec_comm = rand.to_signed_bytes_be();
+                let acc_secs:Vec<(usize, Vec<u8>, Vec<u8>, Hash)> = y.iter().zip(nonce.iter()).map(|(x,non)| {
+                    // H(R,X)
+                    let added_secret = non.1.clone()+x.1.clone();
                     let comm_secret = added_secret.to_signed_bytes_be();
                     let hash:Hash = do_hash(comm_secret.as_slice());
+                    
+                    // R
+                    let vec_comm = non.1.to_signed_bytes_be();
                     hashes.push(hash.clone());
+
+                    // (Replica,Secret share, Nonce Share, Commitment)
                     (x.0,x.1.to_signed_bytes_be(),vec_comm.clone(),hash)    
                 }).collect();
                 hashes_ms.push(hashes);

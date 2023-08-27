@@ -33,6 +33,7 @@ pub struct Context {
 
     /// The context parameters related to Verifiable Secret sharing for the common coin
     pub secret_domain: BigInt,
+    pub nonce_domain: BigInt,
     pub rounds_aa: u32,
     pub epsilon: u32,
     pub curr_round:u32,
@@ -77,12 +78,15 @@ impl Context {
         let my_address = to_socket_address("0.0.0.0", my_port.port());
         let mut syncer_map:FnvHashMap<Replica,SocketAddr> = FnvHashMap::default();
         syncer_map.insert(0, config.client_addr);
-        // No clients needed
-
-        // let prot_net_rt = tokio::runtime::Builder::new_multi_thread()
-        // .enable_all()
-        // .build()
-        // .unwrap();
+        
+        let committee_sizes:HashMap<usize,usize> = ([
+            (4,3),
+            (16,11),
+            (40,27),
+            (64,43),
+            (112,53),
+            (160,60)
+        ]).iter().cloned().collect();
 
         // Setup networking
         let (tx_net_to_consensus, rx_net_to_consensus) = unbounded_channel();
@@ -108,8 +112,9 @@ impl Context {
             tokio::spawn(async move {
                 // The modulus of the secret is set for probability of coin success = 1- 5*10^{-9}
                 let prime = BigInt::parse_bytes(b"685373784908497",10).unwrap();
+                let nonce_prime = BigInt::parse_bytes(b"7540413808418633958282852050178074861680062438274790246382209349819426274715021974571290841231123616713073551439231076214330138511767072438590219824049681", 10).unwrap();
                 let epsilon:u32 = ((1024*1024)/(config.num_nodes*config.num_faults)) as u32;
-                let rounds = (50.0 - ((epsilon as f32).log2().ceil())) as u32;
+                let rounds = (65.0 - ((epsilon as f32).log2().ceil())) as u32;
                 log::error!("Appx consensus rounds: {}",rounds);
                 let mut c = Context {
                     net_send:consensus_net,
@@ -123,6 +128,7 @@ impl Context {
                     payload: config.payload,
                     
                     secret_domain:prime.clone(),
+                    nonce_domain:nonce_prime.clone(),
                     rounds_aa:rounds,
                     epsilon:epsilon,
                     curr_round:0,
@@ -130,7 +136,7 @@ impl Context {
                     num_messages:0,
                     max_rounds: 20000,
                     bin_bun_aa: false,
-                    committee_size:27,
+                    committee_size:committee_sizes.get(&config.num_nodes).unwrap().clone(),
                     
                     round_state:HashMap::default(),
                     batch_size:batch,
