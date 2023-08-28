@@ -33,7 +33,7 @@ samples_bil = []
 for f in faults:
     samples_tril.append(estimate_samples(3*f+1,f+1,p=0.999999999999999))
     samples_bil.append(estimate_samples(3*f+1,f+1,p=0.999999999999))
-print(samples_tril)
+print(samples_bil)
 import matplotlib.pyplot as plt
 
 plt.plot(3*faults+1,samples_tril,label=r'p = $1-10^{-15}$')

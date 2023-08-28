@@ -43,7 +43,7 @@ class CommandMaker:
         assert isinstance(debug, bool)
         #v = '-vvv' if debug else '-vv'
         return (f'./node --config {key} --ip ip_file '
-                f'--sleep {delay} --vsstype sync --epsilon 10 --delta 5000 --val 100 --tri 10 --syncer syncer --batch 100 --frequency 100')
+                f'--sleep {delay} --vsstype sync --epsilon 10 --delta 5000 --val 100 --tri 10 --syncer syncer --batch 200 --frequency 10')
 
     @staticmethod
     def unzip_tkeys(fileloc,dir, debug=False):
