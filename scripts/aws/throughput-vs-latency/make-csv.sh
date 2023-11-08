@@ -1,1 +1,0 @@
-# python scripts/throughput-vs-latency/vary-d/parse-exp.py "$1"/$fname-cleaned.log "$1"/$fname-cleaned.csv
