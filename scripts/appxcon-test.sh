@@ -42,3 +42,5 @@ done
 
 # Client has finished; Kill the nodes
 killall ./target/$TYPE/appxcox_new &> /dev/null
+
+# Kill all nodes sudo lsof -ti:7000-7015 | xargs kill -9

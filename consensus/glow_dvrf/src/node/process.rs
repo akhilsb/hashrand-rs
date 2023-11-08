@@ -71,7 +71,7 @@ impl GlowDVRF{
 
     #[async_recursion]
     pub async fn start_round_agg(&mut self,round:Round){
-        if !self.state.contains_key(&round){
+        if !self.thresh_state.contains_key(&round){
             let unix_time = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap()

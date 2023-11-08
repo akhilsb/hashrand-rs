@@ -268,7 +268,7 @@ class Bench:
                 exp_vals[0],
                 tri,
                 25,
-                30,
+                20,
                 debug=False
             )
             unzip_cmd = CommandMaker.unzip_tkeys('tkeys.tar.gz','thresh_keys')
@@ -379,8 +379,8 @@ class Bench:
                 delta,
                 exp_vals[0],
                 tri,
+                100,
                 50,
-                30,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)
