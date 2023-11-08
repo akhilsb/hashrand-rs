@@ -1,16 +1,14 @@
-Testing this codebase:
-1. `make testdata`
-2. `bash scripts/apollo-release-quick-test.sh` or any of the test scripts 
+# HashRand
+This repository contains the codebase of HashRand - an asynchronous random beacon protocol without trusted setup and with post-quantum security. The following protocols have been implemented. 
+<ol>
+  <li>HashRand beacon protocol</li>
+  <li>Dfinity-DVRF protocol using <code>blstrs</code> library</li>
+  <li>Approximate Common Coin in Freitas et al. </li>
+  <li>DAG-Rider with HashRand - a Post-Quantum Asynchronous SMR protocol</li>
+</ol>
 
-# Other notes
-- Consensus module contains the reactors which react to the different protocol
-  messages
-- The config module holds the config information
-- The crypto implements RSA, EDDSA and SECP256K1 PKI
-- net module implements the optimized tokio module (gives two channels for the
-  consensus reactors to send/receive messages to/from)
-- scripts contain a myriad of scripts used for data/node/aws processing
-- tools has a config generation tool
-- types holds the definitions of blocks, transactions, rounds, heights, along
-  with some common types
-- util holds some utility libraries like writing out config files
+# Running the code
+HashRand can be run as a standalone application and can also be imported as a library to be included in other codebases.
+To run as a standalone application, compile the program using Cargo and use the test script <code>appxcon-test.sh</code>.
+
+To run on AWS, use the code in the <code>benchmark</code> folder. This code uses fabric to automate the process of spawning instances, installing rust, and installing this repository. This benchmarking code has been cloned from **narwhal** ( https://github.com/asonnino/narwhal )
