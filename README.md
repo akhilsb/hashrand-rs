@@ -6,6 +6,7 @@ This repository contains the codebase of HashRand - an asynchronous random beaco
   <li>Approximate Common Coin in Freitas et al. </li>
   <li>DAG-Rider with HashRand - a Post-Quantum Asynchronous SMR protocol</li>
 </ol>
+This repository is built on top of the <code>libnet-rs</code> ( https://github.com/libdist-rs/libnet-rs ) library and the <code>libchatter-rs</code>( https://github.com/libdist-rs/libchatter-rs ) library from the <code>libdist-rs</code> organization. 
 
 # Running the code
 HashRand can be run as a standalone application and can also be imported as a library to be included in other codebases.
