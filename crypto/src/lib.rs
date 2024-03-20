@@ -13,3 +13,4 @@ pub use crypto::*;
 
 pub mod error;
 pub mod secret;
+pub mod hash_aes;

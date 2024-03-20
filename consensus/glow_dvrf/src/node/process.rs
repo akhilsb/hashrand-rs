@@ -2,7 +2,7 @@ use std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}};
 
 use async_recursion::async_recursion;
 use crypto::hash::verf_mac;
-use crypto_blstrs::{crypto::threshold_sig::{SecretKey, CombinableSignature, PublicKey}, threshold_sig::{PartialBlstrsSignature, BlstrsSignature}};
+use crypto_blstrs::{crypto::threshold_sig::{CombinableSignature, PublicKey}, threshold_sig::{PartialBlstrsSignature, BlstrsSignature}};
 use types::{Round, SyncState, SyncMsg};
 
 //use tbls::{schemes::bls12_377::G1Scheme as SigScheme, sig::ThresholdScheme};
@@ -72,19 +72,24 @@ impl GlowDVRF{
     #[async_recursion]
     pub async fn start_round_agg(&mut self,round:Round){
         if !self.thresh_state.contains_key(&round){
-            let unix_time = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos();
-            let mut beacon_msg = self.sign_msg.clone();
-            beacon_msg.push_str(round.to_string().as_str());
-            let dst = "Test";
-            //let partial_sig = SigScheme::partial_sign(&self.secret_key, beacon_msg.as_bytes()).expect("Partial Signature generation failed");
-            let psig = self.secret_key.sign(&beacon_msg, &dst);
-            log::info!("Signing string {:?} time: {}",beacon_msg,SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()-unix_time);
+            //let unix_time = SystemTime::now()
+            //        .duration_since(UNIX_EPOCH)
+            //        .unwrap()
+            //        .as_nanos();
+            // let mut beacon_msg = self.sign_msg.clone();
+            // beacon_msg.push_str(round.to_string().as_str());
+            // let dst = "Test";
+            // //let partial_sig = SigScheme::partial_sign(&self.secret_key, beacon_msg.as_bytes()).expect("Partial Signature generation failed");
+            // let psig = self.secret_key.sign(&beacon_msg, &dst);
+            // log::info!("Signing string {:?} time: {}",beacon_msg,SystemTime::now()
+            // .duration_since(UNIX_EPOCH)
+            // .unwrap()
+            // .as_nanos()-unix_time);
+            if round>5000 {
+                log::info!("Too many rounds, stop protocol");
+                return;
+            }
+            let psig = self.presigned.get(&round).unwrap();
             // Send outgoing messages
             let mut partial_sigs:Vec<PartialBlstrsSignature> = Vec::new();
             partial_sigs.push(psig.clone());

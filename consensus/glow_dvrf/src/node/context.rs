@@ -3,7 +3,7 @@ use std::{fs::File, io::{Read}};
 
 use anyhow::{Result, anyhow};
 use config::Node;
-use crypto_blstrs::threshold_sig::{BlstrsSecretKey, BlstrsPublicKey, Partial, PartialBlstrsSignature};
+use crypto_blstrs::{threshold_sig::{BlstrsSecretKey, BlstrsPublicKey, Partial, PartialBlstrsSignature}, crypto::threshold_sig::SecretKey};
 use fnv::FnvHashMap;
 use network::{plaintcp::{TcpReliableSender, TcpReceiver, CancelHandler}, Acknowledgement};
 //use tbls::{poly::Poly, curve::bls12377::{G1, Scalar}, sig::Share};
@@ -37,6 +37,8 @@ pub struct GlowDVRF{
     pub sign_msg: String,
     /// Exit protocol
     exit_rx: oneshot::Receiver<()>,
+    // Pre signed messages
+    pub presigned: HashMap<Round,PartialBlstrsSignature>,
 }
 
 impl GlowDVRF {
@@ -124,7 +126,14 @@ impl GlowDVRF {
             data: secret_key
         };
         tokio::spawn(async move {
-            // The modulus of the secret is set for probability of coin success = 1- 5*10^{-9}
+            let mut pre_sign_map = HashMap::default();
+            for round in 0..10000{
+                let mut beacon_msg = "beacon".to_string();
+                beacon_msg.push_str(round.to_string().as_str());
+                let dst = "Test";
+                let psig = secret_share.sign(&beacon_msg, &dst);
+                pre_sign_map.insert(round, psig);
+            }
             let mut c = GlowDVRF {
                 net_send:consensus_net,
                 net_recv:rx_net_to_consensus,
@@ -143,7 +152,8 @@ impl GlowDVRF {
 
                 thresh_state: HashMap::default(),
                 tpubkey_share:pkey_map,
-                secret_key:secret_share
+                secret_key:secret_share,
+                presigned: pre_sign_map,
             };
             for (id, sk_data) in config.sk_map.clone() {
                 c.sec_key_map.insert(id.try_into().unwrap(), sk_data.clone());

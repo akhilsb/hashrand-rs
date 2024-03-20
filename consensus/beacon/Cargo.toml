@@ -32,6 +32,7 @@ num-bigint = {version = "0.2.6", features = ["rand"]}
 num-traits = "0.2.11"
 num-integer = {version = "0.1.42", features = ["std", "i128"]}
 anyhow = "1"
+aes = "0.8.3"
 
 async-trait = "0"
 futures-util = "0"

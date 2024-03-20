@@ -21,4 +21,5 @@ members = [
     "consensus/pedavss_cc",
     "consensus/glow_dvrf",
     "consensus/glow_lib",
+    "consensus/dag_rider"
 ]
