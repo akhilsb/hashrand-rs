@@ -122,7 +122,7 @@ impl GlowDVRF {
         //let pubkey_poly:BlstrsPublicKey = bincode::deserialize(pubkey_poly_buffer.as_slice()).expect("Unable to deserialize pubkey poly data");
         let secret_key:BlstrsSecretKey = bincode::deserialize(secret_key_buffer.as_slice()).expect("Unable to deserialize threshold secret key");
         let secret_share:Partial<BlstrsSecretKey> = Partial { 
-            idx: config.id+1, 
+            idx: config.id+1,
             data: secret_key
         };
         tokio::spawn(async move {

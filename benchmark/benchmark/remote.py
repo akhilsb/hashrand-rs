@@ -67,7 +67,8 @@ class Bench:
             # Install rust (non-interactive).
             'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
             'source $HOME/.cargo/env',
-            'rustup default stable',
+            'rustup install 1.63.0',
+            'rustup override set 1.63.0',
 
             # This is missing from the Rocksdb installer (needed for Rocksdb).
             'sudo apt-get install -y clang',
@@ -267,8 +268,8 @@ class Bench:
                 delta,
                 exp_vals[0],
                 tri,
-                400,
-                1,
+                250,
+                5,
                 debug=False
             )
             unzip_cmd = CommandMaker.unzip_tkeys('tkeys.tar.gz','thresh_keys')
@@ -379,8 +380,8 @@ class Bench:
                 delta,
                 exp_vals[0],
                 tri,
-                400,
-                1,
+                250,
+                5,
                 debug=False
             )
             log_file = PathMaker.primary_log_file(i)
@@ -460,10 +461,10 @@ class Bench:
                     PathMaker.syncer_log_file(),
                     local=PathMaker.syncer_log_file()
                 )
-            # c.get(
-            #    PathMaker.client_log_file(i, 0), 
-            #    local=PathMaker.client_log_file(i, 0)
-            # )
+            c.get(
+               PathMaker.client_log_file(i, 0), 
+               local=PathMaker.client_log_file(i, 0)
+            )
             # c.get(
             #     PathMaker.worker_log_file(i, id),     
             #     local=PathMaker.worker_log_file(i, id)
