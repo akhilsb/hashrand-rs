@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+use std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}, collections::HashMap};
 
 use async_recursion::async_recursion;
 use crypto::hash::verf_mac;
@@ -71,7 +71,11 @@ impl GlowDVRF{
 
     #[async_recursion]
     pub async fn start_round_agg(&mut self,round:Round){
-        if !self.thresh_state.contains_key(&round){
+        if round>5000 {
+            log::info!("Too many rounds, stop protocol");
+            return;
+        }
+        if !self.thresh_state.contains_key(&round) {
             //let unix_time = SystemTime::now()
             //        .duration_since(UNIX_EPOCH)
             //        .unwrap()
@@ -85,18 +89,22 @@ impl GlowDVRF{
             // .duration_since(UNIX_EPOCH)
             // .unwrap()
             // .as_nanos()-unix_time);
-            if round>5000 {
-                log::info!("Too many rounds, stop protocol");
-                return;
-            }
             let psig = self.presigned.get(&round).unwrap();
             // Send outgoing messages
-            let mut partial_sigs:Vec<PartialBlstrsSignature> = Vec::new();
-            partial_sigs.push(psig.clone());
+            let mut partial_sigs:HashMap<u16,PartialBlstrsSignature> = HashMap::default();
+            partial_sigs.insert(self.myid,psig.clone());
             self.thresh_state.insert(round, partial_sigs);
             let sig_data = bincode::serialize(&psig).expect("Serialization error");
             self.broadcast_tsig(sig_data, round).await;
             //self.empty_queue_and_proceed(round).await;
+        }
+        else if !self.thresh_state.get(&round).unwrap().contains_key(&self.myid){
+            let psig = self.presigned.get(&round).unwrap();
+            // Send outgoing messages
+            let partial_sigs = self.thresh_state.get_mut(&round).unwrap();
+            partial_sigs.insert(self.myid,psig.clone());
+            let sig_data = bincode::serialize(&psig).expect("Serialization error");
+            self.broadcast_tsig(sig_data, round).await;
         }
     }
 
@@ -130,9 +138,9 @@ impl GlowDVRF{
             let mut beacon_msg = self.sign_msg.clone();
             beacon_msg.push_str(round.to_string().as_str());
             let dst = "Test";
-            if pkey.verify(&psig, &beacon_msg, &dst){
+            if !sig_vec.contains_key(&wrapper_msg.sender) && pkey.verify(&psig, &beacon_msg, &dst){
                 log::info!("Signature verification successful, adding sig to map");
-                sig_vec.push(psig);
+                sig_vec.insert(wrapper_msg.sender,psig);
             }
             else {
                 log::error!("Signature verification unsuccessful");
@@ -144,7 +152,11 @@ impl GlowDVRF{
                 .as_millis();
                 log::info!("Aggregating signatures for round {}",round);
                 //let threshold_sig = SigScheme::aggregate(self.num_faults as usize, &sig_vec).unwrap();
-                let sig = BlstrsSignature::combine((self.num_faults+1) as usize, sig_vec.clone()).expect("Unable to combine threshold sigs");
+                let mut vec_psigs = Vec::new();
+                for (_id,psig) in sig_vec.clone().into_iter(){
+                    vec_psigs.push(psig);
+                }
+                let sig = BlstrsSignature::combine((self.num_faults+1) as usize, vec_psigs).expect("Unable to combine threshold sigs");
                 log::info!("Result obtained, the following is the signature: {:?} with agg time: {}",sig,SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()

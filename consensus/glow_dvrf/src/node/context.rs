@@ -29,7 +29,7 @@ pub struct GlowDVRF{
     pub curr_round: u32,
 
     pub state: HashMap<Round,Sign>,
-    pub thresh_state: HashMap<Round,Vec<PartialBlstrsSignature>>,
+    pub thresh_state: HashMap<Round,HashMap<u16,PartialBlstrsSignature>>,
     //pub secret: LocalKey,
     /// Threshold setup parameters
     pub tpubkey_share: HashMap<u16,Partial<BlstrsPublicKey>>,
