@@ -229,7 +229,7 @@ impl Syncer{
                                     beacons_count +=1;
                                 }
                                 //vec_times.sort();
-                                log::error!("All n nodes completed reconstruction for round {:?} and index {} with {:?}",round,index,vec_times);
+                                log::error!("All n nodes completed reconstruction for round {:?} and index {} with {:?},and set map : {:?}",round,index,vec_times, set_map);
                                 //self.broadcast(SyncMsg { sender: self.num_nodes, state: SyncState::STOP, value:0}).await;
                             }
                             let current_time = SystemTime::now()
