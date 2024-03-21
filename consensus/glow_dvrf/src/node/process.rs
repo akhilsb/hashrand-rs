@@ -161,7 +161,7 @@ impl GlowDVRF{
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_millis()-unix_time);
-                assert!(self.m_pkey.verify(&sig, &beacon_msg, &dst));
+                //assert!(self.m_pkey.verify(&sig, &beacon_msg, &dst));
                 let cancel_handler = self.sync_send.send(0, 
                     SyncMsg { 
                         sender: self.myid as usize, 

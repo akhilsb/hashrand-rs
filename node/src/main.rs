@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
     //     2 | _ => log::set_max_level(log::LevelFilter::Trace),
     // }
     log::info!("epsilon: {:?},delta: {:?},value: {:?}, tri:{:?}",epsilon,delta,val_appx,tri);
-    log::set_max_level(log::LevelFilter::Info);
+    log::set_max_level(log::LevelFilter::Error);
     config
         .validate()
         .expect("The decoded config is not valid");
