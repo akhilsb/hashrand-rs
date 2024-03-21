@@ -34,6 +34,7 @@ pub struct GlowDVRF{
     /// Threshold setup parameters
     pub tpubkey_share: HashMap<u16,Partial<BlstrsPublicKey>>,
     pub secret_key: Partial<BlstrsSecretKey>,
+    pub m_pkey: BlstrsPublicKey,
     pub sign_msg: String,
     /// Exit protocol
     exit_rx: oneshot::Receiver<()>,
@@ -45,7 +46,7 @@ impl GlowDVRF {
     pub fn spawn(
         config:Node,
         secret_loc:&str,
-        pkey_vec: Vec<String>,
+        pkey_vec: &mut Vec<String>,
     )->anyhow::Result<oneshot::Sender<()>>{
         let mut consensus_addrs :FnvHashMap<Replica,SocketAddr>= FnvHashMap::default();
         for (replica,address) in config.net_map.iter(){
@@ -96,6 +97,13 @@ impl GlowDVRF {
         //             .expect("Unable to open polypub file")
         //             .read_to_end(&mut pubkey_poly_buffer)
         //             .expect("Unable to read polydata");
+        let pkey_str = pkey_vec.remove(0);
+        let mut t_pkey_buf = Vec::new();
+        File::open(pkey_str.as_str())
+                        .expect("Unable to open pub file")
+                        .read_to_end(&mut t_pkey_buf)
+                        .expect("Unable to read polydata");
+        let pkey:BlstrsPublicKey = bincode::deserialize(t_pkey_buf.as_slice()).expect("Unable to deserialize public key");
         let publickey_vec = pkey_vec.into_iter().map(|pkey_loc| {
             let mut thresh_pubkey_buffer = Vec::new();
             File::open(pkey_loc.as_str())
@@ -153,6 +161,7 @@ impl GlowDVRF {
                 thresh_state: HashMap::default(),
                 tpubkey_share:pkey_map,
                 secret_key:secret_share,
+                m_pkey: pkey,
                 presigned: pre_sign_map,
             };
             for (id, sk_data) in config.sk_map.clone() {
