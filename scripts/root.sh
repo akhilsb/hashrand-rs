@@ -1,1 +1,0 @@
-ROOT="/run/media/haxolotl/Backup/GitRoot/libapollo-rust"

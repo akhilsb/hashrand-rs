@@ -15,7 +15,11 @@ use fnv::FnvHashMap;
 use network::{plaintcp::{TcpReceiver}};
 use tokio::sync::mpsc::unbounded_channel;
 use std::{net::{SocketAddr, SocketAddrV4}};
-
+/**
+ * This library implements a prototype of the DAG-Rider SMR protocol with HashRand as a beacon.
+ * 
+ * Please refer to the paper titled DAG-Rider (PODC'20) for more details about the DAG protocol. 
+ */
 pub struct Context {
     /// Networking context
     pub net_send: TcpReliableSender<Replica,WrapperSMRMsg,Acknowledgement>,

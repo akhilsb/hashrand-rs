@@ -5,12 +5,12 @@ rm -rf /tmp/*.db &> /dev/null
 # vals=(531336 498474 527599 507272)
 tri=32862
 
-TESTDIR=${TESTDIR:="testdata/cc_40"}
+TESTDIR=${TESTDIR:="testdata/cc_16"}
 TYPE=${TYPE:="release"}
 EXP=${EXP:-"appxcox_new"}
 W=${W:="10000"}
 curr_date=$(date +"%s%3N")
-sleep=$1
+sleep=100
 st_time=$((curr_date+sleep))
 echo $st_time
 # Run the syncer now
@@ -24,11 +24,11 @@ echo $st_time
     --delta 5000 \
     --val 100 \
     --tri $tri \
-    --syncer $3 \
-    --batch $4 \
-    --frequency $5 > logs/syncer.log &
+    --syncer $1 \
+    --batch $3 \
+    --frequency $4 > logs/syncer.log &
 
-for((i=0;i<40;i++)); do
+for((i=0;i<16;i++)); do
 ./target/$TYPE/node \
     --config $TESTDIR/nodes-$i.json \
     --ip ip_file \
@@ -38,10 +38,7 @@ for((i=0;i<40;i++)); do
     --val 100 \
     --tri $tri \
     --vsstype $2 \
-    --syncer $3 \
-    --batch $4 \
-    --frequency $5 > logs/$i.log &
+    --syncer $1 \
+    --batch $3 \
+    --frequency $4 > logs/$i.log &
 done
-
-# Client has finished; Kill the nodes
-killall ./target/$TYPE/appxcox_new &> /dev/null

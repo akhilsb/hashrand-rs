@@ -31,7 +31,7 @@ pub struct DAGState {
 
 impl DAGState{
 
-    pub fn new(path_to_db:String, myid: Replica)->Self{
+    pub fn new(_path_to_db:String, myid: Replica)->Self{
         // Create the DB
         
         //let store = Storage::new(&path_to_db).unwrap();

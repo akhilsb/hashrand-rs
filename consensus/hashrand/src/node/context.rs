@@ -13,7 +13,14 @@ use fnv::FnvHashMap;
 use network::{plaintcp::{TcpReceiver}};
 use tokio::sync::mpsc::unbounded_channel;
 use std::{net::{SocketAddr, SocketAddrV4}};
-
+/**
+ * This library is a mirror of the consensus/beacon folder, created for the purpose of being used as an external dependency/library.
+ * The difference between them is the code in the beacon folder, nodes reconstruct beacons and send them to the Syncer monitor.
+ * In this library, a node sends a reconstructed beacon to an asynchronous channel, which can be consumed by downstream applications.
+ * Refer to consensus/beacon for detailed code comments.
+ * 
+ * We used this library as an external dependency in our Post-Quantum SMR application. 
+ */
 pub struct HashRand {
     /// Networking context
     pub net_send: TcpReliableSender<Replica,WrapperMsg,Acknowledgement>,

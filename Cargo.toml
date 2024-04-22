@@ -8,17 +8,9 @@ members = [
     "crypto_blstrs",
     "tools/genconfig",
     "consensus",
-    # "comm", (WIP: Do not enable unless testing)
-    # RBC module
-    #"consensus/appxcon",
-    #"consensus/hyb_appxcon",
     "node",
-    #"consensus/ct_rbc",
     "consensus/beacon",
     "consensus/hashrand",
-    "consensus/hash_cc",
-    "consensus/hash_cc_baa",
-    "consensus/pedavss_cc",
     "consensus/glow_dvrf",
     "consensus/glow_lib",
     "consensus/dag_rider"

@@ -6,6 +6,9 @@ use types::beacon::{CTRBCMsg, Replica, CoinMsg};
 
 use crate::node::{Context, CTRBCState};
 
+/**
+ * Check out Cachin-Tessaro's RBC protocol for details on READY processing and READY messages
+ */
 impl Context{
     #[async_recursion]
     pub async fn process_ready(self: &mut Context, ctrbc:CTRBCMsg,master_root:Hash,ready_sender:Replica){

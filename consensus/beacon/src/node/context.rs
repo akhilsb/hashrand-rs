@@ -14,7 +14,11 @@ use fnv::FnvHashMap;
 use network::{plaintcp::{TcpReceiver}};
 use tokio::sync::mpsc::unbounded_channel;
 use std::{net::{SocketAddr, SocketAddrV4}};
-
+/**
+ * This artifact implements the HashRand asynchronous random beacon protocol.
+ * Please refer to our paper for a detailed description of the protocol. 
+ * We wrote exhaustive code comments for ease of code interpretation. 
+ */
 pub struct Context {
     /// Networking context
     pub net_send: TcpReliableSender<Replica,WrapperMsg,Acknowledgement>,
@@ -34,23 +38,31 @@ pub struct Context {
     /// The context parameters related to Verifiable Secret sharing for the common coin
     pub secret_domain: BigInt,
     pub nonce_domain: BigInt,
+    /// Number of rounds of Approximate Agreement to run?
     pub rounds_aa: u32,
+    /// Final epsilon required in the beacon
     pub epsilon: u32,
     pub curr_round:u32,
     pub recon_round:u32,
+    /// Benchmarking purposes
     pub num_messages:u32,
+    /// How many beacons to generate before stopping automatically?
     pub max_rounds:u32,
 
     /// Committee election parameters
     pub committee_size: usize,
 
     /// State context
+    /// Batch size \beta in the paper
     pub batch_size: usize,
+    /// Frequency of instantiation \phi in the paper
     pub frequency:Round,
     
+    /// Round state object keeps track of all the state associated with a round
     pub round_state:HashMap<Round,CTRBCState>,
+    /// Benchmarking individual pieces of the code
     pub bench: HashMap<String,u128>,
-    /// Approximate Agreement
+    /// Approximate Agreement: Use Binary Approximate Agreement 
     pub bin_bun_aa: bool,
     /// Exit protocol
     exit_rx: oneshot::Receiver<()>,
@@ -79,6 +91,7 @@ impl Context {
         let mut syncer_map:FnvHashMap<Replica,SocketAddr> = FnvHashMap::default();
         syncer_map.insert(0, config.client_addr);
         
+        // Hardcoded sizes of the size of the AnyTrust committees used in the protocol
         let committee_sizes:HashMap<usize,usize> = ([
             (4,3),
             (16,11),
@@ -113,6 +126,7 @@ impl Context {
             tokio::spawn(async move {
                 // The modulus of the secret is set for probability of coin success = 1- 5*10^{-9}
                 let prime = BigInt::parse_bytes(b"685373784908497",10).unwrap();
+                // Nonce is much bigger (typically the 2^256-1 field)
                 let nonce_prime = BigInt::parse_bytes(b"7540413808418633958282852050178074861680062438274790246382209349819426274715021974571290841231123616713073551439231076214330138511767072438590219824049681", 10).unwrap();
                 let epsilon:u32 = ((1024*1024)/(config.num_nodes*config.num_faults)) as u32;
                 let rounds = (65.0 - ((epsilon as f32).log2().ceil())) as u32;
@@ -173,6 +187,7 @@ impl Context {
         }
     }
 
+    // Broadcast a message to all nodes.
     pub async fn broadcast(&mut self, protmsg:CoinMsg,round:Round){
         let sec_key_map = self.sec_key_map.clone();
         for (replica,sec_key) in sec_key_map.into_iter() {
@@ -180,12 +195,12 @@ impl Context {
                 let wrapper_msg = WrapperMsg::new(protmsg.clone(), self.myid, &sec_key.as_slice(),round);
                 let cancel_handler:CancelHandler<Acknowledgement> = self.net_send.send(replica, wrapper_msg).await;
                 self.add_cancel_handler(cancel_handler);
-                // let sent_msg = Arc::new(wrapper_msg);
-                // self.c_send(replica, sent_msg).await;
             }
         }
     }
 
+    // Cancel handler is a token to attempt repeated delivery of a message. If the cancel handler of a message is kept in memory, the node keeps retrying to send the message
+    // Until it is received by the other party. 
     pub fn add_cancel_handler(&mut self, canc: CancelHandler<Acknowledgement>){
         self.cancel_handlers
             .entry(self.curr_round)
@@ -193,11 +208,12 @@ impl Context {
             .push(canc);
     }
 
+    // Send a message to an individual node
     pub async fn send(&mut self,replica:Replica, wrapper_msg:WrapperMsg){
         let cancel_handler:CancelHandler<Acknowledgement> = self.net_send.send(replica, wrapper_msg).await;
         self.add_cancel_handler(cancel_handler);
     }
-
+    /// The main loop starts here. This loop listens to messages and directs them to their appropriate handlers. 
     pub async fn run(&mut self)-> Result<()>{
         let cancel_handler = self.sync_send.send(
         0,
@@ -251,52 +267,7 @@ impl Context {
                         },
                         _=>{}
                     }
-                },
-                // b_opt = self.invoke_coin.next(), if !self.invoke_coin.is_empty() => {
-                //     // Got something from the timer
-                //     match b_opt {
-                //         None => {
-                //             log::error!("Timer finished");
-                //         },
-                //         Some(core::result::Result::Ok(b)) => {
-                //             //log::error!("Timer expired");
-                //             let num = b.into_inner().clone();
-                //             num_times+=1;
-                //             if num == 100 && flag{
-                //                 flag = false;
-                //                 log::error!("Sharing Start time: {:?}", SystemTime::now()
-                //                 .duration_since(UNIX_EPOCH)
-                //                 .unwrap()
-                //                 .as_millis());
-                //                 self.start_batchwss().await;
-                //             }
-                //             else{
-                //                 // What crappy jugaad is this? Need a client to coordinate
-                //                 if self.num_messages <= num_msgs+50{
-                //                     log::error!("Start reconstruction {:?}",SystemTime::now()
-                //                     .duration_since(UNIX_EPOCH)
-                //                     .unwrap()
-                //                     .as_millis());
-                //                     self.send_batchreconstruct(0).await;
-                //                     flag2 = false;
-                //                 }
-                //                 else{
-                //                     log::error!("{:?} {:?}",num,num_msgs);
-                //                     //self.invoke_coin.insert(0, Duration::from_millis((5000).try_into().unwrap()));
-                //                 }
-                //                 num_msgs = self.num_messages;
-                //             }
-                //             if num_times > 8 && !flag2{
-                //                 log::error!("Process exiting!");
-                //                 exit(0);
-                //             }
-                //         },
-                //         Some(Err(e)) => {
-                //             log::warn!("Timer misfired: {}", e);
-                //             continue;
-                //         }
-                //     }
-                // }
+                }
             };
         }
         Ok(())
@@ -310,13 +281,3 @@ pub fn to_socket_address(
     let addr = SocketAddrV4::new(ip_str.parse().unwrap(), port);
     addr.into()
 }
-    // pub(crate) async fn c_send(&self, to:Replica, msg: Arc<WrapperMsg>) -> JoinHandle<()> {
-    //     let mut send_copy = self.net_send.clone();
-    //     let myid = self.myid;
-    //     tokio::spawn(async move {
-    //         if to == myid {
-    //             return;
-    //         }
-    //         send_copy.send((to, msg)).await.unwrap()
-    //     })
-    // }

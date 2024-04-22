@@ -7,40 +7,66 @@ use types::{Replica, appxcon::{MerkleProof, reconstruct_and_return, HashingAlg, 
 
 use crate::node::{ShamirSecretSharing, appxcon::RoundState};
 
-// Separate out witnesses into their own thing(Not a big deal, one or two roundtrips more). 
+/**
+ * This file contains the CTRBCState object responsible for keeping track of all messages and state in an n-parallel RBC.
+ * We use Cachin-Tessaro's Reliable Broadcast protocol for broadcasting the vector of Merkle roots.  
+ * 
+ * TODO: Separate this monolith into separate modules for ease of maintenance
+ * */ 
 #[derive(Debug,Clone)]
 pub struct CTRBCState{
-    /// The structure of the tuple: (Secret, Random nonce, Commitment, Merkle Proof for commitment)
+    /// BeaconMsg contains the secret shares, CTRBCMsg contains its corresponding broadcasted root commitments
     pub msgs: HashMap<Replica,(BeaconMsg,CTRBCMsg),nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// Map of secret shares sent by a node
     pub node_secrets: HashMap<Replica,BatchWSSMsg,nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// ECHO messages received in an RBC instantiated by the first key node and an ECHO sent by the second key node
     pub echos: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// READY messages received in an RBC instantiated by the first key node and an ECHO sent by the second key node
     pub readys: HashMap<Replica,HashMap<Replica,(Vec<u8>,MerkleProof)>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// If READYs have been sent already?
     pub ready_sent:HashSet<Replica>,
+    /// Messages for CT-RBC Erasure reconstruction
     pub recon_msgs:HashMap<Replica,HashMap<Replica,Vec<u8>>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// Root Commitment vector for a BAwVSS instance instantiated by node i
     pub comm_vectors:HashMap<Replica,Vec<Hash>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// List of all secrets whose BAwVSS instances have been terminated
     pub terminated_secrets: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// Secret shares for secret reconstruction. Each node shares a secret for which multiple nodes can sent secret shares
     pub secret_shares: HashMap<usize,HashMap<Replica,HashMap<Replica,WSSMsg>>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// Reconstructed secrets
     pub reconstructed_secrets:HashMap<Replica,HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>>,nohash_hasher::BuildNoHashHasher<Replica>>,
     // Gather protocol related state context
     pub witness1: HashMap<Replica,Vec<Replica>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// Witness2 messages
     pub witness2: HashMap<Replica,Vec<Replica>,nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// States values in each round of Binary Approximate Agreement
     pub appxcon_allround_vals: HashMap<Replica,HashMap<Round,Vec<(Replica,Val)>>>,
+    /// Final termination value of Binary Approximate Agreement
     pub appxcon_vals: HashMap<Replica,Vec<Val>>,
-    // Committee
+    /// AnyTrust Sample for this n-parallel BAwVSS instantiation 
     pub committee:Vec<Replica>,
+    /// Which round of Approximate Agreement is this current BAwVSS instance undergoing?
     pub appxcon_round: Round,
     pub appxcon_st: Val,
+    /// Witness has been sent in Gather?
     pub send_w1: bool,
+    /// Witness2 has been sent in Gather?
     pub send_w2:bool,
+    /// Did the Gather protocol terminate?
     pub started_baa:bool,
+    /// Has the AnyTrust sampling been conducted already?
     pub committee_elected:bool,
+    /// List of Accepted witnesses
     pub accepted_witnesses1: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub accepted_witnesses2: HashSet<Replica,nohash_hasher::BuildNoHashHasher<Replica>>,
     pub secret_domain: BigInt,
+    /// Termination values for each Binary AA instance
     pub appx_con_term_vals: HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>>,
+    /// The contribution of each node to the final beacon output. Check out our weighted averaging approach in the paper
     pub contribution_map: HashMap<Replica,HashMap<Replica,BigInt,nohash_hasher::BuildNoHashHasher<Replica>>>,
+    /// List of all reconstructed secrets
     pub recon_secrets:HashSet<Replica>,
-    // Code for binary approximate agreement
+    /// Code for binary approximate agreement. Remember, Binary Approximate Agreement must run for self.rounds_aa number of rounds. Accordingly, those many round states need to be created and managed.
     pub round_state: HashMap<Round,RoundState>,
     pub cleared:bool,
 }
@@ -133,7 +159,9 @@ impl CTRBCState{
             }
         }
     }
-    
+    /**
+     * This function prepares to start Gather and Approximate agreement after terminating CTRBC protocol for a message.
+     */
     pub fn transform(&mut self, terminated_index:Replica)->BeaconMsg{
         let beacon_msg = self.msgs.get(&terminated_index).unwrap().0.clone();
         if beacon_msg.appx_con.is_some(){
@@ -181,6 +209,7 @@ impl CTRBCState{
         }
     }
 
+    /// Validate another party's secret share
     pub fn validate_secret_share(&mut self, wss_msg:WSSMsg, coin_number: usize)-> bool{
         // first validate Merkle proof
         log::info!("Validating secret, comm_vector: {:?} terminated RBCs: {:?}",self.comm_vectors.keys(),self.terminated_secrets);
@@ -203,7 +232,9 @@ impl CTRBCState{
         }
         true
     }
-
+    /**
+     * Check the RBC's validity after you receive n-f ECHOs
+     */
     // Returns the root of all individual polynomial merkle root vectors and the polynomial vector itself
     pub fn echo_check(&mut self, sec_origin: Replica, num_nodes: usize,num_faults:usize, batch_size:usize)-> Option<(Hash,Vec<Hash>)>{
         let echos = self.echos.get_mut(&sec_origin).unwrap();
@@ -214,18 +245,22 @@ impl CTRBCState{
         if echos.len() == num_nodes-num_faults && 
             self.msgs.contains_key(&sec_origin) && !self.ready_sent.contains(&sec_origin){
             // Broadcast readys, otherwise, just wait longer
-            // Cachin-Tessaro RBC implies verification needed
+            // Cachin-Tessaro RBC implies ECHO verification needed
             // Send your own shard in the echo phase to every other node. 
             let mut echo_map = HashMap::default();
             self.ready_sent.insert(sec_origin);
             for (rep,(shard,_mp)) in echos.clone().into_iter(){
                 echo_map.insert(rep, shard);
             }
+            // This function uses Erasure codes to reconstruct the root vector and checks if the broadcaster 
+            // cheated or not. Only then it will echo the message. 
             return self.verify_reconstructed_root(sec_origin, num_nodes, num_faults, batch_size, echo_map);   
         }
         None
     }
-
+    /**
+     * Check the RBC's validity after you receive f+1 or n-f readys
+     */
     pub fn ready_check(&mut self, sec_origin: Replica, num_nodes:usize,num_faults:usize, batch_size:usize)-> (usize, Option<(Hash,Vec<Hash>)>){
         let readys = self.readys.get_mut(&sec_origin).unwrap();
         // 2. Check if readys reached the threshold, init already received, and round number is matching
@@ -249,7 +284,9 @@ impl CTRBCState{
         }
         (0,None)
     }
-
+    /**
+     * CTRBC Reconstruction phase. Reconstruct message using Erasure codes and veriy if the Root of Merkle tree is correctly formed.
+     */
     pub fn verify_reconstruct_rbc(&mut self, sec_origin:Replica, num_nodes:usize, num_faults:usize, batch_size:usize) -> Option<(Hash,Vec<Hash>)>{
         let ready_check = self.readys.get(&sec_origin).unwrap().len() >= (num_nodes-num_faults);
         let vec_fmap = self.recon_msgs.get(&sec_origin).unwrap().clone();
@@ -271,7 +308,9 @@ impl CTRBCState{
         }
         None
     }
-
+    /**
+     * Use Lagrange interpolation to reconstruct the underlying secret in the polynomial. 
+     */
     pub async fn reconstruct_secret(&mut self,coin_number:usize, wss_msg: WSSMsg, _num_nodes: usize, num_faults:usize)-> Option<BigInt>{
         let sec_origin = wss_msg.origin;
         if coin_number == 0{
@@ -296,7 +335,6 @@ impl CTRBCState{
                 share_amount:3*num_faults+1,
                 prime: self.secret_domain.clone()
             };
-            
             // TODO: Recover all shares of the polynomial and verify if the Merkle tree was correctly constructed
             let secret = shamir_ss.recover(&secret_shares);
             if !self.reconstructed_secrets.contains_key(&coin_number){
@@ -311,6 +349,7 @@ impl CTRBCState{
         None
     }
 
+    // Sync secrets and multiply them by the agreed-upon weight after terminating Approximate Agreement. 
     pub async fn sync_secret_maps(&mut self){
         //self.reconstructed_secrets.insert(sec_origin, secret.clone());
         for (coin_num,recon_sec) in self.reconstructed_secrets.clone().into_iter(){
@@ -323,16 +362,13 @@ impl CTRBCState{
                     }
                     let sec_contrib_map = self.contribution_map.get_mut(&coin_num).unwrap();
                     sec_contrib_map.insert(rep, appxcox_var.clone()*sec.clone());
-                    // if !appxcox_var.1{
-                    //     let sec_contribution = appxcox_var.0.clone()*secret.clone();
-                    //     appxcox_var.1 = true;
-                    //     appxcox_var.2 = sec_contribution;
-                    // }
                 }
             }
         }
     }
-
+    /**
+     * Return the set of secret shares for a given beacon index. 
+     */
     pub fn secret_shares(&mut self, coin_number:usize)-> Vec<(Replica,WSSMsg)>{
         let mut shares_vector = Vec::new();
         for (rep,batch_wss) in self.node_secrets.clone().into_iter(){
@@ -387,12 +423,18 @@ impl CTRBCState{
             }
         }
     }
-
+    /**
+     * Check if the beacon can be reconstructed.
+     * 1) All secrets for which Binary AA terminated with a non-zero weight must be reconstructed.
+     * 2) All Binary AA instances should have terminated. s
+     */
     pub async fn coin_check(&mut self, round: Round,coin_number: usize, num_nodes: usize)->Option<Vec<u8>>{
         log::info!("Coin check for round {} coin {}, keys appxcon: {:?}, contrib_map: {:?}",round,coin_number,self.appx_con_term_vals,self.contribution_map);
+        // Each key,value pair in the contribution_map contains a beacon_number, and a list of contributions of each node in the system. 
         if self.contribution_map.contains_key(&coin_number) && self.appx_con_term_vals.len() == self.contribution_map.get(&coin_number).unwrap().len(){
             let mut sum_vars = BigInt::from(0i32);
             log::info!("Reconstruction for round {} and coin {}",round,coin_number);
+            // Contribution_map stores each node's secret's contribution to the beacon. Check our paper for details about secret aggregation and beacon generation
             for (_rep,sec_contrib) in self.contribution_map.get(&coin_number).unwrap().clone().into_iter(){
                 sum_vars = sum_vars + sec_contrib.clone();
                 log::info!("Node's secret contribution: {}, node {}",sec_contrib.to_string(),_rep);
@@ -413,7 +455,9 @@ impl CTRBCState{
         }
         return None;
     }
-
+    /**
+     * Clear state after use for memory clean up
+     */
     pub(crate) fn _clear(&mut self) {
         self.msgs.clear();
         self.echos.clear();

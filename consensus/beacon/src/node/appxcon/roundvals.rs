@@ -3,14 +3,30 @@ use std::collections::{HashSet, HashMap};
 use num_bigint::{BigInt, Sign};
 use types::appxcon::{Replica};
 
+/**
+ * The functions and state variable in this file implement the Binary Approximate Agreement protocol in https://akhilsb.github.io/posts/2023/3/bp3/.
+ * Binary AA consists of two types of messages: An ECHO and ECHO2. The protocol in summary:
+ * 1. Each node sends an ECHO for its own value.
+ * 2. Upon receiving t+1 ECHOs for a value, it broadcasts an ECHO for this value.
+ * 3. Upon receiving 2t+1 ECHOs for a value, it broadcasts an ECHO2 for this value. 
+ * 4. Upon receiving 2t+1 ECHO2s for a value, it outputs this value.
+ * 5. [OR] it waits for 2t+1 ECHOs for two different values and outputs the average of these two values. 
+ * 
+ * This file defines a RoundState object, which maintains the state of all Binary AA instances instantiated in a round. (Either n or c, depending on the round number).
+ * Check out the protocol in our paper for more details. 
+ */
 #[derive(Debug,Clone)]
 pub struct RoundState{
-    // Map of Replica, and binary state of two values, their echos list and echo2 list, list of values for which echo1s and echo2s were sent and echo2s list
+    // Each entry in the HashMap is the state of one Binary AA instance
+    // Each value in the HashMap is a Vector of tuples. 
+    // Each tuple has the following structure: (Value, Set of nodes that sent ECHOs for this value, Set of nodes that sent ECHO2s for this value, flag1 signifying if this node sent an ECHO for this value, flag2 signifying if this node sent an ECHO2 for this value)
     pub state: HashMap<Replica,(Vec<(BigInt,HashSet<Replica>,HashSet<Replica>,bool,bool)>,HashSet<BigInt>,Vec<BigInt>),nohash_hasher::BuildNoHashHasher<Replica>>,
+    // This Map contains the termination output of this node in each Binary AA instance
     pub term_vals:HashMap<Replica,BigInt>,
 }
 
 impl RoundState{
+    // Instantiate a new RoundState object with an ECHO
     pub fn new_with_echo(msgs: Vec<(Replica,Vec<u8>)>,echo_sender:Replica)-> RoundState{
         let mut rnd_state = RoundState{
             state:HashMap::default(),
@@ -28,6 +44,7 @@ impl RoundState{
         rnd_state
     }
 
+    // Instantiate a new RoundState object with an ECHO2
     pub fn new_with_echo2(msgs: Vec<(Replica,Vec<u8>)>,echo_sender:Replica)-> RoundState{
         let mut rnd_state = RoundState{
             state:HashMap::default(),
@@ -45,6 +62,7 @@ impl RoundState{
         rnd_state
     }
 
+    // Handles an ECHO and implements the above mentioned logic of the protocol
     pub fn add_echo(&mut self, msgs: Vec<(Replica,Vec<u8>)>, echo_sender:Replica, num_nodes: usize, num_faults:usize)-> (Vec<(Replica,Vec<u8>)>,Vec<(Replica,Vec<u8>)>){
         let mut echo1_msgs:Vec<(Replica,Vec<u8>)> = Vec::new();
         let mut echo2_msgs:Vec<(Replica,Vec<u8>)> = Vec::new();
@@ -60,7 +78,7 @@ impl RoundState{
                 // The echo sent by echo_sender was for this value in the bivalent initial value state
                 if arr_vec[0].0 == parsed_bigint{
                     arr_vec[0].1.insert(echo_sender);
-                    // check for t+1 votes: if it has t+1 votes, send out another echo1 message
+                    // check for t+1 votes: if it has t+1 votes, send out another ECHO message
                     // check whether an echo has been sent out for this value in this instance
                     //log::info!("Processing values: {:?} inst: {} echo count: {}",arr_vec[0].clone(),rep, arr_vec[0].1.len());
                     if arr_vec[0].1.len() >= num_faults+1 && !arr_vec[0].3{
@@ -68,7 +86,7 @@ impl RoundState{
                         echo1_msgs.push((rep,msg.clone()));
                         arr_vec[0].3 = true;
                     }
-                    // check for 2t+1 votes: if it has 2t+1 votes, send out echo2 message
+                    // check for 2t+1 votes: if it has 2t+1 votes, send out ECHO2 message
                     else if arr_vec[0].1.len() >= num_nodes-num_faults && !arr_vec[0].4{
                         log::info!("Got 2t+1 ECHO messages for BAA inst {} sending ECHO2",rep.clone());
                         echo2_msgs.push((rep,msg.clone()));
@@ -120,7 +138,7 @@ impl RoundState{
         }
         (echo1_msgs,echo2_msgs)
     }
-
+    // Method implements logic for handling an ECHO2 message
     pub fn add_echo2(&mut self,msgs: Vec<(Replica,Vec<u8>)>, echo2_sender:Replica,num_nodes: usize,num_faults:usize){
         for (rep,msg) in msgs.into_iter(){
             let parsed_bigint = BigInt::from_bytes_be(Sign::Plus, msg.clone().as_slice());
@@ -148,6 +166,7 @@ impl RoundState{
                         if arr_vec[1].2.len() >= num_nodes-num_faults{
                             log::info!("Value {:?} received n-f echo2s for instance {}",arr_vec[1].0.clone(),rep);
                             arr_tup.2.push(parsed_bigint);
+                            // Upon termination, add the terminated value to the `term_vals` HashMap
                             self.term_vals.insert(rep, arr_vec[1].0.clone());
                         }
                     }

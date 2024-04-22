@@ -17,7 +17,9 @@ pub struct ShamirSecretSharing {
     /// the characteristic of finite field.
     pub prime: BigInt,
 }
-
+/**
+ * Shamir secret sharing and Lagrange Interpolation for reconstruction. 
+ */
 impl ShamirSecretSharing {
     /// Split a secret according to the config.
     pub fn split(&self, secret: BigInt) -> Vec<(usize, BigInt)> {

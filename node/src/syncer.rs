@@ -3,7 +3,7 @@ use std::{collections::{HashSet, HashMap}, net::{SocketAddr,SocketAddrV4}, time:
 use anyhow::{Result, anyhow};
 use beacon::node::num_bigint::BigInt;
 use fnv::FnvHashMap;
-use hash_cc::node::SyncHandler;
+use beacon::node::SyncHandler;
 use network::{plaintcp::{TcpReceiver, TcpReliableSender, CancelHandler}, Acknowledgement};
 use tokio::sync::{oneshot, mpsc::{unbounded_channel, UnboundedReceiver}};
 use types::{Replica, SyncMsg, SyncState, beacon::Round};

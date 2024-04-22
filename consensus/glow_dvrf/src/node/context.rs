@@ -6,12 +6,15 @@ use config::Node;
 use crypto_blstrs::{threshold_sig::{BlstrsSecretKey, BlstrsPublicKey, Partial, PartialBlstrsSignature}, crypto::threshold_sig::SecretKey};
 use fnv::FnvHashMap;
 use network::{plaintcp::{TcpReliableSender, TcpReceiver, CancelHandler}, Acknowledgement};
-//use tbls::{poly::Poly, curve::bls12377::{G1, Scalar}, sig::Share};
 use tokio::sync::{mpsc::{UnboundedReceiver, unbounded_channel}, oneshot};
 use types::{beacon::{Replica}, SyncMsg, Round, SyncState};
 
 use super::{Handler, SyncHandler, state_machine::{sign::{Sign, ProtocolMessage}}, WrapperMsg};
-
+/**
+ * This library implements a beacon protocol based on Threshold BLS signatures.
+ * We used the blstrs library to implement threshold BLS signatures. 
+ * Check the README file for more details. 
+ */
 pub struct GlowDVRF{
     pub net_send: TcpReliableSender<Replica,WrapperMsg,Acknowledgement>,
     pub net_recv: UnboundedReceiver<WrapperMsg>,
@@ -41,7 +44,6 @@ pub struct GlowDVRF{
     // Pre signed messages
     pub presigned: HashMap<Round,PartialBlstrsSignature>,
 }
-
 impl GlowDVRF {
     pub fn spawn(
         config:Node,

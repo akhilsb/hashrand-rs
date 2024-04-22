@@ -9,7 +9,15 @@ use tokio::sync::{mpsc::{UnboundedReceiver, unbounded_channel, Receiver, Sender}
 use types::{beacon::{Replica}, Round};
 
 use super::{Handler, state_machine::{sign::{ProtocolMessage}}, WrapperMsg};
-
+/**
+ * This library implements a beacon library based on Threshold BLS signatures.
+ * We used the blstrs library to implement threshold BLS signatures. 
+ * Check the README file for more details. 
+ * 
+ * The difference between this and GlowDVRF libraries is that GlowDVRF sends all reconstructed beacons
+ * to a beacon monitor termed syncer. This library sends reconstructed beacons to an asynchronous tokio channel,
+ * which can be consumed upstream. 
+ */
 pub struct GlowLib{
     pub net_send: TcpReliableSender<Replica,WrapperMsg,Acknowledgement>,
     pub net_recv: UnboundedReceiver<WrapperMsg>,

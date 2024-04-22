@@ -6,7 +6,10 @@ use num_traits::pow;
 use types::{Round, beacon::{Replica, Val}, SyncState, SyncMsg};
 
 use crate::node::Context;
-
+/**
+ * This protocol implements the Bundled Approximate Agreement (BunAA) primitive in the paper https://arxiv.org/pdf/2205.11878.pdf.
+ * Bundled AA bundles n instances of Abraham et al.'s Approximate Agreement protocol involving Reliable Broadcasts and the Witness technique. 
+ */
 impl Context{
     #[async_recursion]
     pub async fn next_round_vals(&mut self, round:Round)->HashMap<Round,Vec<(Replica,Val)>>{

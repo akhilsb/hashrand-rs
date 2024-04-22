@@ -4,7 +4,9 @@ use crypto::hash::Hash;
 use types::{beacon::CTRBCMsg, beacon::{Replica, CoinMsg, GatherMsg}};
 
 use crate::node::{Context, CTRBCState};
-
+/**
+ * Check Cachin-Tessaro's RBC protocol for details on the Erasure reconstruction process
+ */
 impl Context{
     pub async fn process_reconstruct(&mut self,ctrbc:CTRBCMsg,master_root:Hash,recon_sender:Replica){
         let _now = SystemTime::now();

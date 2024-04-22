@@ -6,6 +6,12 @@ use num_traits::{FromPrimitive};
 use types::{beacon::{CoinMsg, Val}, Replica, Round, beacon::GatherMsg};
 
 use crate::node::{Context, CTRBCState, RoundState};
+/**
+ * This file implements the Gather protocol on top of BAwVSS protocol. Please refer to our paper for definitions and protocol description. 
+ * 
+ * The Gather is an asynchronous primitive used as a form of distributed commitment. 
+ * Protocol and its intuition are located here: https://decentralizedthoughts.github.io/2021-03-26-living-with-asynchrony-the-gather-protocol/
+ */
 impl Context {
     pub async fn process_gatherecho(self: &mut Context,wss_indices:Vec<Replica>, echo_sender:Replica,round: u32){
         let now = SystemTime::now();
@@ -98,6 +104,7 @@ impl Context {
                     log::error!("Requesting beacon for committee election  for round {:?} with coin from round {}",round,fin_freq);
                     if rbc_state.committee.len()<self.num_nodes{
                         // If the committee is already elected, no need for beacon reconstruction
+                        // Note that this condition can be triggered multiple times. Hence, do not reconstruct beacon again and again, only for the first time
                         self.check_begin_next_round(round).await;
                     }
                     else {

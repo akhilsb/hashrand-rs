@@ -5,6 +5,11 @@ use types::beacon::Replica;
 
 use crate::node::Context;
 
+/**
+ * This function elects an AnyTrust committee from a reconstructed beacon output. 
+ * 
+ * We use the ChaCha20 PRNG to generate c random numbers and elect the committee. 
+ */
 impl Context{
     pub async fn elect_committee(&self, rng_string:Vec<u8>)->Vec<Replica>{
         let mut rng = ChaCha20Rng::from_seed(do_hash(rng_string.as_slice()));

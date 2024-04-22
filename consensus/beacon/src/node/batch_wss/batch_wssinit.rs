@@ -8,11 +8,18 @@ use types::{appxcon::{HashingAlg, MerkleProof, get_shards}, beacon::{BatchWSSMsg
 
 use crate::node::{Context, ShamirSecretSharing};
 
+/**
+ * The functions in this file instantiate the Batched Asynchronous weak Verifiable Secret Sharing (BAwVSS) protocol. 
+ * 
+ * In this protocol, nodes use Hash functions to instantiate a weak VSS protocol. Refer to our paper for more details about the protocol. 
+ */
+
 impl Context{
     #[async_recursion]
     pub async fn start_new_round(&mut self, round:Round,vec_round_vals:Vec<(Round,Vec<(Replica,Val)>)>){
         let now = SystemTime::now();
         let mut new_round = round+1;
+        // Do not start a new round after this cap hits
         if round == 20000{
             new_round = 0;
         }
@@ -23,27 +30,29 @@ impl Context{
         log::info!("Protocol started");
         let mut beacon_msgs = Vec::new();
         let mut rbc_vec = Vec::new();
+        // Start a new BAwVSS instance once every frequency rounds. 
         if new_round%self.frequency == 0{
-            // Start BatchWSS. 
+            // Start Batched AwVSS. 
             let faults = self.num_faults;
-            // Secret number can be increased to any number possible, but there exists a performance tradeoff with the size of RBC increasing\
-            // TODO: Does it affect security in any manner?
+            // Secret number can be increased to any number possible, but there exists a performance tradeoff with the size of RBC increasing
+            // Each BAwVSS instance shares self.batch_size secrets. 
             let secret_num = self.batch_size;
             let low_r = BigInt::from(0);
             let prime = self.secret_domain.clone();
             let nonce_prime = self.nonce_domain.clone();
-            //let mut rng = rand::thread_rng();
 
             let mut secret_shares:Vec<Vec<(Replica,BigInt)>> = Vec::new();
             let mut nonce_shares:Vec<Vec<(Replica,BigInt)>> = Vec::new();
             for _i in 0..secret_num{
                 let secret = rand::thread_rng().gen_bigint_range(&low_r, &prime.clone());
                 let nonce = rand::thread_rng().gen_bigint_range(&low_r, &nonce_prime.clone());
+                // Use Shamir Secret Sharing to create n secret shares
                 let shamir_ss = ShamirSecretSharing{
                     threshold:faults+1,
                     share_amount:3*faults+1,
                     prime: prime.clone()
                 };
+                // Use Shamir Secret Sharing to create n nonce shares
                 let nonce_ss = ShamirSecretSharing{
                     threshold:faults+1,
                     share_amount:3*faults+1,
@@ -53,6 +62,7 @@ impl Context{
                 nonce_shares.push(nonce_ss.split(nonce));
             }
 
+            // Create a Merkle tree on top of secret shares to generate a commitment
             let mut hashes_ms:Vec<Vec<Hash>> = Vec::new();
             // (Replica, Secret, Random Nonce, One-way commitment)
             let share_comm_hash:Vec<Vec<(usize,Vec<u8>,Vec<u8>,Hash)>> = secret_shares.clone().iter().zip(nonce_shares.iter()).into_iter().map(|(y,nonce)| {
@@ -73,6 +83,7 @@ impl Context{
                 hashes_ms.push(hashes);
                 acc_secs
             }).collect();
+            // Create a vector of self.batch_size Merkle trees. 
             let merkle_tree_vec:Vec<MerkleTree<Hash, HashingAlg>> = hashes_ms.into_iter().map(|x| MerkleTree::from_iter(x.into_iter())).collect();
             let mut vec_msgs_to_be_sent:Vec<(Replica,BatchWSSMsg)> = Vec::new();
             
@@ -85,8 +96,11 @@ impl Context{
             for (vec,mt) in share_comm_hash.into_iter().zip(merkle_tree_vec.into_iter()).into_iter(){
                 let mut i = 0;
                 for y in vec.into_iter(){
+                    // Secret shares
                     vec_msgs_to_be_sent[i].1.secrets.push(y.1);
+                    // Commitments
                     vec_msgs_to_be_sent[i].1.commitments.push((y.2,y.3));
+                    // Merkle proofs from the commitment to the Merkle root
                     vec_msgs_to_be_sent[i].1.mps.push(MerkleProof::from_proof(mt.gen_proof(i)));
                     i = i+1;
                 }
@@ -95,6 +109,8 @@ impl Context{
             }
             for (rep,batchwss) in vec_msgs_to_be_sent.into_iter(){
                 let beacon_msg = BeaconMsg::new(self.myid, new_round, batchwss,roots_vec.clone(), vec_round_vals.clone());
+                // TODO: Bad way of extracting a message.
+                // This rbc_vec variable is used in the future to Reliably broadcast the Merkle root vector.  
                 if rep == 1{
                     rbc_vec = beacon_msg.clone().serialize_ctrbc();
                 }
@@ -103,13 +119,12 @@ impl Context{
                 }
                 beacon_msgs.push((rep,beacon_msg));
             }
-            //let master_root_mt:MerkleTree<Hash, HashingAlg> = MerkleTree::from_iter(mr_leaves.into_iter());
-            //let master_root = master_root_mt.root();
-            // reliably broadcast the vector of merkle roots of each secret sharing instance
         }
         else{
             for i in 0..self.num_nodes{
                 let beacon_msg = BeaconMsg::new_with_appx(self.myid, new_round, vec_round_vals.clone());
+                // TODO: Bad way of extracting a message.
+                // This rbc_vec variable is used in the future to Reliably broadcast the Merkle root vector. 
                 if i==0{
                     rbc_vec = beacon_msg.clone().serialize_ctrbc();
                 }
@@ -132,18 +147,22 @@ impl Context{
                 new_round,
                 self.myid
             );
+            // Logging purposes: Verify your Merkle Proof
             log::info!("Mp verification {}",ctrbc_msg.verify_mr_proof());
+            // TODO: we cannot send a message to ourself today
             if replica != self.myid{
                 //batch_wss.master_root = master_root.clone();
+                // Use Cachin-Tessaro's Reliable Broadcast to broadcast the root vector
                 let beacon_init = CoinMsg::CTRBCInit(beacon_msg,ctrbc_msg);
+                // send shares over a private channel
                 let wrapper_msg = WrapperMsg::new(beacon_init, self.myid, &sec_key,new_round);
                 self.send(replica, wrapper_msg).await;
             }
             else {
-                //batch_wss.master_root = master_root.clone();
                 self.process_rbcinit(beacon_msg,ctrbc_msg).await;
             }
         }
+        // Proceed to the next round
         if new_round > 0{
             self.increment_round(round).await;
         }
