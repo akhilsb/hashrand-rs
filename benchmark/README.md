@@ -131,7 +131,7 @@ Change the number of nodes to run in the `remote` function. Run the benchmark wi
 ```
 $ fab remote
 ```
-This command first updates all machines with the latest commit of the GitHub repo and branch specified in your file [settings.json](https://github.com/akhilsb/hashrand-rs/blob/master/benchmark/settings.json) (step 3); this ensures that benchmarks are always run with the latest version of the code. It then generates and uploads the configuration files to each machine, and runs the benchmarks with the specified parameters. The input parameters for hashrand can be set in the `_config` function in the (remote.py)[https://github.com/akhilsb/hashrand-rs/benckmark/benchmark/remote.py] file in the `benchmark` folder. 
+This command first updates all machines with the latest commit of the GitHub repo and branch specified in your file [settings.json](https://github.com/akhilsb/hashrand-rs/blob/master/benchmark/settings.json) (step 3); this ensures that benchmarks are always run with the latest version of the code. It then generates and uploads the configuration files to each machine, and runs the benchmarks with the specified parameters. Make sure to change the number of nodes in the `remote` function. The input parameters for hashrand can be set in the `_config` function in the benchmark/remote.py file in the `benchmark` folder. 
 
 The parameters required for HashRand can be set in lines 271 (Batch size $\beta$) and 272 (Pipelining Frequency $\phi$) in the file `benchmark/remote.py`. Change these values to vary the configuration parameters. 
 
