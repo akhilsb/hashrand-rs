@@ -216,12 +216,20 @@ class InstanceManager:
         except ClientError as e:
             raise BenchError(AWSError(e))
 
+    # To run on CloudLab/Chameleon, create a list of ip addresses and add them to a file titled 'instance_ips'.
     def hosts(self, flat=False):
-        try:
-            _, ips = self._get(['pending', 'running'])
-            return [x for y in ips.values() for x in y] if flat else ips
-        except ClientError as e:
-            raise BenchError('Failed to gather instances IPs', AWSError(e))
+        import json
+        with open("instance-ips.json") as json_file:
+            json_data = json.load(json_file)
+            if flat:
+                return [x for y in json_data.values() for x in y]        
+            else:
+                return json_data
+        #try:
+        #    _, ips = self._get(['pending', 'running'])
+        #    return [x for y in ips.values() for x in y] if flat else ips
+        #except ClientError as e:
+        #    raise BenchError('Failed to gather instances IPs', AWSError(e))
 
     def print_info(self):
         hosts = self.hosts()

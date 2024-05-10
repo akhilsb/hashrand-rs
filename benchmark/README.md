@@ -179,3 +179,51 @@ In summary, perform the following steps before running a protocol on a given set
 7. Retrace this summary procedure from bullet point 2 to run a different benchmark on the same testbed. 
 8. After running all benchmarks at this $n$ value, run `fab destroy` to terminate all instances.  
 9. Retrace this summary procedure from bullet point 1 to run a benchmark on a testbed with different number of nodes. To reproduce the results from the paper, run the benchmarks on $n=16,40,64,136$ nodes. The `nodes` parameter in the `create` function must be set to `2,5,8,17` to create testbeds of these sizes in a geo-distributed manner. 
+
+# Artifact Evaluation on Cloudlab/Custom testbeds
+It is possible to evaluate our artifact on CloudLab/Chameleon. However, it would require us to change a few lines of code in the submitted artifact. The benchmarking code in the current artifact works in the following way.
+
+1. It takes a user's AWS credentials and uses the AWS boto3 SDK to spawn AWS EC2 machines across the specified regions. 
+2. It also establishes a network between them using the boto3 SDK. 
+3. It gets the IP addresses of the spawned machines and installs the artifact in each machine using `tmux` and `SSH`. 
+4. It then runs the artifact by executing a series of commands on the machines using `tmux` and `SSH`.
+
+We describe the series of modifications to this structure to run benchmarks on Cloudlab/Chameleon. 
+## Setting up the testbed
+1. Running the benchmark on Cloudlab or Chameleon requires you to skip the first two steps and create machines manually. Therefore, instead of running `fab create` and `fab start` commands, create machines manually on Cloudlab/Chameleon, and establish a network between them. This network should enable processes on the machines to communicate with each other through `TCP`. 
+
+## Installing the Artifact
+2. The `hosts()` function in the file `benchmark/benchmark/instance.py` is responsible for configuring hosts in the network. We changed the function to the following for evaluation on custom testbeds. In case the code needs to be run on AWS, uncomment the commented part and comment the uncommented part of the `hosts` function. 
+```
+# To run on CloudLab/Chameleon, create a list of ip addresses and add them to a file titled 'instance_ips'.
+def hosts(self, flat=False):
+    import json
+    with open("instance-ips.json") as json_file:
+        json_data = json.load(json_file)
+        if flat:
+            return [x for y in json_data.values() for x in y]        
+        else:
+            return json_data
+    #try:
+    #    _, ips = self._get(['pending', 'running'])
+    #    return [x for y in ips.values() for x in y] if flat else ips
+    #except ClientError as e:
+    #    raise BenchError('Failed to gather instances IPs', AWSError(e))
+```
+3. Then, create a file with the name `instance-ips.json` in the `benchmark/` directory. The file should have the following structure. The key of each item in the map should be the location where the nodes are located, and the value is an array of ip addresses in that region. The benchmark distributes processes evenly in machines across different regions. In case all nodes are located in one region, use one key to list all the ip addresses. **Note that the total number of ip addresses listed must be at least as much as the number of processes being run in the benchmark. To run multiple processes on a single machine, list the ip address multiple times in the array. For example, to run two processes on the machine with ip `10.43.0.231`, list it twice in the array as ["10.43.0.231","10.43.0.231",..].** To reproduce the results in the paper, we suggest giving each process 2 CPU cores and 4 GigaBytes of RAM. For example, if you have a machine with 8 cores and 16 GB of RAM, you can run four processes in it by listing its ip address four times in the array. 
+```
+{
+    "Utah": ["10.43.0.231",”10.43.0.231”,"10.43.0.232","10.43.0.233"],
+    "Wisconsin": ["10.43.0.234","10.43.0.235","10.43.0.236"]
+}
+```
+4. Next, the code requires access to the machines on CloudLab/Chameleon. We used the `paramiko` authentication library in Python to remotely access the machines. 
+You need to specify the required SSH key in the `settings.json` file in the `benchmark` folder. 
+Further, the ports specified in the `settings.json` file should be open for communication in the spawned machines. 
+Finally, the username in the file `remote.py` should be changed at 8 occurrences. We hardcoded the username `ubuntu` in the file `remote.py` (We apologize for this inconvenience). Change it to the appropriate username. (Leave it as is if the machines have Ubuntu OS). 
+5. The configuration in `fabfile.py` needs to be changed to run the benchmark with the appropriate number of nodes. After this change, install the required dependencies to run the code in the `benchmark` folder. Pertinent instructions have been given in `benchmark/README.md` file. Then, run `fab install` to install the artifact in all the machines. Ensure that the machines have access to the internet to help access the dependencies necessary for installation. 
+6. Finally, follow the instructions in the `benchmark/README.md` file from Step 5 to run the benchmarks and plot results. 
+
+We note that the machines on Cloudlab and Chameleon do not mimic our geo-distributed testbed in AWS. This is because the AWS testbed has machines in 5 different continents, which implies a message delivery and round trip time between processes, and lower message bandwidth. As HashRand has a higher communication complexity compared to Dfinity-DVRF, we expect HashRand to have better numbers compared to Dfinity-DVRF on testbeds on Cloudlab and Chameleon. 
+
+In case this procedure is too long/tedious, you can verify performance trends of HashRand by spawning a single big machine on Cloudlab/Chameleon and running a local benchmark with specified number of nodes.This would have a similar effect as spawning multiple smaller machines in a single datacenter. Running the benchmark in such a setup would also boost HashRand’s numbers because of higher communication bandwidth and lower round trip time. The computational efficiency of HashRand and its corresponding performance boost can be verified in this setting.
