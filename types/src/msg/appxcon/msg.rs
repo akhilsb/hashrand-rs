@@ -1,6 +1,6 @@
+use crypto::aes_hash::Proof;
 use crypto::hash::{Hash};
 use crypto::hash::{do_mac};
-use merkle_light::proof::Proof;
 use serde::{Serialize, Deserialize};
 use crate::{WireReady};
 
@@ -18,13 +18,13 @@ pub struct Msg {
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct CTRBCMsg{
     pub shard:Vec<u8>,
-    pub mp:MerkleProof,
+    pub mp:Proof,
     pub round:u64,
     pub origin:Replica
 }
 
 impl CTRBCMsg {
-    pub fn new(shard:Vec<u8>,mp:MerkleProof,round:u64,origin:Replica)->Self{
+    pub fn new(shard:Vec<u8>,mp:Proof,round:u64,origin:Replica)->Self{
         CTRBCMsg { shard: shard, mp: mp, round: round, origin: origin }
     }
 }
@@ -56,26 +56,26 @@ pub enum ProtMsg{
     BinaryAAEcho2(Vec<(Replica,Vec<u8>)>,Replica,u64),
 }
 
-#[derive(Debug,Serialize,Deserialize,Clone)]
-pub struct MerkleProof{
-    lemma: Vec<Hash>,
-    path: Vec<bool>,
-}
+// #[derive(Debug,Serialize,Deserialize,Clone)]
+// pub struct MerkleProof{
+//     lemma: Vec<Hash>,
+//     path: Vec<bool>,
+// }
 
-impl MerkleProof {
-    pub fn from_proof(proof:Proof<Hash>)->MerkleProof{
-        MerkleProof{
-            lemma:(*proof.lemma()).to_vec(),
-            path:(*proof.path()).to_vec()
-        }
-    }
-    pub fn to_proof(&self)->Proof<Hash>{
-        Proof::new(self.lemma.clone(), self.path.clone())
-    }
-    pub fn root(&self)->Hash {
-        self.lemma.last().clone().unwrap().clone()
-    }
-}
+// impl MerkleProof {
+//     pub fn from_proof(proof:Proof<Hash>)->MerkleProof{
+//         MerkleProof{
+//             lemma:(*proof.lemma()).to_vec(),
+//             path:(*proof.path()).to_vec()
+//         }
+//     }
+//     pub fn to_proof(&self)->Proof<Hash>{
+//         Proof::new(self.lemma.clone(), self.path.clone())
+//     }
+//     pub fn root(&self)->Hash {
+//         self.lemma.last().clone().unwrap().clone()
+//     }
+// }
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct WrapperMsg{

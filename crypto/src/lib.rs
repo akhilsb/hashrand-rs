@@ -7,10 +7,10 @@ mod tests {
 }
 
 pub mod hash;
+pub mod aes_hash;
 
 mod crypto;
 pub use crypto::*;
 
 pub mod error;
 pub mod secret;
-pub mod hash_aes;

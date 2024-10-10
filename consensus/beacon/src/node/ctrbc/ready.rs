@@ -36,12 +36,12 @@ impl Context{
         }
         let (_beacon,shard) = rbc_state.msgs.get(&sec_origin).unwrap();
         let mp = shard.mp.clone();
-        if mp.root() != master_root || !ctrbc.verify_mr_proof(){
+        if mp.root() != master_root || !ctrbc.verify_mr_proof(&self.hash_context){
             log::error!("Merkle root of WSS Init from {} did not match Merkle root of READY from {}",sec_origin,self.myid);
             return;
         }
         rbc_state.add_ready(sec_origin, ready_sender, &ctrbc);
-        let res = rbc_state.ready_check(sec_origin, self.num_nodes.clone(), self.num_faults.clone(), self.batch_size.clone());
+        let res = rbc_state.ready_check(sec_origin, self.num_nodes.clone(), self.num_faults.clone(), self.batch_size.clone(),&self.hash_context);
         match res.1{
             None => {
                 return;

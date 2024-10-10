@@ -1,5 +1,6 @@
 use std::{ time::{SystemTime, UNIX_EPOCH}};
-use types::{beacon::{WSSMsg, CoinMsg}, Replica, SyncState, SyncMsg, beacon::Round};
+use crypto::aes_hash::Proof;
+use types::{beacon::{WSSMsg, CoinMsg}, Replica, SyncState, SyncMsg, beacon::{Round, BatchWSSReconMsg}};
 
 use crate::node::{Context, CTRBCState};
 
@@ -34,22 +35,16 @@ impl Context{
             return;
         }
         // Start reconstructing coin_number
-        let shares_vector = rbc_state.secret_shares(coin_number);
+        let mut bwssmsg = rbc_state.secret_shares(coin_number);
+        bwssmsg.origin = self.myid;
         // Add your own share into your own map
-        for (rep,wss_share) in shares_vector.clone().into_iter() {
+        for (secret,rep) in bwssmsg.secrets.clone().into_iter().zip(bwssmsg.origins.clone().into_iter()){
             if rbc_state.committee.contains(&rep){
-                rbc_state.add_secret_share(coin_number, rep.clone(), self.myid.clone(), wss_share.clone());
-            }
-        }
-        let mut vec_shares = Vec::new();
-        // Send shares of available secrets for this beacon, along with the Merkle proof of validity of the share. 
-        for (_rep,wss_share) in shares_vector.into_iter() {
-            if rbc_state.committee.contains(&_rep){
-                vec_shares.push(wss_share.clone());
+                rbc_state.add_secret_share(coin_number, rep.clone(), self.myid.clone(), secret);
             }
         }
         // Broadcast the shares using the BeaconConstruct message type. 
-        let prot_msg = CoinMsg::BeaconConstruct(vec_shares, self.myid.clone(),coin_number,round);
+        let prot_msg = CoinMsg::BeaconConstruct(bwssmsg, self.myid.clone(),coin_number,round);
         // 25000 is an arbitrarily high number written to note that reconstruction messages do not require the current round number. 
         self.broadcast(prot_msg,25000).await;
         self.add_benchmark(String::from("reconstruct_beacon"), now.elapsed().unwrap().as_nanos());
@@ -61,9 +56,9 @@ impl Context{
     /**
      * This function processes secret shares sent by nodes in the beacon reconstruction process. 
      */
-    pub async fn process_secret_shares(self: &mut Context,wss_msgs:Vec<WSSMsg>,share_sender:Replica, coin_num:usize,round:Round){
+    pub async fn process_secret_shares(self: &mut Context,recon_shares:BatchWSSReconMsg,share_sender:Replica, coin_num:usize,round:Round){
         let now = SystemTime::now();
-        log::info!("Received Coin construct message from node {} for coin_num {} for round {} with shares for secrets {:?}",share_sender,coin_num,round,wss_msgs.clone().into_iter().map(|x| x.origin).collect::<Vec<usize>>());
+        log::info!("Received Coin construct message from node {} for coin_num {} for round {} with shares for secrets {:?}",share_sender,coin_num,round,recon_shares.origins);
         // if coin_num != 0 && self.recon_round != 20000{
         //     log::info!("Reconstruction done already,skipping secret share");
         //     return;
@@ -75,33 +70,48 @@ impl Context{
         let rbc_state = self.round_state.get_mut(&round).unwrap();
         // Skip share processing if the secret has already been reconstructed. 
         if coin_num == 0 && rbc_state.committee_elected{
-            log::info!("Committee election over, skipping secret share");
+            log::debug!("All secrets reconstructed. No need to process these shares. ");
             return;
         }
         if rbc_state.cleared{
-            log::info!("State cleared for round {}, exiting",round);
+            log::info!("Beacons have been output and state has been cleared for round {}, exiting",round);
             return;
         }
         //let mut send_next_recon = false;
         //let mut transmit_vec = Vec::new();
-        for wss_msg in wss_msgs.into_iter(){
-            let sec_origin = wss_msg.origin.clone();
+        // Validate merkle proofs and commitments
+        let mps_val = Proof::validate_batch(&recon_shares.mps, &self.hash_context);
+        if !mps_val{
+            log::error!("Merkle proof validation failed for secret reconstruction shares sent by node {} with coin num {} round {}",share_sender,coin_num,round);
+            return;
+        }
+        let commitments = self.hash_context.hash_batch(recon_shares.secrets.clone(), recon_shares.nonces.clone());
+        for (mp,comm) in recon_shares.mps.iter().zip(commitments.into_iter()){
+            if mp.item() != comm{
+                log::error!("Commitments do not match the shares for secret reconstruction shares sent by node {} with coin num {} round {}",share_sender,coin_num,round);
+                return ;
+            }
+        }
+        for (rep,(share, nonce)) in recon_shares.origins.into_iter().zip(recon_shares.secrets.into_iter().zip(recon_shares.nonces.into_iter())){
+            let sec_origin = rep;
             // coin 0 is set for committee election
             if rbc_state.recon_secrets.contains(&coin_num){
                 log::info!("Older secret share received from node {}, not processing share for coin_num {}", sec_origin,coin_num);
                 return;
             }
-            rbc_state.add_secret_share(coin_num, wss_msg.origin, share_sender, wss_msg.clone());
-            if !rbc_state.validate_secret_share(wss_msg.clone(), coin_num){
-                log::error!("Invalid share for coin_num {} skipping share...",coin_num);
-                continue;
-            }
+            rbc_state.add_secret_share(coin_num, sec_origin, share_sender, share);
             let _time_before_processing = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis();
+            let wss_msg = WSSMsg{
+                origin: rep,
+                secret:share,
+                nonce:nonce,
+                mp: Proof::new(Vec::new(), Vec::new())
+            };
             // Reconstruct the secret
-            let secret = rbc_state.reconstruct_secret(coin_num,wss_msg.clone(), self.num_nodes,self.num_faults).await;
+            let secret = rbc_state.reconstruct_secret(coin_num,wss_msg, self.num_nodes,self.num_faults).await;
             // check if for all appxcon non zero termination instances, whether all secrets have been terminated
             // if yes, just output the random number
             match secret{

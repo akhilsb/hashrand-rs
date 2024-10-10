@@ -7,11 +7,11 @@ use crate::node::{Context, CTRBCState};
 impl Context{
     pub async fn process_rbcinit(self: &mut Context, beacon_msg:BeaconMsg,ctr:CTRBCMsg){
         let now = SystemTime::now();
-        if !ctr.verify_mr_proof(){
+        if !ctr.verify_mr_proof(&self.hash_context){
             log::error!("Invalid Merkle Proof sent by node {} in round {}, abandoning RBC",ctr.origin,ctr.round);
             return;
         }
-        if !beacon_msg.verify_proofs(){
+        if !beacon_msg.verify_proofs(&self.hash_context){
             log::error!("Invalid Merkle Proof of secret sent by node {} in round {}, abandoning RBC",ctr.origin,ctr.round);
             return;
         }

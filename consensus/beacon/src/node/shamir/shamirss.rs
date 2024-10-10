@@ -4,7 +4,7 @@
  */
 
 pub use num_bigint;
-use num_bigint::{BigInt, RandBigInt};
+use num_bigint::{BigUint, RandBigInt, BigInt};
 use num_traits::{One, Zero};
 use rand;
 /// The `ShamirSecretSharing` stores threshold, share_amount and the prime of finite field.
@@ -15,88 +15,90 @@ pub struct ShamirSecretSharing {
     /// the total number of shares to generate from the secret.
     pub share_amount: usize,
     /// the characteristic of finite field.
-    pub prime: BigInt,
+    pub prime: BigUint,
 }
 /**
  * Shamir secret sharing and Lagrange Interpolation for reconstruction. 
  */
 impl ShamirSecretSharing {
     /// Split a secret according to the config.
-    pub fn split(&self, secret: BigInt) -> Vec<(usize, BigInt)> {
+    pub fn split(&self, secret: BigUint) -> Vec<(usize, BigUint)> {
         assert!(self.threshold < self.share_amount);
         let polynomial = self.sample_polynomial(secret);
         // println!("polynomial: {:?}", polynomial);
         self.evaluate_polynomial(polynomial)
     }
 
-    fn sample_polynomial(&self, secret: BigInt) -> Vec<BigInt> {
-        let mut coefficients: Vec<BigInt> = vec![secret];
+    fn sample_polynomial(&self, secret: BigUint) -> Vec<BigUint> {
+        let mut coefficients: Vec<BigUint> = vec![secret];
         let mut rng = rand::thread_rng();
-        let low = BigInt::from(0);
-        let high = &self.prime - BigInt::from(1);
-        let random_coefficients: Vec<BigInt> = (0..(self.threshold - 1))
-            .map(|_| rng.gen_bigint_range(&low, &high))
+        let low = BigUint::from(0u32);
+        let high = &self.prime - BigUint::from(1u32);
+        let random_coefficients: Vec<BigUint> = (0..(self.threshold - 1))
+            .map(|_| rng.gen_biguint_range(&low, &high))
             .collect();
         coefficients.extend(random_coefficients);
         coefficients
     }
 
-    fn evaluate_polynomial(&self, polynomial: Vec<BigInt>) -> Vec<(usize, BigInt)> {
+    fn evaluate_polynomial(&self, polynomial: Vec<BigUint>) -> Vec<(usize, BigUint)> {
         (1..=self.share_amount)
             .map(|x| (x, self.mod_evaluate_at(&polynomial, x)))
             .collect()
     }
 
-    fn mod_evaluate_at(&self, polynomial: &[BigInt], x: usize) -> BigInt {
-        let x_bigint = BigInt::from(x);
+    fn mod_evaluate_at(&self, polynomial: &[BigUint], x: usize) -> BigUint {
+        let x_big_uint = BigUint::from(x);
         polynomial.iter().rev().fold(Zero::zero(), |sum, item| {
-            (&x_bigint * sum + item) % &self.prime
+            (&x_big_uint * sum + item) % &self.prime
         })
     }
 
     /// Recover the secret by the shares.
-    pub fn recover(&self, shares: &[(usize, BigInt)]) -> BigInt {
+    pub fn recover(&self, shares: &[(usize, BigUint)]) -> BigUint {
         assert!(shares.len() == self.threshold, "wrong shares number");
-        let (xs, ys): (Vec<usize>, Vec<BigInt>) = shares.iter().cloned().unzip();
-        let result = self.lagrange_interpolation(Zero::zero(), xs, ys);
+        let (xs, ys): (Vec<usize>, Vec<BigUint>) = shares.iter().cloned().unzip();
+        let result = self.lagrange_interpolation(BigInt::from(0i8), xs, ys);
         if result < Zero::zero() {
-            result + &self.prime
+            let mu = result + BigInt::from_biguint(num_bigint::Sign::Plus, self.prime.clone());
+            mu.to_biguint().unwrap()
         } else {
-            result
+            result.to_biguint().unwrap()
         }
     }
 
-    fn lagrange_interpolation(&self, x: BigInt, xs: Vec<usize>, ys: Vec<BigInt>) -> BigInt {
+    fn lagrange_interpolation(&self, x: BigInt, xs: Vec<usize>, ys: Vec<BigUint>) -> BigInt {
+        let ys_bi:Vec<BigInt> = ys.into_iter().map(|x| BigInt::from_biguint(num_bigint::Sign::Plus, x)).collect();
         let len = xs.len();
         // println!("x: {}, xs: {:?}, ys: {:?}", x, xs, ys);
-        let xs_bigint: Vec<BigInt> = xs.iter().map(|x| BigInt::from(*x as i64)).collect();
-        // println!("sx_bigint: {:?}", xs_bigint);
-        (0..len).fold(Zero::zero(), |sum, item| {
+        let xs_big_uint: Vec<BigInt> = xs.iter().map(|x| BigInt::from(*x as i64)).collect();
+        // println!("sx_BigUint: {:?}", xs_BigUint);
+        (0..len).fold(BigInt::from(0i8), |sum:BigInt, item:usize| {
             let numerator = (0..len).fold(One::one(), |product: BigInt, i| {
                 if i == item {
                     product
                 } else {
-                    product * (&x - &xs_bigint[i]) % &self.prime
+                    product * (&x - &xs_big_uint[i]) % BigInt::from_biguint(num_bigint::Sign::Plus, self.prime.clone())
                 }
             });
             let denominator = (0..len).fold(One::one(), |product: BigInt, i| {
                 if i == item {
                     product
                 } else {
-                    product * (&xs_bigint[item] - &xs_bigint[i]) % &self.prime
+                    product * (&xs_big_uint[item] - &xs_big_uint[i]) % BigInt::from_biguint(num_bigint::Sign::Plus, self.prime.clone())
                 }
             });
             // println!(
             // "numerator: {}, donominator: {}, y: {}",
             // numerator, denominator, &ys[item]
             // );
-            (sum + numerator * self.mod_reverse(denominator) * &ys[item]) % &self.prime
+            (sum + numerator * self.mod_reverse(denominator) * &ys_bi[item]) % BigInt::from_biguint(num_bigint::Sign::Plus, self.prime.clone())
         })
     }
 
     fn mod_reverse(&self, num: BigInt) -> BigInt {
         let num1 = if num < Zero::zero() {
-            num + &self.prime
+            num + BigInt::from_biguint(num_bigint::Sign::Plus, self.prime.clone())
         } else {
             num
         };
@@ -118,12 +120,12 @@ impl ShamirSecretSharing {
      */
     fn extend_euclid_algo(&self, num: BigInt) -> (BigInt, BigInt, BigInt) {
         let (mut r, mut next_r, mut s, mut next_s, mut t, mut next_t) = (
-            self.prime.clone(),
+            BigInt::from_biguint(num_bigint::Sign::Plus, self.prime.clone()),
             num.clone(),
-            BigInt::from(1),
-            BigInt::from(0),
-            BigInt::from(0),
-            BigInt::from(1),
+            BigInt::from(1u32),
+            BigInt::from(0u32),
+            BigInt::from(0u32),
+            BigInt::from(1u32),
         );
         let mut quotient;
         let mut tmp;

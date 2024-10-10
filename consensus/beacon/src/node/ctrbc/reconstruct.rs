@@ -1,6 +1,7 @@
 use std::{time::SystemTime, collections::HashMap};
 
 use crypto::hash::Hash;
+use num_bigint::BigUint;
 use types::{beacon::CTRBCMsg, beacon::{Replica, CoinMsg, GatherMsg}};
 
 use crate::node::{Context, CTRBCState};
@@ -28,13 +29,13 @@ impl Context{
             return;
         }
         let (_beacon,shard) = rbc_state.msgs.get(&sec_origin).unwrap();
-        if shard.mp.root() != master_root || !ctrbc.verify_mr_proof(){
+        if shard.mp.root() != master_root || !ctrbc.verify_mr_proof(&self.hash_context){
             log::error!("Merkle root of WSS Init from {} did not match Merkle root of Recon from {}",sec_origin,self.myid);
             return;
         }
         rbc_state.add_recon(sec_origin, recon_sender, &ctrbc);
         // Check if the RBC received n-f readys
-        let res_root_vec = rbc_state.verify_reconstruct_rbc(sec_origin, self.num_nodes, self.num_faults, self.batch_size);
+        let res_root_vec = rbc_state.verify_reconstruct_rbc(sec_origin, self.num_nodes, self.num_faults, self.batch_size, &self.hash_context);
         match res_root_vec {
             None =>{
                 return;
@@ -66,15 +67,17 @@ impl Context{
                     //self.add_benchmark(String::from("process_reconstruct"), now.elapsed().unwrap().as_nanos());
                 }
                 if beacon_msg.appx_con.is_some(){
-                    for (round_iter,appx_convals) in beacon_msg.appx_con.clone().unwrap().into_iter(){
+                    for (round_iter,messages) in beacon_msg.appx_con.clone().unwrap().into_iter(){
+                        // Convert messages to BigUInt values
+                        let appx_con_vals = messages.into_iter().map(|(x,y)| (x,BigUint::from_bytes_be(&y))).collect();
                         let rbc_iterstate = self.round_state.get_mut(&round_iter).unwrap();
                         if rbc_iterstate.appxcon_allround_vals.contains_key(&sec_origin){
                             let round_val_map = rbc_iterstate.appxcon_allround_vals.get_mut(&sec_origin).unwrap();
-                            round_val_map.insert(round, appx_convals);
+                            round_val_map.insert(round, appx_con_vals);
                         }
                         else{
                             let mut round_val_map = HashMap::default();
-                            round_val_map.insert(round, appx_convals);
+                            round_val_map.insert(round, appx_con_vals);
                             rbc_iterstate.appxcon_allround_vals.insert(sec_origin, round_val_map);
                         }
                     }

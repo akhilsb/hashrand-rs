@@ -33,12 +33,12 @@ impl Context{
         }
         let (_beacon,shard) = rbc_state.msgs.get(&sec_origin).unwrap();
         let mp = shard.mp.clone();
-        if mp.root() != master_root || !ctrbc.verify_mr_proof(){
+        if mp.root() != master_root || !ctrbc.verify_mr_proof(&self.hash_context){
             log::error!("Merkle root of WSS Init from {} did not match Merkle root of ECHO from {}",sec_origin,self.myid);
             return;
         }
         rbc_state.add_echo(sec_origin, echo_sender, &ctrbc);
-        let hash_root = rbc_state.echo_check(sec_origin, self.num_nodes, self.num_faults, self.batch_size);
+        let hash_root = rbc_state.echo_check(sec_origin, self.num_nodes, self.num_faults, self.batch_size,&self.hash_context);
         match hash_root {
             None => {
                 return;

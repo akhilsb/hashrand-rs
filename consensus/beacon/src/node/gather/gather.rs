@@ -1,9 +1,9 @@
 use std::{time::SystemTime, collections::HashMap};
 
 use async_recursion::async_recursion;
-use num_bigint::BigInt;
+use num_bigint::{BigUint};
 use num_traits::{FromPrimitive};
-use types::{beacon::{CoinMsg, Val}, Replica, Round, beacon::GatherMsg};
+use types::{beacon::{CoinMsg}, Replica, Round, beacon::GatherMsg};
 
 use crate::node::{Context, CTRBCState, RoundState};
 /**
@@ -16,7 +16,7 @@ impl Context {
     pub async fn process_gatherecho(self: &mut Context,wss_indices:Vec<Replica>, echo_sender:Replica,round: u32){
         let now = SystemTime::now();
         if !self.round_state.contains_key(&round){
-            let rbc_new_state = CTRBCState::new(BigInt::from_u16(0u16).unwrap(),self.num_nodes);
+            let rbc_new_state = CTRBCState::new(BigUint::from_u16(0u16).unwrap(),self.num_nodes);
             self.round_state.insert(round, rbc_new_state);
         }
         let rbc_state = self.round_state.get_mut(&round).unwrap();
@@ -35,7 +35,7 @@ impl Context {
     pub async fn process_gatherecho2(self: &mut Context,wss_indices:Vec<Replica>, echo_sender:Replica,round: u32){
         let now = SystemTime::now();
         if !self.round_state.contains_key(&round){
-            let rbc_new_state = CTRBCState::new(BigInt::from_u16(0u16).unwrap(),self.num_nodes);
+            let rbc_new_state = CTRBCState::new(BigUint::from_u16(0u16).unwrap(),self.num_nodes);
             self.round_state.insert(round, rbc_new_state);
         }
         let rbc_state = self.round_state.get_mut(&round).unwrap();
@@ -146,7 +146,7 @@ impl Context {
     }
 
     pub async fn check_begin_next_round(&mut self,round: u32){
-        let appxcon_vals_fin:HashMap<Round,Vec<(Replica,Val)>> = self.next_round_vals(round).await;
+        let appxcon_vals_fin:HashMap<Round,Vec<(Replica,BigUint)>> = self.next_round_vals(round).await;
         //appxcon_vals_fin.clone_from();
         if !appxcon_vals_fin.is_empty(){
             // Bundled Approximate Agreement
@@ -166,7 +166,7 @@ impl Context {
                     // Create new roundstate object
                     let mut round_state = RoundState::new_with_echo(Vec::new(), self.myid);
                     for (rep,value) in values.into_iter(){
-                        round_state.term_vals.insert(rep, BigInt::from_signed_bytes_be(&value));
+                        round_state.term_vals.insert(rep, value);
                     }
                     rbc_state_iter.round_state.insert(round, round_state);
                 }

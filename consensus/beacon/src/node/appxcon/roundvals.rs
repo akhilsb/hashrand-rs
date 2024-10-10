@@ -1,6 +1,6 @@
 use std::collections::{HashSet, HashMap};
 
-use num_bigint::{BigInt, Sign};
+use num_bigint::{BigUint};
 use types::appxcon::{Replica};
 
 /**
@@ -20,9 +20,9 @@ pub struct RoundState{
     // Each entry in the HashMap is the state of one Binary AA instance
     // Each value in the HashMap is a Vector of tuples. 
     // Each tuple has the following structure: (Value, Set of nodes that sent ECHOs for this value, Set of nodes that sent ECHO2s for this value, flag1 signifying if this node sent an ECHO for this value, flag2 signifying if this node sent an ECHO2 for this value)
-    pub state: HashMap<Replica,(Vec<(BigInt,HashSet<Replica>,HashSet<Replica>,bool,bool)>,HashSet<BigInt>,Vec<BigInt>),nohash_hasher::BuildNoHashHasher<Replica>>,
+    pub state: HashMap<Replica,(Vec<(BigUint,HashSet<Replica>,HashSet<Replica>,bool,bool)>,HashSet<BigUint>,Vec<BigUint>),nohash_hasher::BuildNoHashHasher<Replica>>,
     // This Map contains the termination output of this node in each Binary AA instance
-    pub term_vals:HashMap<Replica,BigInt>,
+    pub term_vals:HashMap<Replica,BigUint>,
 }
 
 impl RoundState{
@@ -33,8 +33,8 @@ impl RoundState{
             term_vals:HashMap::default(),
         };
         for (rep,msg) in msgs.clone().into_iter(){
-            let parsed_bigint = BigInt::from_bytes_be(Sign::Plus,msg.as_slice());
-            let mut arr_state:Vec<(BigInt,HashSet<Replica>,HashSet<Replica>,bool,bool)> = Vec::new();
+            let parsed_bigint = BigUint::from_bytes_be(msg.as_slice());
+            let mut arr_state:Vec<(BigUint,HashSet<Replica>,HashSet<Replica>,bool,bool)> = Vec::new();
             let mut echo1_set = HashSet::new();
             echo1_set.insert(echo_sender);
             let echo2_set:HashSet<Replica>=HashSet::new();
@@ -51,8 +51,8 @@ impl RoundState{
             term_vals:HashMap::default(),
         };
         for (rep,msg) in msgs.clone().into_iter(){
-            let parsed_bigint = BigInt::from_bytes_be(Sign::Plus,msg.as_slice());
-            let mut arr_state:Vec<(BigInt,HashSet<Replica>,HashSet<Replica>,bool,bool)> = Vec::new();
+            let parsed_bigint = BigUint::from_bytes_be(msg.as_slice());
+            let mut arr_state:Vec<(BigUint,HashSet<Replica>,HashSet<Replica>,bool,bool)> = Vec::new();
             let mut echo2_set = HashSet::new();
             echo2_set.insert(echo_sender);
             let echo1_set:HashSet<Replica>=HashSet::new();
@@ -71,7 +71,7 @@ impl RoundState{
             if self.term_vals.contains_key(&rep){
                 continue;
             }
-            let parsed_bigint = BigInt::from_bytes_be(Sign::Plus, msg.clone().as_slice());
+            let parsed_bigint = BigUint::from_bytes_be(msg.clone().as_slice());
             if self.state.contains_key(&rep){
                 let arr_tup = self.state.get_mut(&rep).unwrap();
                 let arr_vec = &mut arr_tup.0;
@@ -93,8 +93,8 @@ impl RoundState{
                         arr_tup.1.insert(parsed_bigint);
                         if arr_tup.1.len() == 2{
                             // terminate protocol for instance &rep
-                            let vec_arr:Vec<BigInt> = arr_tup.1.clone().into_iter().map(|x| x).collect();
-                            let next_round_val = (vec_arr[0].clone()+vec_arr[1].clone())/2;
+                            let vec_arr:Vec<BigUint> = arr_tup.1.clone().into_iter().map(|x| x).collect();
+                            let next_round_val = (vec_arr[0].clone()+vec_arr[1].clone())/2u32;
                             self.term_vals.insert(rep, next_round_val);
                         }
                         arr_vec[0].4 = true;
@@ -119,8 +119,8 @@ impl RoundState{
                             arr_tup.1.insert(parsed_bigint);
                             if arr_tup.1.len() == 2{
                                 // terminate protocol for instance &rep
-                                let vec_arr:Vec<BigInt> = arr_tup.1.clone().into_iter().map(|x| x).collect();
-                                let next_round_val = (vec_arr[0].clone()+vec_arr[1].clone())/2;
+                                let vec_arr:Vec<BigUint> = arr_tup.1.clone().into_iter().map(|x| x).collect();
+                                let next_round_val = (vec_arr[0].clone()+vec_arr[1].clone())/2u32;
                                 self.term_vals.insert(rep, next_round_val);
                             }
                             arr_vec[1].4 = true;
@@ -131,7 +131,7 @@ impl RoundState{
             else{
                 let mut echo_set:HashSet<Replica> = HashSet::default();
                 echo_set.insert(echo_sender);
-                let mut arr_vec:Vec<(BigInt, HashSet<Replica>, HashSet<Replica>,bool,bool)> = Vec::new();
+                let mut arr_vec:Vec<(BigUint, HashSet<Replica>, HashSet<Replica>,bool,bool)> = Vec::new();
                 arr_vec.push((parsed_bigint,echo_set,HashSet::default(),false,false));
                 self.state.insert(rep, (arr_vec,HashSet::default(),Vec::new()));
             }
@@ -141,7 +141,7 @@ impl RoundState{
     // Method implements logic for handling an ECHO2 message
     pub fn add_echo2(&mut self,msgs: Vec<(Replica,Vec<u8>)>, echo2_sender:Replica,num_nodes: usize,num_faults:usize){
         for (rep,msg) in msgs.into_iter(){
-            let parsed_bigint = BigInt::from_bytes_be(Sign::Plus, msg.clone().as_slice());
+            let parsed_bigint = BigUint::from_bytes_be(msg.clone().as_slice());
             if self.state.contains_key(&rep){
                 let arr_tup = self.state.get_mut(&rep).unwrap();
                 // this vector can only contain two elements, if the echo corresponds to the first element, the first if block is executed
@@ -175,7 +175,7 @@ impl RoundState{
             else {
                 let mut echo_set:HashSet<Replica> = HashSet::default();
                 echo_set.insert(echo2_sender);
-                let mut arr_vec:Vec<(BigInt, HashSet<Replica>, HashSet<Replica>,bool,bool)> = Vec::new();
+                let mut arr_vec:Vec<(BigUint, HashSet<Replica>, HashSet<Replica>,bool,bool)> = Vec::new();
                 arr_vec.push((parsed_bigint,HashSet::default(),echo_set,false,false));
                 self.state.insert(rep, (arr_vec,HashSet::default(),Vec::new()));
             }

@@ -7,7 +7,7 @@ use config::Node;
 use fnv::FnvHashMap;
 use node::Syncer;
 use signal_hook::{iterator::Signals, consts::{SIGINT, SIGTERM}};
-use tokio::sync::mpsc::channel;
+//use tokio::sync::mpsc::channel;
 use std::{net::{SocketAddr, SocketAddrV4}};
 
 // ./target/release/genconfig --NumNodes 4 --delay 10 --blocksize 100 --client_base_port 7000 --target testdata/cc_4/ --payload 100 --out_type json --base_port 9000 --client_run_port 4000
@@ -112,78 +112,78 @@ async fn main() -> Result<()> {
                 &mut vec_native,
             ).unwrap();
         },
-        "glowlib" => {
-            let mut arr_strsplit:Vec<&str> = conf_str.split("/").collect();
-            let id_str = ((config.id +1)).to_string();
-            //let id_str_1  = ((config.id)).to_string();
-            let key_str = "sec".to_string();
-            let concat_str = key_str + &id_str;
-            let _last_elem = arr_strsplit.pop();
+        // "glowlib" => {
+        //     let mut arr_strsplit:Vec<&str> = conf_str.split("/").collect();
+        //     let id_str = ((config.id +1)).to_string();
+        //     //let id_str_1  = ((config.id)).to_string();
+        //     let key_str = "sec".to_string();
+        //     let concat_str = key_str + &id_str;
+        //     let _last_elem = arr_strsplit.pop();
 
-            let mut vec_native = Vec::new();
-            for i in 1..config.num_nodes+1{
-                let pkey_str = "pub".to_string();
-                let mut tpub = arr_strsplit.clone();
-                let iter_str = pkey_str.clone()+ &(i.to_string());
-                tpub.push(iter_str.as_str());
-                vec_native.push(tpub.join("/"));
-            }
-            arr_strsplit.push(concat_str.as_str());
-            let (coin_construct,coin_const_recv) = channel(1000);
-            let (coin_send, mut coin_recv) = channel(1000);
-            exit_tx = glow_lib::node::GlowLib::spawn(config, arr_strsplit.join("/").as_str(),vec_native,coin_const_recv,coin_send).unwrap();
-            for i in 0..2000{
-                if let Err(e) = coin_construct.send(i).await {
-                    log::warn!(
-                        "Failed to beacon request {} to the consensus {}",
-                        i,e
-                    );
-                }
-            }
-            let mut j = 0;
-            loop {
-                tokio::select! {
-                    msg = coin_recv.recv() =>{
-                        let msg = msg.ok_or_else(||
-                            anyhow!("Networking layer has closed")
-                        )?;
-                        log::error!("Received {:?} from beacon GlowLib",msg);
-                        j+=1;
-                        if j > 1990{
-                            break;
-                        }
-                    }
-                }
-            }
-        },
-        "hrnd" => {
-            let (coin_construct,coin_const_recv) = channel(1000);
-            let (coin_send, mut coin_recv) = channel(1000);
-            exit_tx = hashrand::node::HashRand::spawn(config, sleep, batch, frequency, coin_const_recv, coin_send).unwrap();
-            for i in 0..2000{
-                if let Err(e) = coin_construct.send(i).await {
-                    log::warn!(
-                        "Failed to beacon request {} to the consensus {}",
-                        i,e
-                    );
-                }
-            }
-            let mut j = 0;
-            loop {
-                tokio::select! {
-                    msg = coin_recv.recv() =>{
-                        let msg = msg.ok_or_else(||
-                            anyhow!("Networking layer has closed")
-                        )?;
-                        log::error!("Received {:?} from beacon hashrand",msg);
-                        j+=1;
-                        if j > 1990{
-                            break;
-                        }
-                    }
-                }
-            }
-        },
+        //     let mut vec_native = Vec::new();
+        //     for i in 1..config.num_nodes+1{
+        //         let pkey_str = "pub".to_string();
+        //         let mut tpub = arr_strsplit.clone();
+        //         let iter_str = pkey_str.clone()+ &(i.to_string());
+        //         tpub.push(iter_str.as_str());
+        //         vec_native.push(tpub.join("/"));
+        //     }
+        //     arr_strsplit.push(concat_str.as_str());
+        //     let (coin_construct,coin_const_recv) = channel(1000);
+        //     let (coin_send, mut coin_recv) = channel(1000);
+        //     exit_tx = glow_lib::node::GlowLib::spawn(config, arr_strsplit.join("/").as_str(),vec_native,coin_const_recv,coin_send).unwrap();
+        //     for i in 0..2000{
+        //         if let Err(e) = coin_construct.send(i).await {
+        //             log::warn!(
+        //                 "Failed to beacon request {} to the consensus {}",
+        //                 i,e
+        //             );
+        //         }
+        //     }
+        //     let mut j = 0;
+        //     loop {
+        //         tokio::select! {
+        //             msg = coin_recv.recv() =>{
+        //                 let msg = msg.ok_or_else(||
+        //                     anyhow!("Networking layer has closed")
+        //                 )?;
+        //                 log::error!("Received {:?} from beacon GlowLib",msg);
+        //                 j+=1;
+        //                 if j > 1990{
+        //                     break;
+        //                 }
+        //             }
+        //         }
+        //     }
+        // },
+        // "hrnd" => {
+        //     let (coin_construct,coin_const_recv) = channel(1000);
+        //     let (coin_send, mut coin_recv) = channel(1000);
+        //     exit_tx = hashrand::node::HashRand::spawn(config, sleep, batch, frequency, coin_const_recv, coin_send).unwrap();
+        //     for i in 0..2000{
+        //         if let Err(e) = coin_construct.send(i).await {
+        //             log::warn!(
+        //                 "Failed to beacon request {} to the consensus {}",
+        //                 i,e
+        //             );
+        //         }
+        //     }
+        //     let mut j = 0;
+        //     loop {
+        //         tokio::select! {
+        //             msg = coin_recv.recv() =>{
+        //                 let msg = msg.ok_or_else(||
+        //                     anyhow!("Networking layer has closed")
+        //                 )?;
+        //                 log::error!("Received {:?} from beacon hashrand",msg);
+        //                 j+=1;
+        //                 if j > 1990{
+        //                     break;
+        //                 }
+        //             }
+        //         }
+        //     }
+        // },
         // "appx" => {
         //     exit_tx = appxcon::node::Context::spawn(config, sleep, val_appx,epsilon).unwrap();
         // },

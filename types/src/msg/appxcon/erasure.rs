@@ -1,11 +1,8 @@
-use std::{collections::HashMap, iter::FromIterator};
+use std::{collections::HashMap};
 
-use crypto::hash::{Hash, do_hash};
-use merkle_light::merkle::MerkleTree;
+use crypto::{hash::{Hash, do_hash}, aes_hash::{MerkleTree, HashState, Proof}};
 use reed_solomon_erasure::{galois_8::ReedSolomon, Error};
-use crate::appxcon::{Replica, MerkleProof};
-
-use super::HashingAlg;
+use crate::appxcon::{Replica};
 
 pub fn get_shards(data:Vec<u8>,faults:Replica)->Vec<Vec<u8>>{
     let r:ReedSolomon<> = ReedSolomon::new(faults+1,2*faults).unwrap();
@@ -82,7 +79,7 @@ fn reconstruct_data(num_faults:usize, data:&mut Vec<Option<Vec<u8>>>) -> Result<
     };
 }
 
-pub fn reconstruct_and_verify(map:HashMap<Replica,(Vec<u8>,MerkleProof)>,num_nodes:usize,num_faults:usize,myid:Replica, mr:Hash)->Result<(Vec<u8>,MerkleProof),Error>{
+pub fn reconstruct_and_verify(map:HashMap<Replica,(Vec<u8>,Proof)>,num_nodes:usize,num_faults:usize,myid:Replica, mr:Hash,hf:&HashState)->Result<(Vec<u8>,Proof),Error>{
     let mut shard_vector = Vec::new();
     for i in 0..num_nodes{
         match map.get(&i) {
@@ -98,18 +95,11 @@ pub fn reconstruct_and_verify(map:HashMap<Replica,(Vec<u8>,MerkleProof)>,num_nod
         _=> {}
     }
     let hashes:Vec<Hash> = shard_vector.clone().into_iter().map(|x| do_hash(x.unwrap().as_slice())).collect();
-    //log::info!("Vector of hashes in reconstruction verification {:?}",hashes);
-    let merkle_tree:MerkleTree<[u8; 32],HashingAlg> = MerkleTree::from_iter(hashes.into_iter());
+    let merkle_tree = MerkleTree::new(hashes,hf);
     if merkle_tree.root() == mr{
-        let mut vec_f = Vec::new();
-        let mut iter = 0;
-        for vec in shard_vector.clone().into_iter(){
-            vec_f.push((vec.unwrap().clone(),MerkleProof::from_proof(merkle_tree.gen_proof(iter))));
-            iter+=1;
-        }
         return Ok(
             (shard_vector[myid].clone().unwrap(),
-            MerkleProof::from_proof(merkle_tree.gen_proof(myid)))
+            merkle_tree.gen_proof(myid))
         );
     }
     else{

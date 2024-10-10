@@ -74,7 +74,7 @@ impl HashRand{
                 let mut i = 0;
                 for y in vec.into_iter(){
                     vec_msgs_to_be_sent[i].1.secrets.push(y.1);
-                    vec_msgs_to_be_sent[i].1.commitments.push((y.2,y.3));
+                    vec_msgs_to_be_sent[i].1.nonces.push((y.2,y.3));
                     vec_msgs_to_be_sent[i].1.mps.push(MerkleProof::from_proof(mt.gen_proof(i)));
                     i = i+1;
                 }

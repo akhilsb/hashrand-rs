@@ -1,7 +1,7 @@
 use std::{time::{SystemTime}, collections::HashMap};
 
 use async_recursion::async_recursion;
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use types::{beacon::{ CoinMsg, Round}, Replica, SyncMsg, SyncState};
 
 use crate::node::{Context, CTRBCState, appxcon::RoundState};
@@ -207,7 +207,7 @@ impl Context{
                 if rbc_state.round_state.contains_key(&round){
                     let mut vec_replica_vals = Vec::new();
                     for (rep,value) in rbc_state.round_state.get(&round).unwrap().term_vals.clone().into_iter(){
-                        vec_replica_vals.push((rep,value.to_signed_bytes_be()));
+                        vec_replica_vals.push((rep,value));
                     }
                     vec_newround_vals.push((round_iter,vec_replica_vals));
                 }
@@ -227,13 +227,13 @@ impl Context{
             //let nz_appxcon_rs = &mut rbc_state.nz_appxcon_rs;
             //log::info!("Approximate Agreement Protocol terminated with values {:?}",round_vecs.clone());
             // Reconstruct values
-            let mapped_rvecs:Vec<(Replica,BigInt)> = 
+            let mapped_rvecs:Vec<(Replica,BigUint)> = 
                 rbc_state.round_state.get(&(round-1)).unwrap().term_vals.clone().into_iter()
-                .filter(|(_rep,num)| *num > BigInt::from(0i32))
+                .filter(|(_rep,num)| *num > BigUint::from(0u32))
                 .collect();
             for (rep,val) in mapped_rvecs.into_iter(){
                 rbc_state.appx_con_term_vals.insert(rep, val);
-                //rbc_state.contribution_map.insert(rep, (val,false,BigInt::from(0i32)));
+                //rbc_state.contribution_map.insert(rep, (val,false,BigUint::from(0i32)));
             }
             log::error!("Terminated beacon for round {} with committee {:?} and appxcon_vals: {:?}, term_secrets {:?}, comm_vector {:?}", round_begin-1,rbc_state.committee,rbc_state.appx_con_term_vals,rbc_state.terminated_secrets,rbc_state.comm_vectors.keys());
             log::info!("Terminated round {}, sending message to syncer",(round_begin-1).clone());
@@ -252,9 +252,17 @@ impl Context{
             // continue binary approximate agreement from here
             //self.curr_round = round + 1;
             // Otherwise, just start the next round of Binary AAs
-            let prot_msg = CoinMsg::BinaryAAEcho(vec_newround_vals.clone(), self.myid, round+1);
+            let vec_round_msgs:Vec<(Round,Vec<(Replica,Vec<u8>)>)> = vec_newround_vals.into_iter().map(|(x,y)| {
+                let mut msgs_vec = Vec::new();
+                for (rep,val) in y.into_iter(){
+                    msgs_vec.push((rep,val.to_bytes_be().to_vec()));
+                }
+                return (x,msgs_vec);
+            }).collect();
+
+            let prot_msg = CoinMsg::BinaryAAEcho(vec_round_msgs.clone(), self.myid, round+1);
             self.broadcast(prot_msg.clone(),round+1).await;
-            self.process_baa_echo(vec_newround_vals, self.myid, round+1).await;
+            self.process_baa_echo(vec_round_msgs, self.myid, round+1).await;
             self.increment_round(round).await;
             log::error!("Started round {} with Binary AA",round+1);
         }

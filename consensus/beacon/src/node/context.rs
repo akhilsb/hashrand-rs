@@ -2,13 +2,14 @@ use std::{time::{SystemTime, UNIX_EPOCH}};
 
 use anyhow::{Result, Ok,anyhow};
 use network::{plaintcp::{TcpReliableSender, CancelHandler}, Acknowledgement};
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use tokio::{sync::{mpsc::UnboundedReceiver, oneshot}};
 use types::{beacon::{WrapperMsg, Replica, CoinMsg}, Round, SyncMsg, SyncState};
 use config::Node;
 use fnv::FnvHashMap as HashMap;
 
 use super::{Handler, SyncHandler, CTRBCState};
+use crypto::aes_hash::HashState;
 
 use fnv::FnvHashMap;
 use network::{plaintcp::{TcpReceiver}};
@@ -31,13 +32,15 @@ pub struct Context {
     pub num_faults: usize,
     pub payload:usize,
 
-    /// PKI
     /// Replica map
     pub sec_key_map:HashMap<Replica, Vec<u8>>,
 
+    /// Hardware acceleration context
+    pub hash_context: HashState,
+
     /// The context parameters related to Verifiable Secret sharing for the common coin
-    pub secret_domain: BigInt,
-    pub nonce_domain: BigInt,
+    pub secret_domain: BigUint,
+    pub nonce_domain: BigUint,
     /// Number of rounds of Approximate Agreement to run?
     pub rounds_aa: u32,
     /// Final epsilon required in the beacon
@@ -125,11 +128,16 @@ impl Context {
             let (exit_tx, exit_rx) = oneshot::channel();
             tokio::spawn(async move {
                 // The modulus of the secret is set for probability of coin success = 1- 5*10^{-9}
-                let prime = BigInt::parse_bytes(b"685373784908497",10).unwrap();
-                // Nonce is much bigger (typically the 2^256-1 field)
-                let nonce_prime = BigInt::parse_bytes(b"7540413808418633958282852050178074861680062438274790246382209349819426274715021974571290841231123616713073551439231076214330138511767072438590219824049681", 10).unwrap();
+                let prime = BigUint::parse_bytes(b"685373784908497",10).unwrap();
+                // Nonce is much bigger ()
+                let nonce_prime = BigUint::parse_bytes(b"57896044618658097711785492504343953926634992332820282019728792003956564819949", 10).unwrap();
                 let epsilon:u32 = ((1024*1024)/(config.num_nodes*config.num_faults)) as u32;
                 let rounds = (65.0 - ((epsilon as f32).log2().ceil())) as u32;
+                // Keyed AES ciphers
+                let key0 = [5u8; 16];
+                let key1 = [29u8; 16];
+                let key2 = [23u8; 16];
+                let hashstate = HashState::new(key0, key1, key2);
                 log::error!("Appx consensus rounds: {}",rounds);
                 let mut c = Context {
                     net_send:consensus_net,
@@ -142,6 +150,8 @@ impl Context {
                     num_faults: config.num_faults,
                     payload: config.payload,
                     
+                    hash_context: hashstate,
+
                     secret_domain:prime.clone(),
                     nonce_domain:nonce_prime.clone(),
                     rounds_aa:rounds,

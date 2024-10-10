@@ -1,12 +1,11 @@
-use crypto::hash::{Hash, do_hash_merkle, do_hash, do_mac};
-use num_bigint::{BigInt};
+use crypto::{hash::{Hash, do_mac, do_hash}, aes_hash::{Proof, HashState, HASH_SIZE}};
 use serde::{Serialize, Deserialize};
 
-use crate::{appxcon::{MerkleProof, HashingAlg, verify_merkle_proof}, WireReady, Round};
+use crate::{WireReady, Round};
 
 use super::{Replica};
 
-pub type Val = Vec<u8>;
+pub type Val = [u8; HASH_SIZE];
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct BeaconMsg{
@@ -48,32 +47,44 @@ impl BeaconMsg {
         }
     }
 
-    pub fn verify_proofs(&self,) -> bool{
-        let sec_origin = self.origin;
+    pub fn verify_proofs(&self,hf:&HashState) -> bool{
         if self.wss.is_some(){
+            let wssmsg = self.wss.as_ref().unwrap();
             // 1. Verify Merkle proof for all secrets first
-            let secrets = self.wss.clone().unwrap().secrets;
-            let commitments = self.wss.clone().unwrap().commitments;
-            let merkle_proofs = self.wss.clone().unwrap().mps;
-            log::debug!("Received WSSInit message for secret from {}",sec_origin);
-            let mut root_ind:Vec<Hash> = Vec::new();
-            for i in 0..secrets.len(){
-                let secret = BigInt::from_signed_bytes_be(secrets[i].as_slice());
-                let nonce = BigInt::from_signed_bytes_be(commitments[i].0.as_slice());
-                let added_secret = secret + nonce; 
-                let hash = do_hash(added_secret.to_signed_bytes_be().as_slice());
-                let m_proof = merkle_proofs[i].to_proof();
-                if hash != commitments[i].1 || !m_proof.validate::<HashingAlg>() || m_proof.item() != do_hash_merkle(hash.as_slice()){
-                    log::error!("Merkle proof validation failed for secret {} in inst {}",i,sec_origin);
+            let mps = Proof::validate_batch(&wssmsg.mps, hf);
+            // Return if the merkle proofs do not verify
+            if !mps{
+                log::error!("Merkle proof verification failed for wssmsg sent by {}",wssmsg.origin);
+                return false;
+            }
+            let secrets = wssmsg.secrets.clone();
+            let nonces = wssmsg.nonces.clone();
+            let commitments = hf.hash_batch(secrets, nonces);
+            // Match commitments to the items of proofs
+            for (pf,comm) in wssmsg.mps.iter().zip(commitments.into_iter()){
+                if pf.item() != comm{
+                    log::error!("Commitment does not match element in proof for wssmsg sent by {}",wssmsg.origin);
                     return false;
                 }
-                else{
-                    root_ind.push(m_proof.root());
-                    if m_proof.root()!= self.root_vec.clone().unwrap()[i]{
-                        return false;
-                    }
-                }
             }
+            // let mut root_ind:Vec<Hash> = Vec::new();
+            // for i in 0..secrets.len(){
+            //     let secret = BigUint::from_bytes_be(secrets[i].as_slice());
+            //     let nonce = BigUint::from_bytes_be(nonces[i].0.as_slice());
+            //     //let added_secret = secret + nonce; 
+            //     let hash = hf.hash_two(, );
+            //     let m_proof = merkle_proofs[i].to_proof();
+            //     if hash != nonces[i].1 || !m_proof.validate::<HashingAlg>() || m_proof.item() != do_hash_merkle(hash.as_slice()){
+            //         log::error!("Merkle proof validation failed for secret {} in inst {}",i,sec_origin);
+            //         return false;
+            //     }
+            //     else{
+            //         root_ind.push(m_proof.root());
+            //         if m_proof.root()!= self.root_vec.clone().unwrap()[i]{
+            //             return false;
+            //         }
+            //     }
+            // }
         }
         return true;
     }
@@ -81,23 +92,22 @@ impl BeaconMsg {
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct CTRBCMsg{
-    pub shard:Val,
-    pub mp:MerkleProof,
+    pub shard:Vec<u8>,
+    pub mp:Proof,
     pub round:u32,
     pub origin:Replica
 }
 
 impl CTRBCMsg {
-    pub fn new(shard:Val,mp:MerkleProof,round:u32,origin:Replica)->Self{
+    pub fn new(shard:Vec<u8>,mp:Proof,round:u32,origin:Replica)->Self{
         CTRBCMsg { shard: shard, mp: mp, round: round, origin: origin }
     }
 
-    pub fn verify_mr_proof(&self) -> bool{
-        if !verify_merkle_proof(&self.mp, &self.shard){
-            log::error!("Failed to evaluate merkle proof for RBC Init received from node {}",self.origin);
-            return false;
-        }
-        true
+    pub fn verify_mr_proof(&self,hf:&HashState) -> bool{
+        // 2. Validate Merkle Proof
+        let hash_of_shard:[u8;32] = do_hash(&self.shard.as_slice());
+        let state: bool =  hash_of_shard == self.mp.item().clone() && self.mp.validate(hf);
+        return state;
     }
 }
 
@@ -109,10 +119,10 @@ pub enum CoinMsg{
     CTRBCReconstruct(CTRBCMsg,Hash,Replica),
     GatherEcho(GatherMsg,Replica,Round),
     GatherEcho2(GatherMsg,Replica,Round),
-    BinaryAAEcho(Vec<(Round,Vec<(Replica,Val)>)>,Replica,Round),
-    BinaryAAEcho2(Vec<(Round,Vec<(Replica,Val)>)>,Replica,Round),
+    BinaryAAEcho(Vec<(Round,Vec<(Replica,Vec<u8>)>)>,Replica,Round),
+    BinaryAAEcho2(Vec<(Round,Vec<(Replica,Vec<u8>)>)>,Replica,Round),
     // THe vector of secrets, the source replica, the index in each batch and the round number of Batch Secret Sharing
-    BeaconConstruct(Vec<WSSMsg>,Replica,Replica,Round),
+    BeaconConstruct(BatchWSSReconMsg,Replica,Replica,Round),
     BeaconValue(Round,Replica,u128),
 }
 
@@ -120,17 +130,17 @@ pub enum CoinMsg{
 pub struct BatchWSSMsg{
     pub secrets: Vec<Val>,
     pub origin: Replica,
-    pub commitments: Vec<(Val,Hash)>,
-    pub mps: Vec<MerkleProof>,
+    pub nonces: Vec<Val>,
+    pub mps: Vec<Proof>,
     pub empty: bool
 }
 
 impl BatchWSSMsg {
-    pub fn new(secrets:Vec<Val>,origin:Replica,commitments:Vec<(Val,Hash)>,mps:Vec<MerkleProof>)->Self{
+    pub fn new(origin:Replica,secrets:Vec<Val>,nonces:Vec<Val>,mps:Vec<Proof>)->Self{
         BatchWSSMsg{
             secrets:secrets,
             origin:origin,
-            commitments:commitments,
+            nonces:nonces,
             mps:mps,
             empty:false
         }
@@ -139,7 +149,7 @@ impl BatchWSSMsg {
         BatchWSSMsg{
             secrets:Vec::new(),
             origin:0,
-            commitments:Vec::new(),
+            nonces:Vec::new(),
             mps:Vec::new(),
             empty:false
         }
@@ -147,26 +157,49 @@ impl BatchWSSMsg {
 }
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
-pub struct WSSMsg {
-    pub secret:Val,
-    pub origin:Replica,
-    // The tuple is the randomized nonce to be appended to the secret to prevent rainbow table attacks
-    pub commitment:(Val,Hash),
-    // Merkle proof to the root
-    pub mp:MerkleProof
+pub struct BatchWSSReconMsg{
+    pub origin: Replica,
+    pub secrets: Vec<Val>,
+    pub nonces: Vec<Val>,
+    pub origins: Vec<Replica>,
+    pub mps: Vec<Proof>,
+    pub empty: bool
 }
 
-impl WSSMsg {
-    pub fn new(secret:Val,origin:Replica,commitment:(Val,Hash),mp:MerkleProof)->Self{
-        WSSMsg { 
-            secret: secret, 
-            origin: origin, 
-            commitment: commitment, 
-            mp: mp 
+impl BatchWSSReconMsg {
+    pub fn new(origin:Replica,secrets:Vec<Val>,nonces:Vec<Val>,origin_replicas:Vec<Replica>,mps:Vec<Proof>)->Self{
+        BatchWSSReconMsg{
+            secrets:secrets,
+            origin:origin,
+            nonces:nonces,
+            origins:origin_replicas,
+            mps:mps,
+            empty:false
         }
     }
 }
 
+
+#[derive(Debug,Serialize,Deserialize,Clone)]
+pub struct WSSMsg {
+    pub origin:Replica,
+    pub secret:Val,
+    // The tuple is the randomized nonce to be appended to the secret to prevent rainbow table attacks
+    pub nonce:Val,
+    // Merkle proof to the root
+    pub mp:Proof
+}
+
+impl WSSMsg {
+    pub fn new(origin:Replica,secret:Val,nonce:Val,mp:Proof)->Self{
+        WSSMsg { 
+            secret: secret, 
+            origin: origin, 
+            nonce: nonce, 
+            mp: mp 
+        }
+    }
+}
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct GatherMsg{

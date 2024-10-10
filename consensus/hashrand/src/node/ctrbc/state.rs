@@ -191,17 +191,17 @@ impl CTRBCState{
             return false;
         }
         let sharing_merkle_root:Hash = self.comm_vectors.get(&wss_msg.origin).unwrap()[coin_number].clone();
-        let nonce = BigInt::from_signed_bytes_be( wss_msg.commitment.0.clone().as_slice());
+        let nonce = BigInt::from_signed_bytes_be( wss_msg.nonce.0.clone().as_slice());
         let secret = BigInt::from_signed_bytes_be(wss_msg.secret.clone().as_slice());
         let comm = nonce+secret;
         let commitment = do_hash(comm.to_signed_bytes_be().as_slice());
         let merkle_proof = wss_msg.mp.to_proof();
-        if commitment != wss_msg.commitment.1.clone() || 
+        if commitment != wss_msg.nonce.1.clone() || 
                 do_hash_merkle(commitment.as_slice()) != merkle_proof.item().clone() || 
                 !merkle_proof.validate::<HashingAlg>() ||
                 merkle_proof.root() != sharing_merkle_root
                 {
-            log::error!("Merkle proof invalid for WSS Init message comm: {:?} wss_com: {:?} sec_num: {} commvec:mr: {:?} share_merk_root: {:?}  inst: {} merk_hash: {:?} merk_proof_item: {:?}",commitment,wss_msg.commitment.1.clone(),coin_number,sharing_merkle_root,merkle_proof.root(),wss_msg.origin,do_hash_merkle(commitment.as_slice()), merkle_proof.item().clone());
+            log::error!("Merkle proof invalid for WSS Init message comm: {:?} wss_com: {:?} sec_num: {} commvec:mr: {:?} share_merk_root: {:?}  inst: {} merk_hash: {:?} merk_proof_item: {:?}",commitment,wss_msg.nonce.1.clone(),coin_number,sharing_merkle_root,merkle_proof.root(),wss_msg.origin,do_hash_merkle(commitment.as_slice()), merkle_proof.item().clone());
             return false;
         }
         true
@@ -341,7 +341,7 @@ impl CTRBCState{
         for (rep,batch_wss) in self.node_secrets.clone().into_iter(){
             if self.terminated_secrets.contains(&rep){
                 let secret = batch_wss.secrets.get(coin_number).unwrap().clone();
-                let nonce = batch_wss.commitments.get(coin_number).unwrap().0.clone();
+                let nonce = batch_wss.nonces.get(coin_number).unwrap().0.clone();
                 let merkle_proof = batch_wss.mps.get(coin_number).unwrap().clone();
                 //let mod_prime = cx.secret_domain.clone();
                 let sec_bigint = BigInt::from_signed_bytes_be(secret.as_slice());

@@ -1,12 +1,10 @@
 use core::fmt;
-use std::{iter::FromIterator, convert::TryInto};
+use std::{convert::TryInto};
 
-use crypto::hash::{Hash, do_mac, do_hash_merkle, do_hash};
-use merkle_light::merkle::MerkleTree;
-use num_bigint::{BigInt, Sign};
+use crypto::{hash::{Hash, do_mac, do_hash}};
 use serde::{Serialize, Deserialize};
 
-use crate::{appxcon::{MerkleProof, HashingAlg, verify_merkle_proof}, WireReady};
+use crate::{WireReady, beacon::{CTRBCMsg, BatchWSSMsg, WSSMsg}};
 
 use super::{Replica, Round};
 
@@ -48,99 +46,98 @@ pub enum CoinMsg{
     NoMessage(),
 }
 
-#[derive(Debug,Serialize,Deserialize,Clone)]
-pub struct CTRBCMsg{
-    pub shard:Vec<u8>,
-    pub mp:MerkleProof,
-    pub round:u32,
-    pub origin:Replica
-}
+// #[derive(Debug,Serialize,Deserialize,Clone)]
+// pub struct CTRBCMsg{
+//     pub shard:Vec<u8>,
+//     pub mp:Proof,
+//     pub round:u32,
+//     pub origin:Replica
+// }
 
-impl CTRBCMsg {
-    pub fn new(shard:Vec<u8>,mp:MerkleProof,round:u32,origin:Replica)->Self{
-        CTRBCMsg { shard: shard, mp: mp, round: round, origin: origin }
-    }
+// impl CTRBCMsg {
+//     pub fn new(shard:Vec<u8>,mp:Proof,round:u32,origin:Replica)->Self{
+//         CTRBCMsg { shard: shard, mp: mp, round: round, origin: origin }
+//     }
 
-    pub fn verify_mr_proof(&self) -> bool{
-        if !verify_merkle_proof(&self.mp, &self.shard){
-            log::error!("Failed to evaluate merkle proof for RBC Init received from node {}",self.origin);
-            return false;
-        }
-        true
-    }
-}
+//     pub fn verify_mr_proof(&self,hf:&HashState) -> bool{
+//         // 2. Validate Merkle Proof
+//         let hash_of_shard:[u8;32] = do_hash(&self.shard.as_slice());
+//         let state: bool =  hash_of_shard == self.mp.item().clone() && self.mp.validate(hf);
+//         return state;
+//     }
+// }
 
-#[derive(Debug,Serialize,Deserialize,Clone)]
-pub struct WSSMsg {
-    pub secret:Vec<u8>,
-    pub origin:Replica,
-    // The tuple is the randomized nonce to be appended to the secret to prevent rainbow table attacks
-    pub commitment:(Vec<u8>,Hash),
-    // Merkle proof to the root
-    pub mp:MerkleProof
-}
+// #[derive(Debug,Serialize,Deserialize,Clone)]
+// pub struct WSSMsg {
+//     pub secret:Vec<u8>,
+//     pub origin:Replica,
+//     // The tuple is the randomized nonce to be appended to the secret to prevent rainbow table attacks
+//     pub commitment:(Vec<u8>,Hash),
+//     // Merkle proof to the root
+//     pub mp:Proof
+// }
 
-impl WSSMsg {
-    pub fn new(secret:Vec<u8>,origin:Replica,commitment:(Vec<u8>,Hash),mp:MerkleProof)->Self{
-        WSSMsg { 
-            secret: secret, 
-            origin: origin, 
-            commitment: commitment, 
-            mp: mp 
-        }
-    }
-}
+// impl WSSMsg {
+//     pub fn new(secret:Vec<u8>,origin:Replica,commitment:(Vec<u8>,Hash),mp:Proof)->Self{
+//         WSSMsg { 
+//             secret: secret, 
+//             origin: origin, 
+//             commitment: commitment, 
+//             mp: mp 
+//         }
+//     }
+// }
 
-#[derive(Debug,Serialize,Deserialize,Clone)]
-pub struct BatchWSSMsg{
-    pub secrets: Vec<Vec<u8>>,
-    pub origin: Replica,
-    pub commitments: Vec<(Vec<u8>,Hash)>,
-    pub mps: Vec<MerkleProof>,
-    pub master_root: Hash,
-}
+// #[derive(Debug,Serialize,Deserialize,Clone)]
+// pub struct BatchWSSMsg{
+//     pub secrets: Vec<Vec<u8>>,
+//     pub origin: Replica,
+//     pub commitments: Vec<(Vec<u8>,Hash)>,
+//     pub mps: Vec<Proof>,
+//     pub master_root: Hash,
+// }
 
-impl BatchWSSMsg {
-    pub fn new(secrets:Vec<Vec<u8>>,origin:Replica,commitments:Vec<(Vec<u8>,Hash)>,mps:Vec<MerkleProof>,master_root:Hash)->Self{
-        BatchWSSMsg{
-            secrets:secrets,
-            origin:origin,
-            commitments:commitments,
-            mps:mps,
-            master_root:master_root
-        }
-    }
+// impl BatchWSSMsg {
+//     pub fn new(secrets:Vec<Vec<u8>>,origin:Replica,commitments:Vec<(Vec<u8>,Hash)>,mps:Vec<Proof>,master_root:Hash)->Self{
+//         BatchWSSMsg{
+//             secrets:secrets,
+//             origin:origin,
+//             commitments:commitments,
+//             mps:mps,
+//             master_root:master_root
+//         }
+//     }
 
-    pub fn verify_proofs(&self) -> bool{
-        let sec_origin = self.origin;
-        // 1. Verify Merkle proof for all secrets first
-        let secrets = self.secrets.clone();
-        let commitments = self.commitments.clone();
-        let merkle_proofs = self.mps.clone();
-        log::debug!("Received WSSInit message for secret from {}",sec_origin);
-        let mut root_ind:Vec<Hash> = Vec::new();
-        for i in 0..secrets.len(){
-            let secret = BigInt::from_bytes_be(Sign::Plus, secrets[i].as_slice());
-            let nonce = BigInt::from_bytes_be(Sign::Plus, commitments[i].0.as_slice());
-            let added_secret = secret + nonce; 
-            let hash = do_hash(added_secret.to_bytes_be().1.as_slice());
-            let m_proof = merkle_proofs[i].to_proof();
-            if hash != commitments[i].1 || !m_proof.validate::<HashingAlg>() || m_proof.item() != do_hash_merkle(hash.as_slice()){
-                log::error!("Merkle proof validation failed for secret {} in inst {}",i,sec_origin);
-                return false;
-            }
-            else{
-                root_ind.push(m_proof.root());
-            }
-        }
-        let master_merkle_tree:MerkleTree<Hash, HashingAlg> = MerkleTree::from_iter(root_ind.into_iter());
-        if master_merkle_tree.root() != self.master_root {
-            log::error!("Master root does not match computed master, terminating ss instance {}",sec_origin);
-            return false;
-        }
-        return true;
-    }
-}
+//     pub fn verify_proofs(&self) -> bool{
+//         let sec_origin = self.origin;
+//         // 1. Verify Merkle proof for all secrets first
+//         let secrets = self.secrets.clone();
+//         let commitments = self.commitments.clone();
+//         let merkle_proofs = self.mps.clone();
+//         log::debug!("Received WSSInit message for secret from {}",sec_origin);
+//         let mut root_ind:Vec<Hash> = Vec::new();
+//         for i in 0..secrets.len(){
+//             let secret = BigInt::from_bytes_be(Sign::Plus, secrets[i].as_slice());
+//             let nonce = BigInt::from_bytes_be(Sign::Plus, commitments[i].0.as_slice());
+//             let added_secret = secret + nonce; 
+//             let hash = do_hash(added_secret.to_bytes_be().1.as_slice());
+//             let m_proof = merkle_proofs[i].to_proof();
+//             if hash != commitments[i].1 || !m_proof.validate::<HashingAlg>() || m_proof.item() != do_hash_merkle(hash.as_slice()){
+//                 log::error!("Merkle proof validation failed for secret {} in inst {}",i,sec_origin);
+//                 return false;
+//             }
+//             else{
+//                 root_ind.push(m_proof.root());
+//             }
+//         }
+//         let master_merkle_tree:MerkleTree<Hash, HashingAlg> = MerkleTree::from_iter(root_ind.into_iter());
+//         if master_merkle_tree.root() != self.master_root {
+//             log::error!("Master root does not match computed master, terminating ss instance {}",sec_origin);
+//             return false;
+//         }
+//         return true;
+//     }
+// }
 
 #[derive(Debug,Serialize,Deserialize,Clone)]
 pub struct DAGData{

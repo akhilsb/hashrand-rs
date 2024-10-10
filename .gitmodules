@@ -1,3 +1,6 @@
 [submodule "vsss-rs"]
 	path = vsss-rs
 	url = git@github.com:akhilsb/vsss-rs.git
+[submodule "merkle_light"]
+	path = merkle_light
+	url = https://github.com/sitano/merkle_light.git

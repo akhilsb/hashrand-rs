@@ -8,9 +8,7 @@ edition = "2021"
 [dependencies]
 config = { package = "config", path="../config"}
 beacon = {package = "beacon", path="../consensus/beacon"}
-hashrand = {package="hashrand",path="../consensus/hashrand"}
 glow = {package="glow_dvrf",path="../consensus/glow_dvrf"}
-glow_lib = {package="glow_lib",path="../consensus/glow_lib"}
 consensus = { package = "consensus", path="../consensus"}
 util = { package = "util", path="../util"}
 anyhow = "1"
