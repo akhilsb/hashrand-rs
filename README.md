@@ -1,4 +1,4 @@
-# HashRand: Asynchronous Random Beacon using Hash functions
+# Random Beacons in Monte-Carlo: Asynchronous Random Beacon using Hash functions
 **On Zenodo**: We organize this artifact into two parts: HashRand asynchronous protocol into `hashrand-rs.zip` and the Post-Quantum Asynchronous SMR protocol into `pqsmr-rs.zip`.
 
 **On Github**: This Github repository and the `hashrand-rs.zip` file on Zenodo contains a Rust implementation of the following distributed protocols. 
@@ -14,7 +14,7 @@ Please consider citing our paper if you use this artifact.
 @misc{bandarupalli2023hashrand,
       author = {Akhil Bandarupalli and Adithya Bhat and Saurabh Bagchi and Aniket Kate and Michael Reiter},
       title = {HashRand: Efficient Asynchronous Random Beacon without Threshold Cryptographic Setup},
-      howpublished = {Cryptology ePrint Archive, Paper 2023/1755},
+      howpublished = {ACM CCS 2024},
       year = {2023},
       note = {\url{https://eprint.iacr.org/2023/1755}},
       url = {https://eprint.iacr.org/2023/1755}
