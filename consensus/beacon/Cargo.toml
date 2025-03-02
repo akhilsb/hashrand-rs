@@ -35,6 +35,6 @@ aes = "0.8.3"
 
 async-trait = "0"
 futures-util = "0"
-network = { package = "network", git = "https://github.com/libdist-rs/libnet-rs.git" }
+network = { package = "network", git = "https://github.com/akhilsb/libnet-rs.git" }
 
 nohash-hasher = "0.2.0"

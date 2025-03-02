@@ -34,7 +34,7 @@ thiserror = "1.0.23"
 anyhow = "1"
 async-trait = "0"
 futures-util = "0"
-network = { package = "network", git = "https://github.com/libdist-rs/libnet-rs.git" }
+network = { package = "network", git = "https://github.com/akhilsb/libnet-rs.git" }
 tbls = {package = "threshold-bls", git = "https://github.com/celo-org/celo-threshold-bls-rs.git"}
 #bls = {package = "bls", git = "https://github.com/ZenGo-X/multi-party-bls.git"}
 nohash-hasher = "0.2.0"

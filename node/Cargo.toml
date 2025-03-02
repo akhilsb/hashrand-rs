@@ -21,4 +21,4 @@ simple_logger="*"
 fnv = "1.0.3"
 signal-hook = "0"
 
-network = { package = "network", git = "https://github.com/libdist-rs/libnet-rs.git" }
+network = { package = "network", git = "https://github.com/akhilsb/libnet-rs.git" }

@@ -1904,7 +1904,7 @@ checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 [[package]]
 name = "network"
 version = "0.1.0"
-source = "git+https://github.com/libdist-rs/libnet-rs.git#4e67e594b74f084765c70bbf2399af28b50f6b90"
+source = "git+https://github.com/akhilsb/libnet-rs.git#39cc2d33b7e9ebc169b9009c46881905004fb460"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1918,7 +1918,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "tokio-util 0.7.7",
+ "tokio-util 0.6.10",
 ]
 
 [[package]]
@@ -3347,7 +3347,6 @@ checksum = "5427d89453009325de0d8f342c9490009f76e999cb7672d77e46267448f7e6b2"
 dependencies = [
  "bytes",
  "futures-core",
- "futures-io",
  "futures-sink",
  "pin-project-lite",
  "tokio",
